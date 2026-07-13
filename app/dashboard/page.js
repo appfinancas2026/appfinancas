@@ -93,6 +93,7 @@ export default function Dashboard() {
   );
   const [comparativoPFPJ, setComparativoPFPJ] = useState([]);
   const [evolucaoPatrimonio, setEvolucaoPatrimonio] = useState([]);
+  const [pendenciasVencidas, setPendenciasVencidas] = useState([]);
 
   const [dataAtual, setDataAtual] = useState(() => {
     const hoje = new Date();
@@ -266,6 +267,23 @@ export default function Dashboard() {
       else porMes[idx].saidas += Number(t.valor);
     });
     setResumoAnual(porMes);
+  }, []);
+
+  const carregarPendenciasVencidas = useCallback(async (entidadeId) => {
+    if (!entidadeId) { setPendenciasVencidas([]); return; }
+
+    const hoje = new Date();
+    const mesRefAtualReal = mesReferenciaStr(hoje.getFullYear(), hoje.getMonth());
+
+    const { data } = await supabase
+      .from('lancamentos_fixos_mensal')
+      .select('*, lancamentos_fixos(nome, tipo)')
+      .eq('entidade_id', entidadeId)
+      .eq('status', 'pendente')
+      .lt('mes_referencia', mesRefAtualReal)
+      .order('mes_referencia', { ascending: true });
+
+    setPendenciasVencidas(data || []);
   }, []);
 
   const carregarComparativoPFPJ = useCallback(async (listaEntidades, ano, mes) => {
@@ -581,6 +599,7 @@ export default function Dashboard() {
       carregarResumoAnual(entidadeAtual, dataAtual.ano);
       carregarComparativoPFPJ(entidades, dataAtual.ano, dataAtual.mes);
       carregarEvolucaoPatrimonio(entidadeAtual, contas, dataAtual.ano);
+      carregarPendenciasVencidas(entidadeAtual);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [entidadeAtual, aba, dataAtual.ano, dataAtual.mes, entidades, contas]);
@@ -854,6 +873,7 @@ export default function Dashboard() {
     carregarTransacoesDoMes(entidadeAtual, dataAtual.ano, dataAtual.mes);
     garantirOcorrenciasDoMes(entidadeAtual, lancamentosFixos, dataAtual.ano, dataAtual.mes);
     carregarAlertas(entidadeAtual, lancamentosFixos);
+    carregarPendenciasVencidas(entidadeAtual);
   }
 
   function desfazerOcorrencia(ocorrencia) {
@@ -1054,6 +1074,26 @@ export default function Dashboard() {
   const saidasFixasMes = saidasDoMes.filter((t) => t.origem === 'recorrente').reduce((s, t) => s + Number(t.valor), 0);
   const saidasVariaveisMes = totalSaidasMes - saidasFixasMes;
   const pctFixas = totalSaidasMes > 0 ? (saidasFixasMes / totalSaidasMes) * 100 : 0;
+
+  const entradasDoMes = transacoes.filter((t) => t.tipo === 'entrada' && !t.transferencia_id);
+  const totalEntradasMes = entradasDoMes.reduce((s, t) => s + Number(t.valor), 0);
+  const resultadoMes = totalEntradasMes - totalSaidasMes;
+  const margemMes = totalEntradasMes > 0 ? (resultadoMes / totalEntradasMes) * 100 : 0;
+
+  const ocorrenciasArray = Object.entries(ocorrenciasDoMes).map(([fixoId, ocorrencia]) => {
+    const fixo = lancamentosFixos.find((f) => f.id === fixoId);
+    return { fixo, ocorrencia };
+  }).filter((item) => item.fixo);
+
+  const despesasPagasMes = ocorrenciasArray.filter((i) => i.fixo.tipo === 'saida' && i.ocorrencia.status === 'confirmado');
+  const despesasAbertoMes = ocorrenciasArray.filter((i) => i.fixo.tipo === 'saida' && i.ocorrencia.status === 'pendente');
+  const receitasRecebidasMes = ocorrenciasArray.filter((i) => i.fixo.tipo === 'entrada' && i.ocorrencia.status === 'confirmado');
+  const receitasAbertoMes = ocorrenciasArray.filter((i) => i.fixo.tipo === 'entrada' && i.ocorrencia.status === 'pendente');
+
+  const totalDespesasPagasMes = despesasPagasMes.reduce((s, i) => s + Number(i.ocorrencia.valor), 0);
+  const totalDespesasAbertoMes = despesasAbertoMes.reduce((s, i) => s + Number(i.ocorrencia.valor), 0);
+  const totalReceitasRecebidasMes = receitasRecebidasMes.reduce((s, i) => s + Number(i.ocorrencia.valor), 0);
+  const totalReceitasAbertoMes = receitasAbertoMes.reduce((s, i) => s + Number(i.ocorrencia.valor), 0);
 
   const hojeReal = new Date();
   const compromissosFuturos = lancamentosFixos
@@ -1299,6 +1339,64 @@ export default function Dashboard() {
               <p className="card-title" style={{ marginBottom: 4 }}>Comparativo PF x PJ — {NOMES_MESES[dataAtual.mes]}</p>
               <p className="empty-hint" style={{ marginTop: 0, marginBottom: 12 }}>Quanto cada entidade recebeu e gastou neste mês.</p>
               <GraficoComparativoPFPJ dados={comparativoPFPJ} />
+            </div>
+          )}
+
+          <div className="card">
+            <p className="card-title" style={{ marginBottom: 12 }}>DRE simplificado — {NOMES_MESES[dataAtual.mes]}</p>
+            <div className="row row-main"><span className="row-title">Receitas</span><span className="amount amount-positive">{formatarMoeda(totalEntradasMes)}</span></div>
+            <div className="row row-main"><span className="row-title">Despesas</span><span className="amount">{formatarMoeda(totalSaidasMes)}</span></div>
+            <div className="row row-main">
+              <span className="row-title" style={{ fontWeight: 700 }}>Resultado</span>
+              <span className="amount" style={{ fontSize: 18, color: resultadoMes >= 0 ? 'var(--primary)' : 'var(--negative)' }}>{formatarMoeda(resultadoMes)}</span>
+            </div>
+            {totalEntradasMes > 0 && (
+              <p className="empty-hint" style={{ marginTop: 6, marginBottom: 0 }}>Margem: {margemMes.toFixed(1)}% da receita</p>
+            )}
+          </div>
+
+          <div className="card">
+            <p className="card-title" style={{ marginBottom: 12 }}>Pagas x em aberto — {NOMES_MESES[dataAtual.mes]}</p>
+            <div className="row row-main">
+              <span className="row-title">Despesas pagas</span>
+              <span>{despesasPagasMes.length} · <span className="amount">{formatarMoeda(totalDespesasPagasMes)}</span></span>
+            </div>
+            <div className="row row-main">
+              <span className="row-title">Despesas em aberto</span>
+              <span>{despesasAbertoMes.length} · <span className="amount">{formatarMoeda(totalDespesasAbertoMes)}</span></span>
+            </div>
+            <div className="row row-main">
+              <span className="row-title">Receitas recebidas</span>
+              <span>{receitasRecebidasMes.length} · <span className="amount amount-positive">{formatarMoeda(totalReceitasRecebidasMes)}</span></span>
+            </div>
+            <div className="row row-main">
+              <span className="row-title">Receitas a receber</span>
+              <span>{receitasAbertoMes.length} · <span className="amount">{formatarMoeda(totalReceitasAbertoMes)}</span></span>
+            </div>
+          </div>
+
+          {pendenciasVencidas.length > 0 && (
+            <div className="card card-despesas">
+              <p className="card-title" style={{ marginBottom: 4 }}>Atrasadas</p>
+              <p className="empty-hint" style={{ marginTop: 0, marginBottom: 10 }}>Contas fixas de meses anteriores que nunca foram confirmadas.</p>
+              {pendenciasVencidas.map((o) => (
+                <div key={o.id} className="row row-main">
+                  <div>
+                    <p className="row-title">{o.lancamentos_fixos?.nome}</p>
+                    <p className="row-subtitle">referente a {o.mes_referencia.slice(0, 7)}</p>
+                  </div>
+                  <div className="row-actions">
+                    <span className="amount">{formatarMoeda(o.valor)}</span>
+                    <button
+                      onClick={() => confirmarOcorrencia({ id: o.lancamento_fixo_id, tipo: o.lancamentos_fixos?.tipo, nome: o.lancamentos_fixos?.nome }, o)}
+                      className="btn btn-primary"
+                      style={{ padding: '6px 10px', fontSize: 12 }}
+                    >
+                      Confirmar
+                    </button>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
 

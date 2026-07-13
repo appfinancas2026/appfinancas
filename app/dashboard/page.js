@@ -63,6 +63,12 @@ function calcularMesFaturaCompra(cartao, dataStr) {
   return mesReferenciaStr(proximo.ano, proximo.mes);
 }
 
+function avancarMeses(mesRef, quantidade) {
+  const [anoStr, mesStr] = mesRef.split('-');
+  const resultado = subtrairMeses(parseInt(anoStr, 10), parseInt(mesStr, 10) - 1, -quantidade);
+  return mesReferenciaStr(resultado.ano, resultado.mes);
+}
+
 function parseOFX(texto) {
   const blocos = texto.split(/<STMTTRN>/i).slice(1);
   const transacoes = [];
@@ -260,6 +266,9 @@ export default function Dashboard() {
   const [descricaoCompraCartao, setDescricaoCompraCartao] = useState('');
   const [dataCompraCartao, setDataCompraCartao] = useState(() => new Date().toISOString().slice(0, 10));
   const [essencialidadeCompraCartao, setEssencialidadeCompraCartao] = useState('');
+  const [parceladoCompraCartao, setParceladoCompraCartao] = useState(false);
+  const [totalParcelasCompraCartao, setTotalParcelasCompraCartao] = useState('');
+  const [parcelaAtualCompraCartao, setParcelaAtualCompraCartao] = useState('');
   const [comprasCartaoVisivelId, setComprasCartaoVisivelId] = useState(null);
   const [comprasDoCartao, setComprasDoCartao] = useState([]);
   const [edicaoCompraCartaoId, setEdicaoCompraCartaoId] = useState(null);
@@ -1307,11 +1316,12 @@ export default function Dashboard() {
   async function adicionarCompraCartao(e, cartao) {
     e.preventDefault();
     if (!valorCompraCartao) return;
+    if (parceladoCompraCartao && !totalParcelasCompraCartao) return;
 
     const data = dataCompraCartao || new Date().toISOString().slice(0, 10);
-    const mesFatura = calcularMesFaturaCompra(cartao, data);
+    const mesFaturaBase = calcularMesFaturaCompra(cartao, data);
 
-    const { error } = await supabase.from('transacoes').insert({
+    const base = {
       entidade_id: entidadeAtual,
       cartao_id: cartao.id,
       valor: parseFloat(valorCompraCartao),
@@ -1322,8 +1332,29 @@ export default function Dashboard() {
       origem: 'texto',
       status: 'pago',
       data,
-      mes_fatura: mesFatura,
-    });
+    };
+
+    let linhas;
+    if (parceladoCompraCartao) {
+      const total = parseInt(totalParcelasCompraCartao, 10);
+      const parcelaInicial = parcelaAtualCompraCartao ? parseInt(parcelaAtualCompraCartao, 10) : 1;
+      const compraParceladaId = crypto.randomUUID();
+
+      linhas = [];
+      for (let n = parcelaInicial; n <= total; n++) {
+        linhas.push({
+          ...base,
+          mes_fatura: avancarMeses(mesFaturaBase, n - parcelaInicial),
+          parcela_atual: n,
+          parcela_total: total,
+          compra_parcelada_id: compraParceladaId,
+        });
+      }
+    } else {
+      linhas = [{ ...base, mes_fatura: mesFaturaBase }];
+    }
+
+    const { error } = await supabase.from('transacoes').insert(linhas);
 
     if (!error) {
       setValorCompraCartao('');
@@ -1331,6 +1362,9 @@ export default function Dashboard() {
       setDescricaoCompraCartao('');
       setEssencialidadeCompraCartao('');
       setDataCompraCartao(new Date().toISOString().slice(0, 10));
+      setParceladoCompraCartao(false);
+      setTotalParcelasCompraCartao('');
+      setParcelaAtualCompraCartao('');
       setMostrarCompraCartaoId(null);
       carregarFaturas(entidadeAtual, cartoes);
       if (comprasCartaoVisivelId === cartao.id) carregarComprasCartao(cartao.id);
@@ -2579,7 +2613,10 @@ export default function Dashboard() {
                         ) : (
                           <div key={compra.id} className="row row-main">
                             <div>
-                              <p className="row-title">{compra.descricao || compra.categoria}</p>
+                              <p className="row-title">
+                                {compra.descricao || compra.categoria}
+                                {compra.parcela_total && <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}> · {compra.parcela_atual}/{compra.parcela_total}</span>}
+                              </p>
                               <p className="row-subtitle">{compra.categoria} · {compra.data} · fatura {compra.mes_fatura?.slice(0, 7)}</p>
                             </div>
                             <div className="row-actions">
@@ -2595,7 +2632,7 @@ export default function Dashboard() {
 
                   {mostrarCompraCartaoId === cartao.id && (
                     <form onSubmit={(e) => adicionarCompraCartao(e, cartao)} className="form-row" style={{ marginTop: 10 }}>
-                      <input className="input" style={{ width: 100 }} type="number" step="0.01" placeholder="Valor" value={valorCompraCartao} onChange={(e) => setValorCompraCartao(e.target.value)} required />
+                      <input className="input" style={{ width: 100 }} type="number" step="0.01" placeholder={parceladoCompraCartao ? 'Valor da parcela' : 'Valor'} value={valorCompraCartao} onChange={(e) => setValorCompraCartao(e.target.value)} required />
                       <input className="input" style={{ width: 130 }} placeholder="Categoria" value={categoriaCompraCartao} onChange={(e) => setCategoriaCompraCartao(e.target.value)} />
                       <input className="input" style={{ flex: 1, minWidth: 120 }} placeholder="Descrição" value={descricaoCompraCartao} onChange={(e) => setDescricaoCompraCartao(e.target.value)} />
                       <input className="input" style={{ width: 150 }} type="date" value={dataCompraCartao} onChange={(e) => setDataCompraCartao(e.target.value)} required />
@@ -2605,6 +2642,16 @@ export default function Dashboard() {
                         <option value="desejavel">Desejável</option>
                         <option value="superfluo">Supérfluo</option>
                       </select>
+                      <label className="checkbox-label">
+                        <input type="checkbox" checked={parceladoCompraCartao} onChange={(e) => setParceladoCompraCartao(e.target.checked)} />
+                        Parcelado
+                      </label>
+                      {parceladoCompraCartao && (
+                        <>
+                          <input className="input" style={{ width: 130 }} type="number" min="1" placeholder="Total de parcelas" value={totalParcelasCompraCartao} onChange={(e) => setTotalParcelasCompraCartao(e.target.value)} required />
+                          <input className="input" style={{ width: 170 }} type="number" min="1" placeholder="Já está na parcela nº (opc.)" value={parcelaAtualCompraCartao} onChange={(e) => setParcelaAtualCompraCartao(e.target.value)} />
+                        </>
+                      )}
                       <button type="submit" className="btn btn-primary">Lançar</button>
                     </form>
                   )}

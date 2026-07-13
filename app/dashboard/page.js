@@ -63,6 +63,83 @@ function calcularMesFaturaCompra(cartao, dataStr) {
   return mesReferenciaStr(proximo.ano, proximo.mes);
 }
 
+function parseOFX(texto) {
+  const blocos = texto.split(/<STMTTRN>/i).slice(1);
+  const transacoes = [];
+
+  blocos.forEach((bloco) => {
+    const corpo = bloco.split(/<\/STMTTRN>/i)[0];
+    const extrair = (tag) => {
+      const m = corpo.match(new RegExp(`<${tag}>([^\\r\\n<]*)`, 'i'));
+      return m ? m[1].trim() : '';
+    };
+
+    const dataRaw = extrair('DTPOSTED');
+    const valorRaw = extrair('TRNAMT');
+    const memo = extrair('MEMO') || extrair('NAME');
+    const fitid = extrair('FITID');
+
+    if (!dataRaw || !valorRaw) return;
+
+    const ano = dataRaw.slice(0, 4);
+    const mes = dataRaw.slice(4, 6);
+    const dia = dataRaw.slice(6, 8);
+    const valor = parseFloat(valorRaw);
+    if (Number.isNaN(valor)) return;
+
+    transacoes.push({
+      data: `${ano}-${mes}-${dia}`,
+      valor: Math.abs(valor),
+      tipo: valor >= 0 ? 'entrada' : 'saida',
+      descricao: memo || 'Importado do extrato',
+      referencia_externa: fitid || null,
+      incluir: true,
+    });
+  });
+
+  return transacoes;
+}
+
+function parseCSVExtrato(texto) {
+  const linhas = texto.split(/\r?\n/).filter((l) => l.trim());
+  if (linhas.length < 2) return [];
+
+  const separador = linhas[0].includes(';') ? ';' : ',';
+  const cabecalho = linhas[0].split(separador).map((h) => h.trim().toLowerCase());
+
+  const idxData = cabecalho.findIndex((h) => h.includes('data') || h.includes('date'));
+  const idxValor = cabecalho.findIndex((h) => h.includes('valor') || h.includes('amount'));
+  const idxDescricao = cabecalho.findIndex((h) => h.includes('desc') || h.includes('histor') || h.includes('memo') || h.includes('titulo'));
+
+  if (idxData === -1 || idxValor === -1) return [];
+
+  const transacoes = [];
+  for (let i = 1; i < linhas.length; i++) {
+    const campos = linhas[i].split(separador);
+    const dataTexto = (campos[idxData] || '').trim();
+    const valorTexto = (campos[idxValor] || '').trim().replace(/\./g, '').replace(',', '.');
+    const valor = parseFloat(valorTexto);
+    if (!dataTexto || Number.isNaN(valor)) continue;
+
+    let dataISO = dataTexto;
+    const partesData = dataTexto.split('/');
+    if (partesData.length === 3) {
+      const anoTexto = partesData[2].length === 2 ? `20${partesData[2]}` : partesData[2];
+      dataISO = `${anoTexto}-${partesData[1].padStart(2, '0')}-${partesData[0].padStart(2, '0')}`;
+    }
+
+    transacoes.push({
+      data: dataISO,
+      valor: Math.abs(valor),
+      tipo: valor >= 0 ? 'entrada' : 'saida',
+      descricao: idxDescricao >= 0 ? (campos[idxDescricao] || '').trim() : 'Importado do extrato',
+      referencia_externa: null,
+      incluir: true,
+    });
+  }
+  return transacoes;
+}
+
 function calcularParcela(fixo, ano, mes) {
   if (!fixo.parcelado || !fixo.mes_inicio) return null;
   const [anoInicio, mesInicioStr] = fixo.mes_inicio.split('-');
@@ -130,6 +207,12 @@ export default function Dashboard() {
   const [contaOrigemId, setContaOrigemId] = useState('');
   const [contaDestinoId, setContaDestinoId] = useState('');
   const [valorTransferencia, setValorTransferencia] = useState('');
+
+  const [mostrarImportar, setMostrarImportar] = useState(false);
+  const [contaImportacaoId, setContaImportacaoId] = useState('');
+  const [previewImportacao, setPreviewImportacao] = useState([]);
+  const [nomeArquivoImportado, setNomeArquivoImportado] = useState('');
+  const [importando, setImportando] = useState(false);
 
   const [mostrarNovaReceitaFixa, setMostrarNovaReceitaFixa] = useState(false);
   const [mostrarNovaDespesaFixa, setMostrarNovaDespesaFixa] = useState(false);
@@ -1389,6 +1472,81 @@ export default function Dashboard() {
     carregarTransacoesDoMes(entidadeAtual, dataAtual.ano, dataAtual.mes);
   }
 
+  // ---------- Importação de extrato (OFX/CSV) ----------
+
+  function handleArquivoExtrato(e) {
+    const arquivo = e.target.files[0];
+    if (!arquivo) return;
+
+    setNomeArquivoImportado(arquivo.name);
+    const extensao = arquivo.name.split('.').pop().toLowerCase();
+
+    const leitor = new FileReader();
+    leitor.onload = (evento) => {
+      const texto = evento.target.result;
+      const resultado = extensao === 'csv' ? parseCSVExtrato(texto) : parseOFX(texto);
+      setPreviewImportacao(resultado);
+    };
+    leitor.readAsText(arquivo, 'ISO-8859-1');
+  }
+
+  function alternarInclusaoPreview(index) {
+    setPreviewImportacao((lista) => lista.map((t, i) => (i === index ? { ...t, incluir: !t.incluir } : t)));
+  }
+
+  function marcarTodosPreview(valor) {
+    setPreviewImportacao((lista) => lista.map((t) => ({ ...t, incluir: valor })));
+  }
+
+  async function confirmarImportacao() {
+    if (!contaImportacaoId || previewImportacao.length === 0) return;
+    setImportando(true);
+
+    const selecionadas = previewImportacao.filter((t) => t.incluir);
+    const referencias = selecionadas.map((t) => t.referencia_externa).filter(Boolean);
+
+    let existentes = new Set();
+    if (referencias.length > 0) {
+      const { data } = await supabase
+        .from('transacoes')
+        .select('referencia_externa')
+        .eq('conta_id', contaImportacaoId)
+        .in('referencia_externa', referencias);
+      existentes = new Set((data || []).map((t) => t.referencia_externa));
+    }
+
+    const novas = selecionadas
+      .filter((t) => !t.referencia_externa || !existentes.has(t.referencia_externa))
+      .map((t) => ({
+        entidade_id: entidadeAtual,
+        conta_id: contaImportacaoId,
+        valor: t.valor,
+        tipo: t.tipo,
+        categoria: 'importado',
+        descricao: t.descricao,
+        data: t.data,
+        origem: 'importado',
+        status: 'pago',
+        referencia_externa: t.referencia_externa,
+      }));
+
+    const ignoradas = selecionadas.length - novas.length;
+
+    if (novas.length > 0) {
+      await supabase.from('transacoes').insert(novas);
+      await recalcularSaldoConta(contaImportacaoId);
+    }
+
+    setImportando(false);
+    setPreviewImportacao([]);
+    setNomeArquivoImportado('');
+    setMostrarImportar(false);
+    carregarContas(entidadeAtual);
+    carregarTransacoesDoMes(entidadeAtual, dataAtual.ano, dataAtual.mes);
+
+    window.alert(`${novas.length} lançamento(s) importado(s).${ignoradas > 0 ? ` ${ignoradas} já existiam e foram ignorados.` : ''}`);
+  }
+
   async function excluirTransacao(t) {
     if (!window.confirm('Excluir este lançamento?')) return;
     reverterTransacao(t);
@@ -1993,6 +2151,7 @@ export default function Dashboard() {
               <span className="card-title-group"><span className="card-icon">🏦</span><p className="card-title">Contas</p></span>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                 {contas.length >= 2 && <button onClick={() => setMostrarTransferencia((v) => !v)} className="btn btn-ghost">⇄ Transferir</button>}
+                <button onClick={() => setMostrarImportar((v) => !v)} className="btn btn-ghost">⬆ Importar extrato</button>
                 <button onClick={() => setMostrarNovaConta((v) => !v)} className="btn btn-ghost">+ Nova conta</button>
                 <button onClick={() => setSecaoAberta({ ...secaoAberta, contas: !secaoAberta.contas })} className="collapse-btn">{secaoAberta.contas ? '▾' : '▸'}</button>
               </div>
@@ -2022,6 +2181,52 @@ export default function Dashboard() {
                     <input className="input" style={{ width: 110 }} type="number" step="0.01" placeholder="Valor" value={valorTransferencia} onChange={(e) => setValorTransferencia(e.target.value)} required />
                     <button type="submit" className="btn btn-primary">Transferir</button>
                   </form>
+                )}
+
+                {mostrarImportar && (
+                  <div style={{ marginBottom: 12, padding: 12, background: 'var(--surface-alt)', borderRadius: 'var(--radius-sm)' }}>
+                    <div className="form-row" style={{ marginBottom: previewImportacao.length > 0 ? 12 : 0 }}>
+                      <select className="input" value={contaImportacaoId} onChange={(e) => setContaImportacaoId(e.target.value)} required>
+                        <option value="">Importar para qual conta</option>
+                        {contas.map((c) => (<option key={c.id} value={c.id}>{c.nome}</option>))}
+                      </select>
+                      <label className="btn btn-ghost" style={{ cursor: 'pointer' }}>
+                        {nomeArquivoImportado || 'Escolher arquivo .ofx ou .csv'}
+                        <input type="file" accept=".ofx,.csv" onChange={handleArquivoExtrato} style={{ display: 'none' }} />
+                      </label>
+                    </div>
+
+                    {previewImportacao.length > 0 && (
+                      <>
+                        <p className="empty-hint" style={{ margin: '0 0 8px' }}>
+                          {previewImportacao.length} lançamento(s) encontrado(s). Confira antes de importar.
+                        </p>
+                        <div style={{ display: 'flex', gap: 12, marginBottom: 8 }}>
+                          <button onClick={() => marcarTodosPreview(true)} className="btn-link">marcar todos</button>
+                          <button onClick={() => marcarTodosPreview(false)} className="btn-link">desmarcar todos</button>
+                        </div>
+                        <div style={{ maxHeight: 260, overflowY: 'auto', background: 'var(--surface)', borderRadius: 'var(--radius-sm)', padding: '4px 10px' }}>
+                          {previewImportacao.map((t, i) => (
+                            <div key={i} className="row row-main" style={{ opacity: t.incluir ? 1 : 0.4 }}>
+                              <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
+                                <input type="checkbox" checked={t.incluir} onChange={() => alternarInclusaoPreview(i)} />
+                                <span>{t.data} · {t.descricao}</span>
+                              </label>
+                              <span className={`amount ${t.tipo === 'entrada' ? 'amount-positive' : ''}`}>
+                                {t.tipo === 'entrada' ? '+' : '−'} {formatarMoeda(t.valor)}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                        <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+                          <button onClick={confirmarImportacao} className="btn btn-primary" disabled={!contaImportacaoId || importando}>
+                            {importando ? 'Importando...' : `Importar ${previewImportacao.filter((t) => t.incluir).length} selecionado(s)`}
+                          </button>
+                          <button onClick={() => { setPreviewImportacao([]); setNomeArquivoImportado(''); }} className="btn-link">Cancelar</button>
+                        </div>
+                      </>
+                    )}
+                  </div>
                 )}
 
                 {contas.length === 0 && <p className="empty-hint">Nenhuma conta cadastrada ainda.</p>}

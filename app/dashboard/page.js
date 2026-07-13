@@ -15,6 +15,15 @@ const NOMES_MESES = [
 
 const CORES_GRAFICO = ['#0F6E56', '#C68A2E', '#B4472F', '#3B6E8F', '#7A5C9E', '#5C8A3A', '#A6763F', '#4A5A6B'];
 
+const TEMAS_CORES = {
+  teal: { primary: '#0F6E56', dark: '#0A4F3D', tint: '#E1F1EA' },
+  azul: { primary: '#1B5FA8', dark: '#123F73', tint: '#E1EBF7' },
+  roxo: { primary: '#6B4FA0', dark: '#4A3573', tint: '#ECE6F5' },
+  vinho: { primary: '#8A3350', dark: '#5E2136', tint: '#F5E3EA' },
+  oliva: { primary: '#5C7A3A', dark: '#3E5527', tint: '#EAF0DF' },
+  grafite: { primary: '#3B5568', dark: '#263845', tint: '#E4EAEE' },
+};
+
 function pad2(n) {
   return String(n).padStart(2, '0');
 }
@@ -68,6 +77,9 @@ export default function Dashboard() {
   const [pinErro, setPinErro] = useState(false);
   const [criandoPin, setCriandoPin] = useState(false);
   const [pinNovoPrimeiraEtapa, setPinNovoPrimeiraEtapa] = useState('');
+
+  const [perfil, setPerfil] = useState({ logo_url: null, nome_exibicao: null, cor_destaque: null });
+  const [nomeExibicaoInput, setNomeExibicaoInput] = useState('');
 
   const [entidades, setEntidades] = useState([]);
   const [entidadeAtual, setEntidadeAtual] = useState(null);
@@ -374,8 +386,9 @@ export default function Dashboard() {
         return;
       }
       carregarEntidades(data.session.user.id).finally(() => setCarregando(false));
+      carregarPerfil(data.session.user.id);
     });
-  }, [router, carregarEntidades]);
+  }, [router, carregarEntidades, carregarPerfil]);
 
   useEffect(() => {
     const temaSalvo = localStorage.getItem('financas-tema') || 'light';
@@ -388,12 +401,74 @@ export default function Dashboard() {
     setMontado(true);
   }, []);
 
+  const carregarPerfil = useCallback(async (userId) => {
+    const { data } = await supabase.from('usuarios').select('logo_url, nome_exibicao, cor_destaque').eq('id', userId).single();
+    if (data) {
+      setPerfil(data);
+      setNomeExibicaoInput(data.nome_exibicao || '');
+    }
+  }, []);
+
+  function aplicarCorPersonalizada(chave, temaAtual) {
+    if (temaAtual === 'dark') {
+      document.documentElement.style.removeProperty('--primary');
+      document.documentElement.style.removeProperty('--primary-dark');
+      document.documentElement.style.removeProperty('--primary-tint');
+      return;
+    }
+    const escolhido = TEMAS_CORES[chave];
+    if (!escolhido) {
+      document.documentElement.style.removeProperty('--primary');
+      document.documentElement.style.removeProperty('--primary-dark');
+      document.documentElement.style.removeProperty('--primary-tint');
+      return;
+    }
+    document.documentElement.style.setProperty('--primary', escolhido.primary);
+    document.documentElement.style.setProperty('--primary-dark', escolhido.dark);
+    document.documentElement.style.setProperty('--primary-tint', escolhido.tint);
+  }
+
+  async function selecionarTema(chave) {
+    const { data: sessionData } = await supabase.auth.getSession();
+    const userId = sessionData.session.user.id;
+    await supabase.from('usuarios').update({ cor_destaque: chave }).eq('id', userId);
+    setPerfil((p) => ({ ...p, cor_destaque: chave }));
+    aplicarCorPersonalizada(chave, tema);
+  }
+
+  async function salvarNomeExibicao(valor) {
+    const { data: sessionData } = await supabase.auth.getSession();
+    const userId = sessionData.session.user.id;
+    await supabase.from('usuarios').update({ nome_exibicao: valor || null }).eq('id', userId);
+    setPerfil((p) => ({ ...p, nome_exibicao: valor || null }));
+  }
+
+  async function handleUploadLogo(e) {
+    const arquivo = e.target.files[0];
+    if (!arquivo) return;
+
+    const { data: sessionData } = await supabase.auth.getSession();
+    const userId = sessionData.session.user.id;
+    const extensao = arquivo.name.split('.').pop();
+    const caminho = `${userId}/logo.${extensao}`;
+
+    const { error: erroUpload } = await supabase.storage.from('logos').upload(caminho, arquivo, { upsert: true });
+    if (erroUpload) return;
+
+    const { data: urlData } = supabase.storage.from('logos').getPublicUrl(caminho);
+    const novaUrl = `${urlData.publicUrl}?t=${Date.now()}`;
+
+    await supabase.from('usuarios').update({ logo_url: novaUrl }).eq('id', userId);
+    setPerfil((p) => ({ ...p, logo_url: novaUrl }));
+  }
+
   function alternarTema() {
     const novo = tema === 'dark' ? 'light' : 'dark';
     setTema(novo);
     localStorage.setItem('financas-tema', novo);
     if (novo === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
     else document.documentElement.removeAttribute('data-theme');
+    aplicarCorPersonalizada(perfil.cor_destaque, novo);
   }
 
   function alternarOcultarValores() {
@@ -452,6 +527,12 @@ export default function Dashboard() {
       }
     }
   }
+
+  useEffect(() => {
+    if (montado && perfil.cor_destaque) {
+      aplicarCorPersonalizada(perfil.cor_destaque, tema);
+    }
+  }, [montado, perfil.cor_destaque, tema]);
 
   function digitarPin(digito) {
     if (digito === '⌫') {
@@ -917,7 +998,7 @@ export default function Dashboard() {
     return (
       <div className="lock-screen">
         <div className="lock-card">
-          <span className="brand" style={{ justifyContent: 'center', marginBottom: 6 }}><span className="brand-mark">R$</span></span>
+          <span className="brand" style={{ justifyContent: 'center', marginBottom: 6 }}>{perfil.logo_url ? <img src={perfil.logo_url} alt="Logo" className="brand-logo" /> : <span className="brand-mark">R$</span>}</span>
           <p className="card-title" style={{ marginTop: 10 }}>{confirmando ? 'Confirme o PIN' : 'Crie um PIN de 4 dígitos'}</p>
           <p className="empty-hint">{pinErro ? 'Os PINs não coincidem, tente de novo.' : 'Usado só para reabrir o app rapidamente.'}</p>
           <div className="pin-dots">
@@ -934,7 +1015,7 @@ export default function Dashboard() {
     return (
       <div className="lock-screen">
         <div className="lock-card">
-          <span className="brand" style={{ justifyContent: 'center', marginBottom: 6 }}><span className="brand-mark">R$</span></span>
+          <span className="brand" style={{ justifyContent: 'center', marginBottom: 6 }}>{perfil.logo_url ? <img src={perfil.logo_url} alt="Logo" className="brand-logo" /> : <span className="brand-mark">R$</span>}</span>
           <p className="card-title" style={{ marginTop: 10 }}>Digite seu PIN</p>
           <p className="empty-hint">{pinErro ? 'PIN incorreto.' : 'Controle Financeiro bloqueado'}</p>
           <div className="pin-dots">
@@ -1103,7 +1184,10 @@ export default function Dashboard() {
     <div className={`app-shell ${valoresOcultos ? 'valores-ocultos' : ''}`}>
       <div className="topbar">
         <div className="topbar-row">
-          <span className="brand"><span className="brand-mark">R$</span><span className="brand-text">Controle Financeiro</span></span>
+          <span className="brand">
+            {perfil.logo_url ? <img src={perfil.logo_url} alt="Logo" className="brand-logo" /> : <span className="brand-mark">R$</span>}
+            <span className="brand-text">{perfil.nome_exibicao || 'Controle Financeiro'}</span>
+          </span>
           <div className="settings-wrap">
             <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
               <button onClick={() => setMostrarConfiguracoes((v) => !v)} className="btn-icon" title="Configurações">⚙</button>
@@ -1122,6 +1206,46 @@ export default function Dashboard() {
                 <div className="settings-item">
                   <span>Bloqueio por PIN</span>
                   <button onClick={alternarBloqueioPin} className={`toggle-switch ${pinConfigurado ? 'on' : ''}`} />
+                </div>
+
+                <div className="settings-divider" />
+
+                <div className="settings-item" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 6 }}>
+                  <span>Logo</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    {perfil.logo_url ? <img src={perfil.logo_url} alt="Logo" className="brand-logo" /> : <span className="brand-mark">R$</span>}
+                    <label className="btn-link" style={{ cursor: 'pointer' }}>
+                      alterar
+                      <input type="file" accept="image/*" onChange={handleUploadLogo} style={{ display: 'none' }} />
+                    </label>
+                  </div>
+                </div>
+
+                <div className="settings-item" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 6 }}>
+                  <span>Nome de exibição</span>
+                  <input
+                    className="input"
+                    style={{ fontSize: 12, padding: '6px 8px', width: '100%' }}
+                    placeholder="Controle Financeiro"
+                    value={nomeExibicaoInput}
+                    onChange={(e) => setNomeExibicaoInput(e.target.value)}
+                    onBlur={() => salvarNomeExibicao(nomeExibicaoInput)}
+                  />
+                </div>
+
+                <div className="settings-item" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 6 }}>
+                  <span>Cor do tema</span>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    {Object.entries(TEMAS_CORES).map(([chave, t]) => (
+                      <button
+                        key={chave}
+                        onClick={() => selecionarTema(chave)}
+                        title={chave}
+                        className={`color-swatch ${(perfil.cor_destaque || 'teal') === chave ? 'selected' : ''}`}
+                        style={{ background: t.primary }}
+                      />
+                    ))}
+                  </div>
                 </div>
               </div>
             )}

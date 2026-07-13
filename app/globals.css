@@ -111,6 +111,14 @@ button, input, select { font-family: var(--font-body); }
   font-weight: 700;
 }
 
+.brand-logo {
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
 .entity-row {
   display: flex;
   gap: 8px;
@@ -431,8 +439,20 @@ button, input, select { font-family: var(--font-body); }
   box-shadow: var(--shadow);
   padding: 10px;
   z-index: 30;
-  min-width: 200px;
+  min-width: 240px;
 }
+
+.settings-divider { border-top: 1px solid var(--surface-alt); margin: 6px 0; }
+
+.color-swatch {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  cursor: pointer;
+  border: 1px solid var(--border);
+}
+
+.color-swatch.selected { border: 2px solid var(--text); }
 
 .settings-item {
   display: flex;

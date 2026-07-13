@@ -47,6 +47,22 @@ function subtrairMeses(ano, mes, quantidade) {
   return { ano: anoResultado, mes: mesResultado };
 }
 
+function calcularPeriodoFaturaAberta(cartao, hoje) {
+  const dia = hoje.getDate();
+  if (dia <= cartao.dia_fechamento) return { ano: hoje.getFullYear(), mes: hoje.getMonth() };
+  return subtrairMeses(hoje.getFullYear(), hoje.getMonth(), -1);
+}
+
+function calcularMesFaturaCompra(cartao, dataStr) {
+  const [anoStr, mesStr, diaStr] = dataStr.split('-');
+  const ano = parseInt(anoStr, 10);
+  const mesIdx = parseInt(mesStr, 10) - 1;
+  const dia = parseInt(diaStr, 10);
+  if (dia <= cartao.dia_fechamento) return mesReferenciaStr(ano, mesIdx);
+  const proximo = subtrairMeses(ano, mesIdx, -1);
+  return mesReferenciaStr(proximo.ano, proximo.mes);
+}
+
 function calcularParcela(fixo, ano, mes) {
   if (!fixo.parcelado || !fixo.mes_inicio) return null;
   const [anoInicio, mesInicioStr] = fixo.mes_inicio.split('-');
@@ -124,6 +140,7 @@ export default function Dashboard() {
   const [parceladoFixo, setParceladoFixo] = useState(false);
   const [totalParcelasFixo, setTotalParcelasFixo] = useState('');
   const [parcelaAtualFixo, setParcelaAtualFixo] = useState('');
+  const [essencialidadeFixo, setEssencialidadeFixo] = useState('');
   const [edicaoFixoId, setEdicaoFixoId] = useState(null);
   const [formFixo, setFormFixo] = useState({ nome: '', dia_referencia: '', valor_padrao: '', conta_padrao_id: '' });
 
@@ -142,12 +159,29 @@ export default function Dashboard() {
   const [aporteMetaId, setAporteMetaId] = useState(null);
   const [valorAporte, setValorAporte] = useState('');
 
+  const [cartoes, setCartoes] = useState([]);
+  const [faturasPorCartao, setFaturasPorCartao] = useState({});
+  const [mostrarNovoCartao, setMostrarNovoCartao] = useState(false);
+  const [nomeCartao, setNomeCartao] = useState('');
+  const [diaFechamentoCartao, setDiaFechamentoCartao] = useState('');
+  const [diaVencimentoCartao, setDiaVencimentoCartao] = useState('');
+  const [contaPagamentoCartaoId, setContaPagamentoCartaoId] = useState('');
+  const [edicaoCartaoId, setEdicaoCartaoId] = useState(null);
+  const [formCartao, setFormCartao] = useState({ nome: '', dia_fechamento: '', dia_vencimento: '', conta_pagamento_id: '' });
+  const [mostrarCompraCartaoId, setMostrarCompraCartaoId] = useState(null);
+  const [valorCompraCartao, setValorCompraCartao] = useState('');
+  const [categoriaCompraCartao, setCategoriaCompraCartao] = useState('');
+  const [descricaoCompraCartao, setDescricaoCompraCartao] = useState('');
+  const [dataCompraCartao, setDataCompraCartao] = useState(() => new Date().toISOString().slice(0, 10));
+  const [essencialidadeCompraCartao, setEssencialidadeCompraCartao] = useState('');
+
   const [tipo, setTipo] = useState('saida');
   const [valor, setValor] = useState('');
   const [categoria, setCategoria] = useState('');
   const [descricao, setDescricao] = useState('');
   const [dataLancamento, setDataLancamento] = useState(() => new Date().toISOString().slice(0, 10));
   const [contaLancamentoId, setContaLancamentoId] = useState('');
+  const [essencialidade, setEssencialidade] = useState('');
   const [sugestao, setSugestao] = useState(null);
 
   const [alertas, setAlertas] = useState([]);
@@ -221,6 +255,53 @@ export default function Dashboard() {
     setMetas(data || []);
   }, []);
 
+  const carregarCartoes = useCallback(async (entidadeId) => {
+    if (!entidadeId) return;
+    const { data } = await supabase
+      .from('cartoes')
+      .select('*')
+      .eq('entidade_id', entidadeId)
+      .eq('ativo', true)
+      .order('created_at', { ascending: true });
+
+    setCartoes(data || []);
+  }, []);
+
+  const carregarFaturas = useCallback(async (entidadeId, listaCartoes) => {
+    if (!entidadeId || !listaCartoes || listaCartoes.length === 0) { setFaturasPorCartao({}); return; }
+
+    const hoje = new Date();
+    const resultado = {};
+
+    await Promise.all(listaCartoes.map(async (cartao) => {
+      const aberta = calcularPeriodoFaturaAberta(cartao, hoje);
+      const fechada = subtrairMeses(aberta.ano, aberta.mes, 1);
+
+      const mesRefAberta = mesReferenciaStr(aberta.ano, aberta.mes);
+      const mesRefFechada = mesReferenciaStr(fechada.ano, fechada.mes);
+
+      const { data } = await supabase
+        .from('transacoes')
+        .select('valor, mes_fatura, origem')
+        .eq('cartao_id', cartao.id)
+        .in('mes_fatura', [mesRefAberta, mesRefFechada]);
+
+      const compras = (data || []).filter((t) => t.origem !== 'fatura');
+      const pagamentos = (data || []).filter((t) => t.origem === 'fatura');
+
+      const totalAberta = compras.filter((t) => t.mes_fatura === mesRefAberta).reduce((s, t) => s + Number(t.valor), 0);
+      const totalFechada = compras.filter((t) => t.mes_fatura === mesRefFechada).reduce((s, t) => s + Number(t.valor), 0);
+      const fechadaPaga = pagamentos.some((t) => t.mes_fatura === mesRefFechada);
+
+      resultado[cartao.id] = {
+        aberta: { mesRef: mesRefAberta, total: totalAberta },
+        fechada: { mesRef: mesRefFechada, total: totalFechada, paga: fechadaPaga },
+      };
+    }));
+
+    setFaturasPorCartao(resultado);
+  }, []);
+
   const garantirOcorrenciasDoMes = useCallback(async (entidadeId, fixos, ano, mes) => {
     if (!entidadeId) return;
     if (!fixos || fixos.length === 0) {
@@ -265,6 +346,7 @@ export default function Dashboard() {
       .from('transacoes')
       .select('*')
       .eq('entidade_id', entidadeId)
+      .or('cartao_id.is.null,origem.eq.fatura')
       .gte('data', primeiroDiaDoMes(ano, mes))
       .lte('data', ultimoDiaDoMes(ano, mes))
       .order('data', { ascending: false });
@@ -279,6 +361,7 @@ export default function Dashboard() {
       .select('valor, tipo, data')
       .eq('entidade_id', entidadeId)
       .is('transferencia_id', null)
+      .or('cartao_id.is.null,origem.eq.fatura')
       .gte('data', `${ano}-01-01`)
       .lte('data', `${ano}-12-31`);
 
@@ -318,6 +401,7 @@ export default function Dashboard() {
         .select('valor, tipo')
         .eq('entidade_id', ent.id)
         .is('transferencia_id', null)
+        .or('cartao_id.is.null,origem.eq.fatura')
         .gte('data', primeiroDiaDoMes(ano, mes))
         .lte('data', ultimoDiaDoMes(ano, mes));
 
@@ -606,8 +690,15 @@ export default function Dashboard() {
       carregarContas(entidadeAtual);
       carregarLancamentosFixos(entidadeAtual);
       carregarMetas(entidadeAtual);
+      carregarCartoes(entidadeAtual);
     }
-  }, [entidadeAtual, carregarContas, carregarLancamentosFixos, carregarMetas]);
+  }, [entidadeAtual, carregarContas, carregarLancamentosFixos, carregarMetas, carregarCartoes]);
+
+  useEffect(() => {
+    if (entidadeAtual) {
+      carregarFaturas(entidadeAtual, cartoes);
+    }
+  }, [entidadeAtual, cartoes, carregarFaturas]);
 
   useEffect(() => {
     if (entidadeAtual) {
@@ -727,6 +818,7 @@ export default function Dashboard() {
       .from('transacoes')
       .select('*')
       .eq('entidade_id', entidadeAtual)
+      .or('cartao_id.is.null,origem.eq.fatura')
       .gte('data', `${dataAtual.ano}-01-01`)
       .lte('data', `${dataAtual.ano}-12-31`)
       .order('data', { ascending: true });
@@ -960,6 +1052,124 @@ export default function Dashboard() {
     }
   }
 
+  // ---------- Cartões de crédito ----------
+
+  async function adicionarCartao(e) {
+    e.preventDefault();
+    if (!entidadeAtual || !nomeCartao || !diaFechamentoCartao || !diaVencimentoCartao) return;
+
+    const { error } = await supabase.from('cartoes').insert({
+      entidade_id: entidadeAtual,
+      nome: nomeCartao,
+      dia_fechamento: parseInt(diaFechamentoCartao, 10),
+      dia_vencimento: parseInt(diaVencimentoCartao, 10),
+      conta_pagamento_id: contaPagamentoCartaoId || null,
+    });
+
+    if (!error) {
+      setNomeCartao('');
+      setDiaFechamentoCartao('');
+      setDiaVencimentoCartao('');
+      setContaPagamentoCartaoId('');
+      setMostrarNovoCartao(false);
+      carregarCartoes(entidadeAtual);
+    }
+  }
+
+  function iniciarEdicaoCartao(c) {
+    setEdicaoCartaoId(c.id);
+    setFormCartao({
+      nome: c.nome,
+      dia_fechamento: c.dia_fechamento,
+      dia_vencimento: c.dia_vencimento,
+      conta_pagamento_id: c.conta_pagamento_id || '',
+    });
+  }
+
+  async function salvarEdicaoCartao(e) {
+    e.preventDefault();
+    const { error } = await supabase
+      .from('cartoes')
+      .update({
+        nome: formCartao.nome,
+        dia_fechamento: parseInt(formCartao.dia_fechamento, 10),
+        dia_vencimento: parseInt(formCartao.dia_vencimento, 10),
+        conta_pagamento_id: formCartao.conta_pagamento_id || null,
+      })
+      .eq('id', edicaoCartaoId);
+
+    if (!error) {
+      setEdicaoCartaoId(null);
+      carregarCartoes(entidadeAtual);
+    }
+  }
+
+  async function excluirCartao(id) {
+    if (!window.confirm('Excluir este cartão? Compras já lançadas continuam no histórico, sem vínculo com o cartão.')) return;
+    const { error } = await supabase.from('cartoes').delete().eq('id', id);
+    if (!error) carregarCartoes(entidadeAtual);
+  }
+
+  async function adicionarCompraCartao(e, cartao) {
+    e.preventDefault();
+    if (!valorCompraCartao) return;
+
+    const data = dataCompraCartao || new Date().toISOString().slice(0, 10);
+    const mesFatura = calcularMesFaturaCompra(cartao, data);
+
+    const { error } = await supabase.from('transacoes').insert({
+      entidade_id: entidadeAtual,
+      cartao_id: cartao.id,
+      valor: parseFloat(valorCompraCartao),
+      tipo: 'saida',
+      categoria: categoriaCompraCartao || 'outros',
+      descricao: descricaoCompraCartao,
+      essencialidade: essencialidadeCompraCartao || null,
+      origem: 'texto',
+      status: 'pago',
+      data,
+      mes_fatura: mesFatura,
+    });
+
+    if (!error) {
+      setValorCompraCartao('');
+      setCategoriaCompraCartao('');
+      setDescricaoCompraCartao('');
+      setEssencialidadeCompraCartao('');
+      setDataCompraCartao(new Date().toISOString().slice(0, 10));
+      setMostrarCompraCartaoId(null);
+      carregarFaturas(entidadeAtual, cartoes);
+    }
+  }
+
+  async function pagarFatura(cartao) {
+    const info = faturasPorCartao[cartao.id];
+    if (!info || info.fechada.total <= 0) return;
+    if (!window.confirm(`Confirmar pagamento da fatura de ${cartao.nome} (${formatarMoeda(info.fechada.total)})?`)) return;
+
+    const { error } = await supabase.from('transacoes').insert({
+      entidade_id: entidadeAtual,
+      cartao_id: cartao.id,
+      conta_id: cartao.conta_pagamento_id,
+      valor: info.fechada.total,
+      tipo: 'saida',
+      categoria: 'Fatura cartão',
+      descricao: `Fatura ${cartao.nome}`,
+      origem: 'fatura',
+      status: 'pago',
+      mes_fatura: info.fechada.mesRef,
+      data: new Date().toISOString().slice(0, 10),
+    });
+
+    if (error) return;
+
+    if (cartao.conta_pagamento_id) await recalcularSaldoConta(cartao.conta_pagamento_id);
+
+    carregarContas(entidadeAtual);
+    carregarTransacoesDoMes(entidadeAtual, dataAtual.ano, dataAtual.mes);
+    carregarFaturas(entidadeAtual, cartoes);
+  }
+
   // ---------- Lançamentos fixos (molde) ----------
 
   async function adicionarLancamentoFixo(e, tipoAlvo) {
@@ -984,6 +1194,7 @@ export default function Dashboard() {
       parcelado: tipoAlvo === 'saida' ? parceladoFixo : false,
       total_parcelas: tipoAlvo === 'saida' && parceladoFixo ? parseInt(totalParcelasFixo, 10) : null,
       mes_inicio: mesInicio,
+      essencialidade: tipoAlvo === 'saida' ? (essencialidadeFixo || null) : null,
     });
 
     if (!error) {
@@ -994,6 +1205,7 @@ export default function Dashboard() {
       setParceladoFixo(false);
       setTotalParcelasFixo('');
       setParcelaAtualFixo('');
+      setEssencialidadeFixo('');
       setMostrarNovaReceitaFixa(false);
       setMostrarNovaDespesaFixa(false);
       carregarLancamentosFixos(entidadeAtual);
@@ -1057,6 +1269,7 @@ export default function Dashboard() {
       tipo: fixo.tipo,
       categoria: fixo.nome,
       descricao: fixo.nome,
+      essencialidade: fixo.tipo === 'saida' ? (fixo.essencialidade || null) : null,
       origem: 'recorrente',
       status: 'pago',
       data: hoje,
@@ -1099,6 +1312,7 @@ export default function Dashboard() {
       tipo,
       categoria: categoria || (tipo === 'entrada' ? 'receita' : 'outros'),
       descricao,
+      essencialidade: tipo === 'saida' ? (essencialidade || null) : null,
       data: dataLancamento || new Date().toISOString().slice(0, 10),
       origem: 'texto',
       status: 'pago',
@@ -1113,6 +1327,7 @@ export default function Dashboard() {
     setCategoria('');
     setDescricao('');
     setDataLancamento(new Date().toISOString().slice(0, 10));
+    setEssencialidade('');
     setSugestao(null);
     setContaLancamentoId(contaPadraoParaLancamento());
     carregarContas(entidadeAtual);
@@ -1279,6 +1494,13 @@ export default function Dashboard() {
   const totalEntradasMes = entradasDoMes.reduce((s, t) => s + Number(t.valor), 0);
   const resultadoMes = totalEntradasMes - totalSaidasMes;
   const margemMes = totalEntradasMes > 0 ? (resultadoMes / totalEntradasMes) * 100 : 0;
+
+  const despesasEssenciais = saidasDoMes.filter((t) => t.essencialidade === 'essencial').reduce((s, t) => s + Number(t.valor), 0);
+  const despesasDesejaveis = saidasDoMes.filter((t) => t.essencialidade === 'desejavel').reduce((s, t) => s + Number(t.valor), 0);
+  const despesasSuperfluas = saidasDoMes.filter((t) => t.essencialidade === 'superfluo').reduce((s, t) => s + Number(t.valor), 0);
+  const despesasNaoClassificadas = totalSaidasMes - despesasEssenciais - despesasDesejaveis - despesasSuperfluas;
+  const pctRendaComprometida = totalEntradasMes > 0 ? (despesasEssenciais / totalEntradasMes) * 100 : 0;
+  const corComprometimento = pctRendaComprometida > 70 ? 'var(--negative)' : pctRendaComprometida > 50 ? 'var(--accent)' : 'var(--primary)';
 
   const ocorrenciasArray = Object.entries(ocorrenciasDoMes).map(([fixoId, ocorrencia]) => {
     const fixo = lancamentosFixos.find((f) => f.id === fixoId);
@@ -1648,6 +1870,34 @@ export default function Dashboard() {
             )}
           </div>
 
+          <div className="card">
+            <p className="card-title" style={{ marginBottom: 4 }}>Essencialidade dos gastos — {NOMES_MESES[dataAtual.mes]}</p>
+            {totalSaidasMes === 0 ? (
+              <p className="empty-hint">Nenhuma despesa neste mês ainda.</p>
+            ) : (
+              <>
+                {totalEntradasMes > 0 && (
+                  <p style={{ fontSize: 13, margin: '4px 0 12px', color: corComprometimento, fontWeight: 600 }}>
+                    {pctRendaComprometida.toFixed(0)}% da renda comprometida com despesas essenciais
+                    {pctRendaComprometida > 70 && ' — acima do recomendado (até ~50%)'}
+                  </p>
+                )}
+                <div style={{ height: 10, borderRadius: 999, background: 'var(--surface-alt)', overflow: 'hidden', display: 'flex' }}>
+                  <div style={{ width: `${(despesasEssenciais / totalSaidasMes) * 100}%`, background: 'var(--primary)' }} />
+                  <div style={{ width: `${(despesasDesejaveis / totalSaidasMes) * 100}%`, background: 'var(--accent)' }} />
+                  <div style={{ width: `${(despesasSuperfluas / totalSaidasMes) * 100}%`, background: 'var(--negative)' }} />
+                  <div style={{ width: `${(despesasNaoClassificadas / totalSaidasMes) * 100}%`, background: 'var(--border)' }} />
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginTop: 10, fontSize: 12 }}>
+                  <span>🟢 Essencial — {formatarMoeda(despesasEssenciais)}</span>
+                  <span>🟡 Desejável — {formatarMoeda(despesasDesejaveis)}</span>
+                  <span>🔴 Supérfluo — {formatarMoeda(despesasSuperfluas)}</span>
+                  {despesasNaoClassificadas > 0 && <span style={{ color: 'var(--text-muted)' }}>⚪ Não classificado — {formatarMoeda(despesasNaoClassificadas)}</span>}
+                </div>
+              </>
+            )}
+          </div>
+
           {compromissosFuturos.length > 0 && (
             <div className="card">
               <p className="card-title" style={{ marginBottom: 4 }}>Compromissos futuros em parcelas</p>
@@ -1713,6 +1963,18 @@ export default function Dashboard() {
                     {fixo.nome} — {diasRestantes < 0 ? `atrasada há ${Math.abs(diasRestantes)} dia(s)` : diasRestantes === 0 ? 'vence hoje' : `vence em ${diasRestantes} dia(s)`} · {formatarMoeda(ocorrencia.valor)}
                   </p>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {pctRendaComprometida > 70 && (
+            <div className="alert-banner">
+              <span className="card-icon" style={{ background: '#fff', color: 'var(--negative)' }}>📊</span>
+              <div>
+                <p className="alert-banner-title">Renda comprometida</p>
+                <p className="alert-item alert-item-overdue">
+                  {pctRendaComprometida.toFixed(0)}% da renda de {NOMES_MESES[dataAtual.mes]} já está comprometida só com despesas essenciais (recomendado: até ~50%).
+                </p>
               </div>
             </div>
           )}
@@ -1797,6 +2059,98 @@ export default function Dashboard() {
             )}
           </div>
 
+          <div className="card">
+            <div className="card-header">
+              <span className="card-title-group"><span className="card-icon">💳</span><p className="card-title">Cartões de crédito</p></span>
+              <button onClick={() => setMostrarNovoCartao((v) => !v)} className="btn btn-ghost">+ Novo cartão</button>
+            </div>
+
+            {mostrarNovoCartao && (
+              <form onSubmit={adicionarCartao} className="form-row" style={{ marginBottom: 12 }}>
+                <input className="input" placeholder="Nome (ex: Nubank)" value={nomeCartao} onChange={(e) => setNomeCartao(e.target.value)} required />
+                <input className="input" style={{ width: 100 }} type="number" min="1" max="31" placeholder="Dia fecham." value={diaFechamentoCartao} onChange={(e) => setDiaFechamentoCartao(e.target.value)} required />
+                <input className="input" style={{ width: 100 }} type="number" min="1" max="31" placeholder="Dia venc." value={diaVencimentoCartao} onChange={(e) => setDiaVencimentoCartao(e.target.value)} required />
+                <select className="input" value={contaPagamentoCartaoId} onChange={(e) => setContaPagamentoCartaoId(e.target.value)}>
+                  <option value="">Conta de pagamento (opcional)</option>
+                  {contas.map((c) => (<option key={c.id} value={c.id}>{c.nome}</option>))}
+                </select>
+                <button type="submit" className="btn btn-primary">Salvar</button>
+              </form>
+            )}
+
+            {cartoes.length === 0 && <p className="empty-hint">Nenhum cartão cadastrado ainda.</p>}
+            {cartoes.map((cartao) => {
+              if (edicaoCartaoId === cartao.id) {
+                return (
+                  <form key={cartao.id} onSubmit={salvarEdicaoCartao} className="form-row" style={{ padding: '8px 0' }}>
+                    <input className="input" value={formCartao.nome} onChange={(e) => setFormCartao({ ...formCartao, nome: e.target.value })} required />
+                    <input className="input" style={{ width: 100 }} type="number" min="1" max="31" value={formCartao.dia_fechamento} onChange={(e) => setFormCartao({ ...formCartao, dia_fechamento: e.target.value })} required />
+                    <input className="input" style={{ width: 100 }} type="number" min="1" max="31" value={formCartao.dia_vencimento} onChange={(e) => setFormCartao({ ...formCartao, dia_vencimento: e.target.value })} required />
+                    <select className="input" value={formCartao.conta_pagamento_id} onChange={(e) => setFormCartao({ ...formCartao, conta_pagamento_id: e.target.value })}>
+                      <option value="">Conta de pagamento (opcional)</option>
+                      {contas.map((c) => (<option key={c.id} value={c.id}>{c.nome}</option>))}
+                    </select>
+                    <button type="submit" className="btn btn-primary">Salvar</button>
+                    <button type="button" onClick={() => setEdicaoCartaoId(null)} className="btn-link">Cancelar</button>
+                  </form>
+                );
+              }
+
+              const info = faturasPorCartao[cartao.id];
+              const contaPagamento = contas.find((c) => c.id === cartao.conta_pagamento_id);
+
+              return (
+                <div key={cartao.id} style={{ padding: '10px 0', borderBottom: '1px solid var(--surface-alt)' }}>
+                  <div className="row-main">
+                    <span className="row-title">{cartao.nome}</span>
+                    <div style={{ display: 'flex', gap: 10 }}>
+                      <button onClick={() => setMostrarCompraCartaoId(mostrarCompraCartaoId === cartao.id ? null : cartao.id)} className="btn-link">+ compra</button>
+                      <button onClick={() => iniciarEdicaoCartao(cartao)} className="btn-link">editar</button>
+                      <button onClick={() => excluirCartao(cartao.id)} className="btn-link">excluir</button>
+                    </div>
+                  </div>
+                  <p className="row-subtitle">fecha dia {cartao.dia_fechamento} · vence dia {cartao.dia_vencimento}{contaPagamento ? ` · ${contaPagamento.nome}` : ''}</p>
+
+                  {info && (
+                    <div style={{ display: 'flex', gap: 16, marginTop: 8, flexWrap: 'wrap' }}>
+                      <div>
+                        <p className="row-subtitle" style={{ margin: 0 }}>Fatura aberta</p>
+                        <span className="amount">{formatarMoeda(info.aberta.total)}</span>
+                      </div>
+                      <div>
+                        <p className="row-subtitle" style={{ margin: 0 }}>Fatura fechada</p>
+                        <span className="amount">{formatarMoeda(info.fechada.total)}</span>
+                        {info.fechada.total > 0 && (
+                          info.fechada.paga ? (
+                            <span className="badge badge-confirmed" style={{ marginLeft: 8 }}>Paga</span>
+                          ) : (
+                            <button onClick={() => pagarFatura(cartao)} className="btn btn-primary" style={{ marginLeft: 8, padding: '4px 10px', fontSize: 12 }}>Pagar fatura</button>
+                          )
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {mostrarCompraCartaoId === cartao.id && (
+                    <form onSubmit={(e) => adicionarCompraCartao(e, cartao)} className="form-row" style={{ marginTop: 10 }}>
+                      <input className="input" style={{ width: 100 }} type="number" step="0.01" placeholder="Valor" value={valorCompraCartao} onChange={(e) => setValorCompraCartao(e.target.value)} required />
+                      <input className="input" style={{ width: 130 }} placeholder="Categoria" value={categoriaCompraCartao} onChange={(e) => setCategoriaCompraCartao(e.target.value)} />
+                      <input className="input" style={{ flex: 1, minWidth: 120 }} placeholder="Descrição" value={descricaoCompraCartao} onChange={(e) => setDescricaoCompraCartao(e.target.value)} />
+                      <input className="input" style={{ width: 150 }} type="date" value={dataCompraCartao} onChange={(e) => setDataCompraCartao(e.target.value)} required />
+                      <select className="input" value={essencialidadeCompraCartao} onChange={(e) => setEssencialidadeCompraCartao(e.target.value)}>
+                        <option value="">Essencialidade (opc.)</option>
+                        <option value="essencial">Essencial</option>
+                        <option value="desejavel">Desejável</option>
+                        <option value="superfluo">Supérfluo</option>
+                      </select>
+                      <button type="submit" className="btn btn-primary">Lançar</button>
+                    </form>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
           <div className="card card-receitas">
             <div className="card-header">
               <span className="card-title-group"><span className="card-icon">⬇</span><p className="card-title">Receitas fixas</p></span>
@@ -1853,6 +2207,12 @@ export default function Dashboard() {
                     <select className="input" value={contaFixoId} onChange={(e) => setContaFixoId(e.target.value)}>
                       <option value="">Conta de origem (opcional)</option>
                       {contas.map((c) => (<option key={c.id} value={c.id}>{c.nome}</option>))}
+                    </select>
+                    <select className="input" value={essencialidadeFixo} onChange={(e) => setEssencialidadeFixo(e.target.value)}>
+                      <option value="">Essencialidade (opc.)</option>
+                      <option value="essencial">Essencial</option>
+                      <option value="desejavel">Desejável</option>
+                      <option value="superfluo">Supérfluo</option>
                     </select>
                     <label className="checkbox-label">
                       <input type="checkbox" checked={parceladoFixo} onChange={(e) => setParceladoFixo(e.target.checked)} />
@@ -1986,6 +2346,14 @@ export default function Dashboard() {
               <input className="input" style={{ width: 140 }} placeholder="Categoria" value={categoria} onChange={(e) => setCategoria(e.target.value)} />
               <input className="input" style={{ flex: 1, minWidth: 140 }} placeholder="Descrição" value={descricao} onChange={(e) => setDescricao(e.target.value)} />
               <input className="input" style={{ width: 150 }} type="date" value={dataLancamento} onChange={(e) => setDataLancamento(e.target.value)} required />
+              {tipo === 'saida' && (
+                <select className="input" value={essencialidade} onChange={(e) => setEssencialidade(e.target.value)}>
+                  <option value="">Essencialidade (opc.)</option>
+                  <option value="essencial">Essencial</option>
+                  <option value="desejavel">Desejável</option>
+                  <option value="superfluo">Supérfluo</option>
+                </select>
+              )}
               <select className="input" value={contaLancamentoId} onChange={(e) => setContaLancamentoId(e.target.value)} required>
                 <option value="" disabled>Conta *</option>
                 {contas.map((c) => (<option key={c.id} value={c.id}>{c.nome}{c.principal ? ' ★' : ''}</option>))}

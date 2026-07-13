@@ -166,6 +166,14 @@ export default function Dashboard() {
     }
   }, []);
 
+  const carregarPerfil = useCallback(async (userId) => {
+    const { data } = await supabase.from('usuarios').select('logo_url, nome_exibicao, cor_destaque').eq('id', userId).single();
+    if (data) {
+      setPerfil(data);
+      setNomeExibicaoInput(data.nome_exibicao || '');
+    }
+  }, []);
+
   const carregarContas = useCallback(async (entidadeId) => {
     if (!entidadeId) return;
     const { data } = await supabase
@@ -399,14 +407,6 @@ export default function Dashboard() {
     setPinConfigurado(!!pinSalvo);
     setPinDesbloqueado(!pinSalvo);
     setMontado(true);
-  }, []);
-
-  const carregarPerfil = useCallback(async (userId) => {
-    const { data } = await supabase.from('usuarios').select('logo_url, nome_exibicao, cor_destaque').eq('id', userId).single();
-    if (data) {
-      setPerfil(data);
-      setNomeExibicaoInput(data.nome_exibicao || '');
-    }
   }, []);
 
   function aplicarCorPersonalizada(chave, temaAtual) {

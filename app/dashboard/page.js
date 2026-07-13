@@ -459,19 +459,24 @@ export default function Dashboard() {
     setPrimeiroMovimento(data && data.length > 0 ? data[0].data : null);
   }, []);
 
-  const carregarPendenciasVencidas = useCallback(async (entidadeId) => {
+  const carregarPendenciasVencidas = useCallback(async (entidadeId, mesInicioConfigurado) => {
     if (!entidadeId) { setPendenciasVencidas([]); return; }
 
     const hoje = new Date();
     const mesRefAtualReal = mesReferenciaStr(hoje.getFullYear(), hoje.getMonth());
 
-    const { data } = await supabase
+    let consulta = supabase
       .from('lancamentos_fixos_mensal')
       .select('*, lancamentos_fixos(nome, tipo)')
       .eq('entidade_id', entidadeId)
       .eq('status', 'pendente')
-      .lt('mes_referencia', mesRefAtualReal)
-      .order('mes_referencia', { ascending: true });
+      .lt('mes_referencia', mesRefAtualReal);
+
+    if (mesInicioConfigurado) {
+      consulta = consulta.gte('mes_referencia', mesInicioConfigurado);
+    }
+
+    const { data } = await consulta.order('mes_referencia', { ascending: true });
 
     setPendenciasVencidas(data || []);
   }, []);
@@ -806,7 +811,7 @@ export default function Dashboard() {
       carregarResumoAnual(entidadeAtual, dataAtual.ano);
       carregarComparativoPFPJ(entidades, dataAtual.ano, dataAtual.mes);
       carregarEvolucaoPatrimonio(entidadeAtual, contas, dataAtual.ano, entidadeObj?.mes_inicio_controle);
-      carregarPendenciasVencidas(entidadeAtual);
+      carregarPendenciasVencidas(entidadeAtual, entidadeObj?.mes_inicio_controle);
       carregarPrimeiroMovimento(entidadeAtual);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1447,7 +1452,7 @@ export default function Dashboard() {
     carregarTransacoesDoMes(entidadeAtual, dataAtual.ano, dataAtual.mes);
     garantirOcorrenciasDoMes(entidadeAtual, lancamentosFixos, dataAtual.ano, dataAtual.mes);
     carregarAlertas(entidadeAtual, lancamentosFixos);
-    carregarPendenciasVencidas(entidadeAtual);
+    carregarPendenciasVencidas(entidadeAtual, entidades.find((e) => e.id === entidadeAtual)?.mes_inicio_controle);
   }
 
   function desfazerOcorrencia(ocorrencia) {

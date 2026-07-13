@@ -132,6 +132,8 @@ export default function Dashboard() {
   const [expandirReceitas, setExpandirReceitas] = useState(false);
   const [expandirDespesas, setExpandirDespesas] = useState(false);
   const [expandirLancamentos, setExpandirLancamentos] = useState(false);
+  const [ordenarReceitasPor, setOrdenarReceitasPor] = useState('data');
+  const [ordenarDespesasPor, setOrdenarDespesasPor] = useState('data');
   const LIMITE_LISTA = 6;
 
   const [edicaoTransacaoId, setEdicaoTransacaoId] = useState(null);
@@ -987,12 +989,14 @@ export default function Dashboard() {
     .sort((a, b) => Number(b.valor) - Number(a.valor))
     .slice(0, 5);
 
-  function renderListaFixos(tipoAlvo, expandido, aoExpandir) {
+  function renderListaFixos(tipoAlvo, expandido, aoExpandir, ordenacao) {
     const listaCompleta = lancamentosFixos.filter((f) => {
       if (f.tipo !== tipoAlvo) return false;
       if (f.parcelado) return calcularParcela(f, dataAtual.ano, dataAtual.mes) !== null;
       return true;
-    });
+    }).sort((a, b) => (
+      ordenacao === 'alfabetica' ? a.nome.localeCompare(b.nome, 'pt-BR') : a.dia_referencia - b.dia_referencia
+    ));
 
     if (listaCompleta.length === 0) {
       return <p className="empty-hint">Nenhuma {tipoAlvo === 'entrada' ? 'receita fixa' : 'despesa fixa'} neste mês.</p>;
@@ -1400,6 +1404,10 @@ export default function Dashboard() {
             <div className="card-header">
               <span className="card-title-group"><span className="card-icon">⬇</span><p className="card-title">Receitas fixas</p></span>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <select className="input" style={{ padding: '5px 8px', fontSize: 12 }} value={ordenarReceitasPor} onChange={(e) => setOrdenarReceitasPor(e.target.value)}>
+                  <option value="data">Ordenar: dia</option>
+                  <option value="alfabetica">Ordenar: A-Z</option>
+                </select>
                 <button onClick={() => setMostrarNovaReceitaFixa((v) => !v)} className="btn btn-ghost">+ Nova receita fixa</button>
                 <button onClick={() => setSecaoAberta({ ...secaoAberta, receitas: !secaoAberta.receitas })} className="collapse-btn">{secaoAberta.receitas ? '▾' : '▸'}</button>
               </div>
@@ -1420,7 +1428,7 @@ export default function Dashboard() {
                   </form>
                 )}
 
-                {renderListaFixos('entrada', expandirReceitas, setExpandirReceitas)}
+                {renderListaFixos('entrada', expandirReceitas, setExpandirReceitas, ordenarReceitasPor)}
               </>
             )}
           </div>
@@ -1429,6 +1437,10 @@ export default function Dashboard() {
             <div className="card-header">
               <span className="card-title-group"><span className="card-icon">⬆</span><p className="card-title">Despesas fixas</p></span>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <select className="input" style={{ padding: '5px 8px', fontSize: 12 }} value={ordenarDespesasPor} onChange={(e) => setOrdenarDespesasPor(e.target.value)}>
+                  <option value="data">Ordenar: dia</option>
+                  <option value="alfabetica">Ordenar: A-Z</option>
+                </select>
                 <button onClick={() => setMostrarNovaDespesaFixa((v) => !v)} className="btn btn-ghost">+ Nova despesa fixa</button>
                 <button onClick={() => setSecaoAberta({ ...secaoAberta, despesas: !secaoAberta.despesas })} className="collapse-btn">{secaoAberta.despesas ? '▾' : '▸'}</button>
               </div>
@@ -1459,7 +1471,7 @@ export default function Dashboard() {
                   </form>
                 )}
 
-                {renderListaFixos('saida', expandirDespesas, setExpandirDespesas)}
+                {renderListaFixos('saida', expandirDespesas, setExpandirDespesas, ordenarDespesasPor)}
               </>
             )}
           </div>

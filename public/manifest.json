@@ -1,0 +1,14 @@
+{
+  "name": "Controle Financeiro",
+  "short_name": "Finanças",
+  "description": "Controle financeiro pessoal e empresarial, PF e PJ.",
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "background_color": "#F5F7F2",
+  "theme_color": "#0F6E56",
+  "orientation": "portrait-primary",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/icon-maskable.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}

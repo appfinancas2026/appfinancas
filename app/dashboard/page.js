@@ -504,8 +504,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (contas.length > 0 && !contaLancamentoId) {
-      const principal = contas.find((c) => c.principal);
-      setContaLancamentoId(principal ? principal.id : contas[0].id);
+      setContaLancamentoId(contaPadraoParaLancamento());
     }
   }, [contas, contaLancamentoId]);
 
@@ -775,6 +774,11 @@ export default function Dashboard() {
 
   // ---------- Transações ----------
 
+  function contaPadraoParaLancamento() {
+    const principal = contas.find((c) => c.principal);
+    return principal ? principal.id : (contas[0] ? contas[0].id : '');
+  }
+
   async function adicionarTransacao(e) {
     e.preventDefault();
     if (!entidadeAtual || !valor || !contaLancamentoId) return;
@@ -801,6 +805,7 @@ export default function Dashboard() {
     setDescricao('');
     setDataLancamento(new Date().toISOString().slice(0, 10));
     setSugestao(null);
+    setContaLancamentoId(contaPadraoParaLancamento());
     carregarContas(entidadeAtual);
     carregarTransacoesDoMes(entidadeAtual, dataAtual.ano, dataAtual.mes);
   }

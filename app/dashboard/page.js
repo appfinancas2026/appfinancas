@@ -163,6 +163,8 @@ export default function Dashboard() {
   const [tema, setTema] = useState('light');
   const [valoresOcultos, setValoresOcultos] = useState(false);
   const [mostrarConfiguracoes, setMostrarConfiguracoes] = useState(false);
+  const [sidebarAberta, setSidebarAberta] = useState(true);
+  const [sidebarMobileAberta, setSidebarMobileAberta] = useState(false);
 
   const [pinConfigurado, setPinConfigurado] = useState(false);
   const [pinDesbloqueado, setPinDesbloqueado] = useState(true);
@@ -187,6 +189,7 @@ export default function Dashboard() {
   const [comparativoPFPJ, setComparativoPFPJ] = useState([]);
   const [evolucaoPatrimonio, setEvolucaoPatrimonio] = useState([]);
   const [pendenciasVencidas, setPendenciasVencidas] = useState([]);
+  const [primeiroMovimento, setPrimeiroMovimento] = useState(null);
 
   const [dataAtual, setDataAtual] = useState(() => {
     const hoje = new Date();
@@ -257,6 +260,10 @@ export default function Dashboard() {
   const [descricaoCompraCartao, setDescricaoCompraCartao] = useState('');
   const [dataCompraCartao, setDataCompraCartao] = useState(() => new Date().toISOString().slice(0, 10));
   const [essencialidadeCompraCartao, setEssencialidadeCompraCartao] = useState('');
+  const [comprasCartaoVisivelId, setComprasCartaoVisivelId] = useState(null);
+  const [comprasDoCartao, setComprasDoCartao] = useState([]);
+  const [edicaoCompraCartaoId, setEdicaoCompraCartaoId] = useState(null);
+  const [formCompraCartao, setFormCompraCartao] = useState({ valor: '', categoria: '', descricao: '', data: '', essencialidade: '' });
 
   const [tipo, setTipo] = useState('saida');
   const [valor, setValor] = useState('');
@@ -458,6 +465,17 @@ export default function Dashboard() {
     setResumoAnual(porMes);
   }, []);
 
+  const carregarPrimeiroMovimento = useCallback(async (entidadeId) => {
+    if (!entidadeId) { setPrimeiroMovimento(null); return; }
+    const { data } = await supabase
+      .from('transacoes')
+      .select('data')
+      .eq('entidade_id', entidadeId)
+      .order('data', { ascending: true })
+      .limit(1);
+    setPrimeiroMovimento(data && data.length > 0 ? data[0].data : null);
+  }, []);
+
   const carregarPendenciasVencidas = useCallback(async (entidadeId) => {
     if (!entidadeId) { setPendenciasVencidas([]); return; }
 
@@ -509,11 +527,24 @@ export default function Dashboard() {
     const porConta = {};
     listaContas.forEach((c) => { porConta[c.id] = Number(c.saldo_inicial); });
 
+    // Determina o mês real de início: a mais antiga entre a criação de uma conta e a primeira transação.
+    const dataContaMaisAntiga = listaContas.reduce((min, c) => (!min || c.created_at < min ? c.created_at : min), null);
+    const dataPrimeiraTransacao = todasTransacoes && todasTransacoes.length > 0 ? todasTransacoes[0].data : null;
+
+    let inicio = dataContaMaisAntiga ? dataContaMaisAntiga.slice(0, 10) : null;
+    if (dataPrimeiraTransacao && (!inicio || dataPrimeiraTransacao < inicio)) inicio = dataPrimeiraTransacao;
+
+    const anoInicio = inicio ? parseInt(inicio.slice(0, 4), 10) : ano;
+    const mesInicio = inicio ? parseInt(inicio.slice(5, 7), 10) - 1 : 0;
+
+    if (ano < anoInicio) { setEvolucaoPatrimonio([]); return; }
+
     const aplicadas = new Set();
     const hoje = new Date();
     const pontos = [];
 
     for (let mes = 0; mes < 12; mes++) {
+      if (ano === anoInicio && mes < mesInicio) continue;
       if (ano === hoje.getFullYear() && mes > hoje.getMonth()) break;
       const fimDoMes = ultimoDiaDoMes(ano, mes);
 
@@ -798,6 +829,7 @@ export default function Dashboard() {
       carregarComparativoPFPJ(entidades, dataAtual.ano, dataAtual.mes);
       carregarEvolucaoPatrimonio(entidadeAtual, contas, dataAtual.ano);
       carregarPendenciasVencidas(entidadeAtual);
+      carregarPrimeiroMovimento(entidadeAtual);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [entidadeAtual, aba, dataAtual.ano, dataAtual.mes, entidades, contas]);
@@ -1193,6 +1225,70 @@ export default function Dashboard() {
     if (!error) carregarCartoes(entidadeAtual);
   }
 
+  async function carregarComprasCartao(cartaoId) {
+    const { data } = await supabase
+      .from('transacoes')
+      .select('*')
+      .eq('cartao_id', cartaoId)
+      .neq('origem', 'fatura')
+      .order('data', { ascending: false });
+
+    setComprasDoCartao(data || []);
+  }
+
+  function alternarComprasCartao(cartaoId) {
+    if (comprasCartaoVisivelId === cartaoId) {
+      setComprasCartaoVisivelId(null);
+      setComprasDoCartao([]);
+    } else {
+      setComprasCartaoVisivelId(cartaoId);
+      carregarComprasCartao(cartaoId);
+    }
+  }
+
+  function iniciarEdicaoCompraCartao(compra) {
+    setEdicaoCompraCartaoId(compra.id);
+    setFormCompraCartao({
+      valor: compra.valor,
+      categoria: compra.categoria || '',
+      descricao: compra.descricao || '',
+      data: compra.data,
+      essencialidade: compra.essencialidade || '',
+    });
+  }
+
+  async function salvarEdicaoCompraCartao(e, cartao) {
+    e.preventDefault();
+    const novaMesFatura = calcularMesFaturaCompra(cartao, formCompraCartao.data);
+
+    const { error } = await supabase
+      .from('transacoes')
+      .update({
+        valor: parseFloat(formCompraCartao.valor),
+        categoria: formCompraCartao.categoria || 'outros',
+        descricao: formCompraCartao.descricao,
+        data: formCompraCartao.data,
+        essencialidade: formCompraCartao.essencialidade || null,
+        mes_fatura: novaMesFatura,
+      })
+      .eq('id', edicaoCompraCartaoId);
+
+    if (!error) {
+      setEdicaoCompraCartaoId(null);
+      carregarComprasCartao(cartao.id);
+      carregarFaturas(entidadeAtual, cartoes);
+    }
+  }
+
+  async function excluirCompraCartao(compra) {
+    if (!window.confirm('Excluir esta compra?')) return;
+    const { error } = await supabase.from('transacoes').delete().eq('id', compra.id);
+    if (!error) {
+      carregarComprasCartao(compra.cartao_id);
+      carregarFaturas(entidadeAtual, cartoes);
+    }
+  }
+
   async function adicionarCompraCartao(e, cartao) {
     e.preventDefault();
     if (!valorCompraCartao) return;
@@ -1222,6 +1318,7 @@ export default function Dashboard() {
       setDataCompraCartao(new Date().toISOString().slice(0, 10));
       setMostrarCompraCartaoId(null);
       carregarFaturas(entidadeAtual, cartoes);
+      if (comprasCartaoVisivelId === cartao.id) carregarComprasCartao(cartao.id);
     }
   }
 
@@ -1592,6 +1689,22 @@ export default function Dashboard() {
     router.replace('/login');
   }
 
+  function irParaSecao(idSecao) {
+    setAba('painel');
+    setSidebarMobileAberta(false);
+    setTimeout(() => {
+      document.getElementById(idSecao)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 60);
+  }
+
+  function alternarSidebar() {
+    if (window.innerWidth <= 620) {
+      setSidebarMobileAberta((v) => !v);
+    } else {
+      setSidebarAberta((v) => !v);
+    }
+  }
+
   if (!montado) return null;
 
   if (criandoPin) {
@@ -1648,7 +1761,17 @@ export default function Dashboard() {
     }, {})
   ).sort((a, b) => b.valor - a.valor);
 
-  const dadosBarras = resumoAnual.map((m, i) => ({ mes: NOMES_MESES[i].slice(0, 3), Entradas: m.entradas, Saídas: m.saidas }));
+  const mesInicioVisivel = (() => {
+    if (!primeiroMovimento) return 0;
+    const anoPrimeiro = parseInt(primeiroMovimento.slice(0, 4), 10);
+    if (dataAtual.ano < anoPrimeiro) return 12; // ano inteiro antes do início: nenhum mês visível
+    if (dataAtual.ano > anoPrimeiro) return 0;
+    return parseInt(primeiroMovimento.slice(5, 7), 10) - 1;
+  })();
+
+  const indicesMesesVisiveis = Array.from({ length: 12 - mesInicioVisivel }, (_, i) => mesInicioVisivel + i);
+
+  const dadosBarras = indicesMesesVisiveis.map((i) => ({ mes: NOMES_MESES[i].slice(0, 3), Entradas: resumoAnual[i].entradas, Saídas: resumoAnual[i].saidas }));
 
   const saidasDoMes = transacoes.filter((t) => t.tipo === 'saida' && !t.transferencia_id);
   const totalSaidasMes = saidasDoMes.reduce((s, t) => s + Number(t.valor), 0);
@@ -1809,6 +1932,39 @@ export default function Dashboard() {
   }
 
   return (
+    <div className="layout-root">
+      <div className={`sidebar-backdrop ${sidebarMobileAberta ? 'mobile-open' : ''}`} onClick={() => setSidebarMobileAberta(false)} />
+      <aside className={`sidebar ${sidebarAberta ? '' : 'collapsed'} ${sidebarMobileAberta ? 'mobile-open' : ''}`}>
+        <button onClick={alternarSidebar} className="sidebar-toggle" title="Recolher/expandir menu">☰</button>
+        <div className="sidebar-brand">
+          {perfil.logo_url ? <img src={perfil.logo_url} alt="Logo" className="brand-logo" /> : <span className="brand-mark">R$</span>}
+          <span className="brand-text" style={{ fontWeight: 700, fontSize: 14 }}>{perfil.nome_exibicao || 'Finanças'}</span>
+        </div>
+
+        <button onClick={() => { setAba('painel'); setSidebarMobileAberta(false); }} className={`sidebar-link ${aba === 'painel' ? 'active' : ''}`}>
+          <span className="sidebar-icon">🏠</span><span className="sidebar-label">Painel</span>
+        </button>
+        <button onClick={() => { setAba('relatorios'); setSidebarMobileAberta(false); }} className={`sidebar-link ${aba === 'relatorios' ? 'active' : ''}`}>
+          <span className="sidebar-icon">📊</span><span className="sidebar-label">Relatórios</span>
+        </button>
+
+        <div className="sidebar-divider" />
+
+        <button onClick={() => irParaSecao('secao-contas')} className="sidebar-link"><span className="sidebar-icon">🏦</span><span className="sidebar-label">Contas</span></button>
+        <button onClick={() => irParaSecao('secao-cartoes')} className="sidebar-link"><span className="sidebar-icon">💳</span><span className="sidebar-label">Cartões</span></button>
+        <button onClick={() => irParaSecao('secao-receitas')} className="sidebar-link"><span className="sidebar-icon">⬇</span><span className="sidebar-label">Receitas fixas</span></button>
+        <button onClick={() => irParaSecao('secao-despesas')} className="sidebar-link"><span className="sidebar-icon">⬆</span><span className="sidebar-label">Despesas fixas</span></button>
+        <button onClick={() => irParaSecao('secao-metas')} className="sidebar-link"><span className="sidebar-icon">🎯</span><span className="sidebar-label">Metas</span></button>
+        <button onClick={() => irParaSecao('secao-lancamentos')} className="sidebar-link"><span className="sidebar-icon">🧾</span><span className="sidebar-label">Lançamentos</span></button>
+
+        <div className="sidebar-footer">
+          <div className="sidebar-divider" />
+          <button onClick={() => setMostrarConfiguracoes((v) => !v)} className="sidebar-link"><span className="sidebar-icon">⚙</span><span className="sidebar-label">Configurações</span></button>
+          <button onClick={sair} className="sidebar-link"><span className="sidebar-icon">🚪</span><span className="sidebar-label">Sair</span></button>
+        </div>
+      </aside>
+
+      <div className="layout-content">
     <div className={`app-shell ${valoresOcultos ? 'valores-ocultos' : ''}`}>
       <div className="topbar">
         <div className="topbar-row">
@@ -2097,25 +2253,29 @@ export default function Dashboard() {
 
           <div className="card">
             <p className="card-title" style={{ marginBottom: 12 }}>Resumo mês a mês — {dataAtual.ano}</p>
-            <table className="report-table">
-              <thead>
-                <tr><th>Mês</th><th>Entradas</th><th>Saídas</th><th>Saldo do mês</th></tr>
-              </thead>
-              <tbody>
-                {resumoAnual.map((m, i) => {
-                  const saldoMes = m.entradas - m.saidas;
-                  return (
-                    <tr key={i}>
-                      <td>{NOMES_MESES[i]}</td>
-                      <td style={{ color: 'var(--primary)' }}>{formatarMoeda(m.entradas)}</td>
-                      <td>{formatarMoeda(m.saidas)}</td>
-                      <td style={{ fontWeight: 600, color: saldoMes >= 0 ? 'var(--primary)' : 'var(--negative)' }}>{formatarMoeda(saldoMes)}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+            {indicesMesesVisiveis.length === 0 ? (
+              <p className="empty-hint">Nenhuma movimentação registrada até {dataAtual.ano}.</p>
+            ) : (
+              <table className="report-table">
+                <thead>
+                  <tr><th>Mês</th><th>Entradas</th><th>Saídas</th><th>Saldo do mês</th></tr>
+                </thead>
+                <tbody>
+                  {indicesMesesVisiveis.map((i) => {
+                    const m = resumoAnual[i];
+                    const saldoMes = m.entradas - m.saidas;
+                    return (
+                      <tr key={i}>
+                        <td>{NOMES_MESES[i]}</td>
+                        <td style={{ color: 'var(--primary)' }}>{formatarMoeda(m.entradas)}</td>
+                        <td>{formatarMoeda(m.saidas)}</td>
+                        <td style={{ fontWeight: 600, color: saldoMes >= 0 ? 'var(--primary)' : 'var(--negative)' }}>{formatarMoeda(saldoMes)}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}          </div>
         </>
       ) : (
         <>
@@ -2154,7 +2314,7 @@ export default function Dashboard() {
             </p>
           </div>
 
-          <div className="card card-contas">
+          <div className="card card-contas" id="secao-contas">
             <div className="card-header">
               <span className="card-title-group"><span className="card-icon">🏦</span><p className="card-title">Contas</p></span>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -2287,7 +2447,7 @@ export default function Dashboard() {
             )}
           </div>
 
-          <div className="card">
+          <div className="card" id="secao-cartoes">
             <div className="card-header">
               <span className="card-title-group"><span className="card-icon">💳</span><p className="card-title">Cartões de crédito</p></span>
               <button onClick={() => setMostrarNovoCartao((v) => !v)} className="btn btn-ghost">+ Novo cartão</button>
@@ -2332,8 +2492,11 @@ export default function Dashboard() {
                   <div className="row-main">
                     <span className="row-title">{cartao.nome}</span>
                     <div style={{ display: 'flex', gap: 10 }}>
+                      <button onClick={() => alternarComprasCartao(cartao.id)} className="btn-link">
+                        {comprasCartaoVisivelId === cartao.id ? 'ocultar compras' : 'ver compras'}
+                      </button>
                       <button onClick={() => setMostrarCompraCartaoId(mostrarCompraCartaoId === cartao.id ? null : cartao.id)} className="btn-link">+ compra</button>
-                      <button onClick={() => iniciarEdicaoCartao(cartao)} className="btn-link">editar</button>
+                      <button onClick={() => iniciarEdicaoCartao(cartao)} className="btn-link">editar cartão</button>
                       <button onClick={() => excluirCartao(cartao.id)} className="btn-link">excluir</button>
                     </div>
                   </div>
@@ -2359,6 +2522,42 @@ export default function Dashboard() {
                     </div>
                   )}
 
+                  {comprasCartaoVisivelId === cartao.id && (
+                    <div style={{ marginTop: 10, background: 'var(--surface-alt)', borderRadius: 'var(--radius-sm)', padding: '4px 10px' }}>
+                      {comprasDoCartao.length === 0 && <p className="empty-hint">Nenhuma compra lançada neste cartão ainda.</p>}
+                      {comprasDoCartao.map((compra) => (
+                        edicaoCompraCartaoId === compra.id ? (
+                          <form key={compra.id} onSubmit={(e) => salvarEdicaoCompraCartao(e, cartao)} className="form-row" style={{ padding: '8px 0' }}>
+                            <input className="input" style={{ width: 100 }} type="number" step="0.01" value={formCompraCartao.valor} onChange={(e) => setFormCompraCartao({ ...formCompraCartao, valor: e.target.value })} required />
+                            <input className="input" style={{ width: 120 }} value={formCompraCartao.categoria} onChange={(e) => setFormCompraCartao({ ...formCompraCartao, categoria: e.target.value })} />
+                            <input className="input" style={{ flex: 1, minWidth: 120 }} value={formCompraCartao.descricao} onChange={(e) => setFormCompraCartao({ ...formCompraCartao, descricao: e.target.value })} />
+                            <input className="input" style={{ width: 150 }} type="date" value={formCompraCartao.data} onChange={(e) => setFormCompraCartao({ ...formCompraCartao, data: e.target.value })} required />
+                            <select className="input" value={formCompraCartao.essencialidade} onChange={(e) => setFormCompraCartao({ ...formCompraCartao, essencialidade: e.target.value })}>
+                              <option value="">Essencialidade (opc.)</option>
+                              <option value="essencial">Essencial</option>
+                              <option value="desejavel">Desejável</option>
+                              <option value="superfluo">Supérfluo</option>
+                            </select>
+                            <button type="submit" className="btn btn-primary">Salvar</button>
+                            <button type="button" onClick={() => setEdicaoCompraCartaoId(null)} className="btn-link">Cancelar</button>
+                          </form>
+                        ) : (
+                          <div key={compra.id} className="row row-main">
+                            <div>
+                              <p className="row-title">{compra.descricao || compra.categoria}</p>
+                              <p className="row-subtitle">{compra.categoria} · {compra.data} · fatura {compra.mes_fatura?.slice(0, 7)}</p>
+                            </div>
+                            <div className="row-actions">
+                              <span className="amount">{formatarMoeda(compra.valor)}</span>
+                              <button onClick={() => iniciarEdicaoCompraCartao(compra)} className="btn-link">editar</button>
+                              <button onClick={() => excluirCompraCartao(compra)} className="btn-link">excluir</button>
+                            </div>
+                          </div>
+                        )
+                      ))}
+                    </div>
+                  )}
+
                   {mostrarCompraCartaoId === cartao.id && (
                     <form onSubmit={(e) => adicionarCompraCartao(e, cartao)} className="form-row" style={{ marginTop: 10 }}>
                       <input className="input" style={{ width: 100 }} type="number" step="0.01" placeholder="Valor" value={valorCompraCartao} onChange={(e) => setValorCompraCartao(e.target.value)} required />
@@ -2379,7 +2578,7 @@ export default function Dashboard() {
             })}
           </div>
 
-          <div className="card card-receitas">
+          <div className="card card-receitas" id="secao-receitas">
             <div className="card-header">
               <span className="card-title-group"><span className="card-icon">⬇</span><p className="card-title">Receitas fixas</p></span>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -2412,7 +2611,7 @@ export default function Dashboard() {
             )}
           </div>
 
-          <div className="card card-despesas">
+          <div className="card card-despesas" id="secao-despesas">
             <div className="card-header">
               <span className="card-title-group"><span className="card-icon">⬆</span><p className="card-title">Despesas fixas</p></span>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -2461,7 +2660,7 @@ export default function Dashboard() {
             )}
           </div>
 
-          <div className="card">
+          <div className="card" id="secao-metas">
             <div className="card-header">
               <span className="card-title-group"><span className="card-icon">🎯</span><p className="card-title">Metas financeiras</p></span>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -2554,7 +2753,7 @@ export default function Dashboard() {
             )}
           </div>
 
-          <div className="card card-lancamentos">
+          <div className="card card-lancamentos" id="secao-lancamentos">
             <span className="card-title-group" style={{ marginBottom: 14 }}><span className="card-icon">🧾</span><p className="card-title">Novo lançamento</p></span>
             {sugestao && (
               <div className="suggestion-banner">
@@ -2637,6 +2836,8 @@ export default function Dashboard() {
           </div>
         </>
       )}
+    </div>
+      </div>
     </div>
   );
 }

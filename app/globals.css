@@ -390,6 +390,100 @@ button, input, select { font-family: var(--font-body); }
   padding-top: 8px;
 }
 
+/* ---------- Menu lateral ---------- */
+
+.layout-root { display: flex; min-height: 100vh; }
+
+.sidebar {
+  width: 210px;
+  flex-shrink: 0;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  padding: 14px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  position: sticky;
+  top: 0;
+  align-self: flex-start;
+  height: 100vh;
+  overflow-y: auto;
+  transition: width 0.15s ease;
+  z-index: 40;
+}
+
+.sidebar.collapsed { width: 56px; padding: 14px 6px; }
+
+.sidebar-toggle {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 18px;
+  color: var(--text);
+  padding: 8px;
+  align-self: flex-start;
+  margin-bottom: 10px;
+}
+
+.sidebar-brand { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; padding: 0 6px; }
+
+.sidebar-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 8px;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 500;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  width: 100%;
+}
+
+.sidebar-link:hover { background: var(--surface-alt); color: var(--text); }
+.sidebar-link.active { background: var(--primary-tint); color: var(--primary-dark); }
+
+.sidebar-icon { font-size: 16px; width: 20px; text-align: center; flex-shrink: 0; }
+
+.sidebar.collapsed .sidebar-label,
+.sidebar.collapsed .sidebar-brand span.brand-text { display: none; }
+
+.sidebar-divider { height: 1px; background: var(--surface-alt); margin: 8px 6px; }
+
+.sidebar-footer { margin-top: auto; }
+
+.layout-content { flex: 1; min-width: 0; }
+
+.sidebar-backdrop { display: none; }
+
+@media (max-width: 620px) {
+  .sidebar {
+    position: fixed;
+    left: 0;
+    top: 0;
+    height: 100vh;
+    transform: translateX(-100%);
+    box-shadow: var(--shadow);
+    width: 230px;
+  }
+  .sidebar.mobile-open { transform: translateX(0); }
+  .sidebar.collapsed { width: 230px; padding: 14px 10px; }
+  .sidebar.collapsed .sidebar-label,
+  .sidebar.collapsed .sidebar-brand span.brand-text { display: inline; }
+  .sidebar-backdrop.mobile-open {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(20, 30, 24, 0.35);
+    z-index: 35;
+  }
+}
+
 /* ---------- Bloqueio por PIN ---------- */
 
 .lock-screen {

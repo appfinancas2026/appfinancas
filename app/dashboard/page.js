@@ -514,7 +514,7 @@ export default function Dashboard() {
     setComparativoPFPJ(resultados);
   }, []);
 
-  const carregarEvolucaoPatrimonio = useCallback(async (entidadeId, listaContas, ano) => {
+  const carregarEvolucaoPatrimonio = useCallback(async (entidadeId, listaContas, ano, mesInicioConfigurado) => {
     if (!entidadeId || !listaContas || listaContas.length === 0) { setEvolucaoPatrimonio([]); return; }
 
     const { data: todasTransacoes } = await supabase
@@ -527,12 +527,15 @@ export default function Dashboard() {
     const porConta = {};
     listaContas.forEach((c) => { porConta[c.id] = Number(c.saldo_inicial); });
 
-    // Determina o mês real de início: a mais antiga entre a criação de uma conta e a primeira transação.
-    const dataContaMaisAntiga = listaContas.reduce((min, c) => (!min || c.created_at < min ? c.created_at : min), null);
-    const dataPrimeiraTransacao = todasTransacoes && todasTransacoes.length > 0 ? todasTransacoes[0].data : null;
-
-    let inicio = dataContaMaisAntiga ? dataContaMaisAntiga.slice(0, 10) : null;
-    if (dataPrimeiraTransacao && (!inicio || dataPrimeiraTransacao < inicio)) inicio = dataPrimeiraTransacao;
+    // Determina o mês de início: configurado manualmente tem prioridade;
+    // senão, a mais antiga entre a criação de uma conta e a primeira transação.
+    let inicio = mesInicioConfigurado || null;
+    if (!inicio) {
+      const dataContaMaisAntiga = listaContas.reduce((min, c) => (!min || c.created_at < min ? c.created_at : min), null);
+      const dataPrimeiraTransacao = todasTransacoes && todasTransacoes.length > 0 ? todasTransacoes[0].data : null;
+      inicio = dataContaMaisAntiga ? dataContaMaisAntiga.slice(0, 10) : null;
+      if (dataPrimeiraTransacao && (!inicio || dataPrimeiraTransacao < inicio)) inicio = dataPrimeiraTransacao;
+    }
 
     const anoInicio = inicio ? parseInt(inicio.slice(0, 4), 10) : ano;
     const mesInicio = inicio ? parseInt(inicio.slice(5, 7), 10) - 1 : 0;
@@ -544,16 +547,19 @@ export default function Dashboard() {
     const pontos = [];
 
     for (let mes = 0; mes < 12; mes++) {
-      if (ano === anoInicio && mes < mesInicio) continue;
       if (ano === hoje.getFullYear() && mes > hoje.getMonth()) break;
       const fimDoMes = ultimoDiaDoMes(ano, mes);
 
+      // Aplica o efeito de TODAS as transações até aqui, mesmo as de meses que não serão desenhados —
+      // senão o primeiro mês exibido começaria sem refletir o que já aconteceu antes dele.
       (todasTransacoes || []).forEach((t, idx) => {
         if (!aplicadas.has(idx) && t.data <= fimDoMes && porConta[t.conta_id] !== undefined) {
           porConta[t.conta_id] += t.tipo === 'entrada' ? Number(t.valor) : -Number(t.valor);
           aplicadas.add(idx);
         }
       });
+
+      if (ano === anoInicio && mes < mesInicio) continue;
 
       const total = Object.values(porConta).reduce((s, v) => s + v, 0);
       pontos.push({ mes: NOMES_MESES[mes].slice(0, 3), Patrimônio: Number(total.toFixed(2)) });
@@ -825,9 +831,10 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (entidadeAtual && aba === 'relatorios') {
+      const entidadeObj = entidades.find((e) => e.id === entidadeAtual);
       carregarResumoAnual(entidadeAtual, dataAtual.ano);
       carregarComparativoPFPJ(entidades, dataAtual.ano, dataAtual.mes);
-      carregarEvolucaoPatrimonio(entidadeAtual, contas, dataAtual.ano);
+      carregarEvolucaoPatrimonio(entidadeAtual, contas, dataAtual.ano, entidadeObj?.mes_inicio_controle);
       carregarPendenciasVencidas(entidadeAtual);
       carregarPrimeiroMovimento(entidadeAtual);
     }
@@ -1035,6 +1042,14 @@ export default function Dashboard() {
     const { data: sessionData } = await supabase.auth.getSession();
     if (entidadeAtual === ent.id) setEntidadeAtual(null);
     carregarEntidades(sessionData.session.user.id);
+  }
+
+  async function salvarMesInicioControle(valorMesInput) {
+    const dataCompleta = valorMesInput ? `${valorMesInput}-01` : null;
+    const { error } = await supabase.from('entidades').update({ mes_inicio_controle: dataCompleta }).eq('id', entidadeAtual);
+    if (!error) {
+      setEntidades((lista) => lista.map((e) => (e.id === entidadeAtual ? { ...e, mes_inicio_controle: dataCompleta } : e)));
+    }
   }
 
   // ---------- Contas ----------
@@ -1761,12 +1776,15 @@ export default function Dashboard() {
     }, {})
   ).sort((a, b) => b.valor - a.valor);
 
+  const entidadeAtualObj = entidades.find((e) => e.id === entidadeAtual);
+
   const mesInicioVisivel = (() => {
-    if (!primeiroMovimento) return 0;
-    const anoPrimeiro = parseInt(primeiroMovimento.slice(0, 4), 10);
-    if (dataAtual.ano < anoPrimeiro) return 12; // ano inteiro antes do início: nenhum mês visível
-    if (dataAtual.ano > anoPrimeiro) return 0;
-    return parseInt(primeiroMovimento.slice(5, 7), 10) - 1;
+    const referencia = entidadeAtualObj?.mes_inicio_controle || primeiroMovimento;
+    if (!referencia) return 0;
+    const anoReferencia = parseInt(referencia.slice(0, 4), 10);
+    if (dataAtual.ano < anoReferencia) return 12; // ano inteiro antes do início: nenhum mês visível
+    if (dataAtual.ano > anoReferencia) return 0;
+    return parseInt(referencia.slice(5, 7), 10) - 1;
   })();
 
   const indicesMesesVisiveis = Array.from({ length: 12 - mesInicioVisivel }, (_, i) => mesInicioVisivel + i);
@@ -2078,6 +2096,23 @@ export default function Dashboard() {
 
       {aba === 'relatorios' ? (
         <>
+          <div className="card" style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+            <span className="card-title" style={{ marginRight: 4 }}>Considerando dados a partir de</span>
+            <input
+              className="input"
+              type="month"
+              style={{ width: 160 }}
+              value={entidadeAtualObj?.mes_inicio_controle ? entidadeAtualObj.mes_inicio_controle.slice(0, 7) : ''}
+              onChange={(e) => salvarMesInicioControle(e.target.value)}
+            />
+            {entidadeAtualObj?.mes_inicio_controle && (
+              <button onClick={() => salvarMesInicioControle('')} className="btn-link">usar detecção automática</button>
+            )}
+            <p className="empty-hint" style={{ margin: 0, width: '100%' }}>
+              Meses anteriores a essa data ficam fora dos relatórios, mas continuam acessíveis navegando pelo Painel.
+            </p>
+          </div>
+
           <div className="card" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
             <span className="card-title" style={{ marginRight: 4 }}>Exportar</span>
             <button onClick={exportarMesCSV} className="btn btn-ghost">CSV do mês</button>

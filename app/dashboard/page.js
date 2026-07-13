@@ -664,6 +664,107 @@ export default function Dashboard() {
 
   // ---------- Navegação de mês/ano ----------
 
+  function baixarArquivo(conteudo, nomeArquivo, tipoMime) {
+    const blob = new Blob([conteudo], { type: tipoMime });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = nomeArquivo;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  function gerarCSV(lista) {
+    const cabecalho = ['Data', 'Tipo', 'Categoria', 'Descrição', 'Valor', 'Conta'];
+    const linhas = lista.map((t) => {
+      const conta = contas.find((c) => c.id === t.conta_id);
+      const valorFormatado = Number(t.valor).toFixed(2).replace('.', ',');
+      return [
+        t.data,
+        t.tipo === 'entrada' ? 'Entrada' : 'Saída',
+        (t.categoria || '').replace(/;/g, ','),
+        (t.descricao || '').replace(/;/g, ','),
+        valorFormatado,
+        conta ? conta.nome : '',
+      ].join(';');
+    });
+    return '\uFEFF' + [cabecalho.join(';'), ...linhas].join('\n');
+  }
+
+  function exportarMesCSV() {
+    const csv = gerarCSV(transacoes);
+    baixarArquivo(csv, `lancamentos_${NOMES_MESES[dataAtual.mes].toLowerCase()}_${dataAtual.ano}.csv`, 'text/csv;charset=utf-8;');
+  }
+
+  async function exportarAnoCSV() {
+    const { data } = await supabase
+      .from('transacoes')
+      .select('*')
+      .eq('entidade_id', entidadeAtual)
+      .gte('data', `${dataAtual.ano}-01-01`)
+      .lte('data', `${dataAtual.ano}-12-31`)
+      .order('data', { ascending: true });
+
+    const csv = gerarCSV(data || []);
+    baixarArquivo(csv, `lancamentos_${dataAtual.ano}.csv`, 'text/csv;charset=utf-8;');
+  }
+
+  function exportarPDF() {
+    const entidadeNome = entidades.find((e) => e.id === entidadeAtual)?.nome_entidade || '';
+
+    const linhasHtml = transacoes.map((t) => {
+      const conta = contas.find((c) => c.id === t.conta_id);
+      return `<tr>
+        <td>${t.data}</td>
+        <td>${t.tipo === 'entrada' ? 'Entrada' : 'Saída'}</td>
+        <td>${t.categoria || ''}</td>
+        <td>${t.descricao || ''}</td>
+        <td>${conta ? conta.nome : ''}</td>
+        <td style="text-align:right">${t.tipo === 'entrada' ? '+' : '−'} R$ ${Number(t.valor).toFixed(2)}</td>
+      </tr>`;
+    }).join('');
+
+    const totalEntradasPdf = transacoes.filter((t) => t.tipo === 'entrada').reduce((s, t) => s + Number(t.valor), 0);
+    const totalSaidasPdf = transacoes.filter((t) => t.tipo === 'saida').reduce((s, t) => s + Number(t.valor), 0);
+
+    const janela = window.open('', '_blank');
+    if (!janela) return;
+
+    janela.document.write(`
+      <html>
+      <head>
+        <title>Lancamentos ${NOMES_MESES[dataAtual.mes]} ${dataAtual.ano}</title>
+        <meta charset="utf-8" />
+        <style>
+          body { font-family: Arial, sans-serif; padding: 24px; color: #1D2A22; }
+          h1 { font-size: 18px; margin-bottom: 4px; }
+          p.sub { color: #666; font-size: 13px; margin-top: 0; }
+          table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 16px; }
+          th, td { padding: 6px 8px; border-bottom: 1px solid #ddd; text-align: left; }
+          th { background: #f2f2f2; }
+          tfoot td { font-weight: bold; border-top: 2px solid #333; }
+        </style>
+      </head>
+      <body>
+        <h1>${entidadeNome}</h1>
+        <p class="sub">Lançamentos de ${NOMES_MESES[dataAtual.mes]} de ${dataAtual.ano}</p>
+        <table>
+          <thead><tr><th>Data</th><th>Tipo</th><th>Categoria</th><th>Descrição</th><th>Conta</th><th style="text-align:right">Valor</th></tr></thead>
+          <tbody>${linhasHtml}</tbody>
+          <tfoot>
+            <tr><td colspan="5">Total entradas</td><td style="text-align:right">R$ ${totalEntradasPdf.toFixed(2)}</td></tr>
+            <tr><td colspan="5">Total saídas</td><td style="text-align:right">R$ ${totalSaidasPdf.toFixed(2)}</td></tr>
+          </tfoot>
+        </table>
+        <script>window.onload = function () { window.print(); };</script>
+      </body>
+      </html>
+    `);
+    janela.document.close();
+  }
+
   function mesAnterior() {
     setDataAtual((d) => (d.mes === 0 ? { ano: d.ano - 1, mes: 11 } : { ano: d.ano, mes: d.mes - 1 }));
   }
@@ -1334,6 +1435,13 @@ export default function Dashboard() {
 
       {aba === 'relatorios' ? (
         <>
+          <div className="card" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+            <span className="card-title" style={{ marginRight: 4 }}>Exportar</span>
+            <button onClick={exportarMesCSV} className="btn btn-ghost">CSV do mês</button>
+            <button onClick={exportarAnoCSV} className="btn btn-ghost">CSV do ano</button>
+            <button onClick={exportarPDF} className="btn btn-ghost">PDF do mês</button>
+          </div>
+
           {comparativoPFPJ.length > 1 && (
             <div className="card">
               <p className="card-title" style={{ marginBottom: 4 }}>Comparativo PF x PJ — {NOMES_MESES[dataAtual.mes]}</p>

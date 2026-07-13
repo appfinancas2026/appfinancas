@@ -459,6 +459,16 @@ button, input, select { font-family: var(--font-body); }
 
 .layout-content { flex: 1; min-width: 0; }
 
+[id^="secao-"] {
+  scroll-margin-top: 178px;
+}
+
+@media (max-width: 620px) {
+  [id^="secao-"] {
+    scroll-margin-top: 150px;
+  }
+}
+
 .sidebar-backdrop { display: none; }
 
 @media (max-width: 620px) {

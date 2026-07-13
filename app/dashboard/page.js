@@ -2,18 +2,18 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import {
-  ResponsiveContainer, PieChart, Pie, Cell, Tooltip,
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend,
-} from 'recharts';
+import dynamic from 'next/dynamic';
 import { supabase } from '../../lib/supabase';
+
+const GraficoComparativoPFPJ = dynamic(() => import('./RelatoriosCharts').then((m) => m.GraficoComparativoPFPJ), { ssr: false, loading: () => <p className="empty-hint">Carregando gráfico...</p> });
+const GraficoEntradasSaidas = dynamic(() => import('./RelatoriosCharts').then((m) => m.GraficoEntradasSaidas), { ssr: false, loading: () => <p className="empty-hint">Carregando gráfico...</p> });
+const GraficoEvolucaoPatrimonio = dynamic(() => import('./RelatoriosCharts').then((m) => m.GraficoEvolucaoPatrimonio), { ssr: false, loading: () => <p className="empty-hint">Carregando gráfico...</p> });
+const GraficoDespesasPorCategoria = dynamic(() => import('./RelatoriosCharts').then((m) => m.GraficoDespesasPorCategoria), { ssr: false, loading: () => <p className="empty-hint">Carregando gráfico...</p> });
 
 const NOMES_MESES = [
   'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
   'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
 ];
-
-const CORES_GRAFICO = ['#0F6E56', '#C68A2E', '#B4472F', '#3B6E8F', '#7A5C9E', '#5C8A3A', '#A6763F', '#4A5A6B'];
 
 const TEMAS_CORES = {
   teal: { primary: '#0F6E56', dark: '#0A4F3D', tint: '#E1F1EA' },
@@ -1298,49 +1298,21 @@ export default function Dashboard() {
             <div className="card">
               <p className="card-title" style={{ marginBottom: 4 }}>Comparativo PF x PJ — {NOMES_MESES[dataAtual.mes]}</p>
               <p className="empty-hint" style={{ marginTop: 0, marginBottom: 12 }}>Quanto cada entidade recebeu e gastou neste mês.</p>
-              <ResponsiveContainer width="100%" height={220}>
-                <BarChart data={comparativoPFPJ}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--surface-alt)" />
-                  <XAxis dataKey="nome" tick={{ fontSize: 12 }} />
-                  <YAxis tick={{ fontSize: 12 }} width={40} />
-                  <Tooltip formatter={(v) => formatarMoeda(v)} contentStyle={{ borderRadius: 8, border: '1px solid var(--border)', fontSize: 13 }} />
-                  <Legend wrapperStyle={{ fontSize: 12 }} />
-                  <Bar dataKey="Entradas" fill="#0F6E56" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="Saídas" fill="#B4472F" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
+              <GraficoComparativoPFPJ dados={comparativoPFPJ} />
             </div>
           )}
 
           <div className="card">
             <p className="card-title" style={{ marginBottom: 4 }}>Entradas x saídas — {dataAtual.ano}</p>
             <p className="empty-hint" style={{ marginTop: 0, marginBottom: 12 }}>Transferências entre contas não entram nesse total.</p>
-            <ResponsiveContainer width="100%" height={240}>
-              <BarChart data={dadosBarras}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--surface-alt)" />
-                <XAxis dataKey="mes" tick={{ fontSize: 12 }} />
-                <YAxis tick={{ fontSize: 12 }} width={40} />
-                <Tooltip formatter={(v) => formatarMoeda(v)} contentStyle={{ borderRadius: 8, border: '1px solid var(--border)', fontSize: 13 }} />
-                <Legend wrapperStyle={{ fontSize: 12 }} />
-                <Bar dataKey="Entradas" fill="#0F6E56" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="Saídas" fill="#B4472F" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+            <GraficoEntradasSaidas dados={dadosBarras} />
           </div>
 
           {evolucaoPatrimonio.length > 1 && (
             <div className="card">
               <p className="card-title" style={{ marginBottom: 4 }}>Evolução do patrimônio — {dataAtual.ano}</p>
               <p className="empty-hint" style={{ marginTop: 0, marginBottom: 12 }}>Soma do saldo de todas as contas ao fim de cada mês.</p>
-              <ResponsiveContainer width="100%" height={220}>
-                <BarChart data={evolucaoPatrimonio}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--surface-alt)" />
-                  <XAxis dataKey="mes" tick={{ fontSize: 12 }} />
-                  <YAxis tick={{ fontSize: 12 }} width={50} />
-                  <Tooltip formatter={(v) => formatarMoeda(v)} contentStyle={{ borderRadius: 8, border: '1px solid var(--border)', fontSize: 13 }} />
-                  <Bar dataKey="Patrimônio" fill="#0F6E56" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
+              <GraficoEvolucaoPatrimonio dados={evolucaoPatrimonio} />
             </div>
           )}
 
@@ -1349,17 +1321,7 @@ export default function Dashboard() {
             {despesasPorCategoria.length === 0 ? (
               <p className="empty-hint">Nenhuma despesa neste mês ainda.</p>
             ) : (
-              <ResponsiveContainer width="100%" height={260}>
-                <PieChart>
-                  <Pie data={despesasPorCategoria} dataKey="valor" nameKey="categoria" innerRadius={55} outerRadius={90} paddingAngle={2}>
-                    {despesasPorCategoria.map((entry, index) => (
-                      <Cell key={entry.categoria} fill={CORES_GRAFICO[index % CORES_GRAFICO.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip formatter={(v) => formatarMoeda(v)} contentStyle={{ borderRadius: 8, border: '1px solid var(--border)', fontSize: 13 }} />
-                  <Legend wrapperStyle={{ fontSize: 12 }} />
-                </PieChart>
-              </ResponsiveContainer>
+              <GraficoDespesasPorCategoria dados={despesasPorCategoria} />
             )}
           </div>
 

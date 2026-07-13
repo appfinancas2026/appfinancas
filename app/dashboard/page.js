@@ -1926,10 +1926,13 @@ export default function Dashboard() {
     <div className={`app-shell ${valoresOcultos ? 'valores-ocultos' : ''}`}>
       <div className="topbar">
         <div className="topbar-row">
-          <span className="brand">
-            {perfil.logo_url ? <img src={perfil.logo_url} alt="Logo" className="brand-logo" /> : <span className="brand-mark">R$</span>}
-            <span className="brand-text">{perfil.nome_exibicao || 'Controle Financeiro'}</span>
-          </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <button onClick={alternarSidebar} className="mobile-menu-btn" title="Menu">☰</button>
+            <span className="brand">
+              {perfil.logo_url ? <img src={perfil.logo_url} alt="Logo" className="brand-logo" /> : <span className="brand-mark">R$</span>}
+              <span className="brand-text">{perfil.nome_exibicao || 'Controle Financeiro'}</span>
+            </span>
+          </div>
           <div className="settings-wrap">
             <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
               <button onClick={() => setMostrarConfiguracoes((v) => !v)} className="btn-icon" title="Configurações">⚙</button>
@@ -2249,6 +2252,7 @@ export default function Dashboard() {
             </p>
           </div>
 
+          <div className="cards-grid">
           <div className="card card-contas" id="secao-contas">
             <div className="card-header">
               <span className="card-title-group"><span className="card-icon">🏦</span><p className="card-title">Contas</p></span>
@@ -2625,6 +2629,7 @@ export default function Dashboard() {
             aberto={secaoAberta.metas}
             onAlternarAberto={() => setSecaoAberta({ ...secaoAberta, metas: !secaoAberta.metas })}
           />
+          </div>
 
           <div className="card card-lancamentos" id="secao-lancamentos">
             <span className="card-title-group" style={{ marginBottom: 14 }}><span className="card-icon">🧾</span><p className="card-title">Novo lançamento</p></span>

@@ -66,9 +66,23 @@ h1, h2, h3, .heading, .amount {
 button, input, select { font-family: var(--font-body); }
 
 .app-shell {
-  max-width: 720px;
+  max-width: 1360px;
   margin: 0 auto;
-  padding: 0 20px 64px;
+  padding: 0 28px 64px;
+}
+
+.cards-grid {
+  display: block;
+}
+
+@media (min-width: 900px) {
+  .cards-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0 22px;
+    align-items: start;
+  }
+  .cards-grid > * { margin-bottom: 22px; }
 }
 
 /* ---------- Topbar (sempre visível) ---------- */
@@ -470,6 +484,24 @@ button, input, select { font-family: var(--font-body); }
 }
 
 .sidebar-backdrop { display: none; }
+
+.mobile-menu-btn { display: none; }
+
+@media (max-width: 620px) {
+  .mobile-menu-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    font-size: 16px;
+    cursor: pointer;
+  }
+}
 
 @media (max-width: 620px) {
   .sidebar {

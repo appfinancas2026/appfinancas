@@ -209,7 +209,7 @@ export default function Dashboard() {
   const [valorTransferencia, setValorTransferencia] = useState('');
 
   const [mostrarImportar, setMostrarImportar] = useState(false);
-  const [contaImportacaoId, setContaImportacaoId] = useState('');
+  const [destinoImportacaoId, setDestinoImportacaoId] = useState('');
   const [previewImportacao, setPreviewImportacao] = useState([]);
   const [nomeArquivoImportado, setNomeArquivoImportado] = useState('');
   const [importando, setImportando] = useState(false);
@@ -1499,42 +1499,49 @@ export default function Dashboard() {
   }
 
   async function confirmarImportacao() {
-    if (!contaImportacaoId || previewImportacao.length === 0) return;
+    if (!destinoImportacaoId || previewImportacao.length === 0) return;
     setImportando(true);
+
+    const [tipoDestino, idDestino] = destinoImportacaoId.split(':');
+    const cartaoSelecionado = tipoDestino === 'cartao' ? cartoes.find((c) => c.id === idDestino) : null;
 
     const selecionadas = previewImportacao.filter((t) => t.incluir);
     const referencias = selecionadas.map((t) => t.referencia_externa).filter(Boolean);
 
     let existentes = new Set();
     if (referencias.length > 0) {
-      const { data } = await supabase
-        .from('transacoes')
-        .select('referencia_externa')
-        .eq('conta_id', contaImportacaoId)
-        .in('referencia_externa', referencias);
+      let consulta = supabase.from('transacoes').select('referencia_externa').in('referencia_externa', referencias);
+      consulta = tipoDestino === 'cartao' ? consulta.eq('cartao_id', idDestino) : consulta.eq('conta_id', idDestino);
+      const { data } = await consulta;
       existentes = new Set((data || []).map((t) => t.referencia_externa));
     }
 
     const novas = selecionadas
       .filter((t) => !t.referencia_externa || !existentes.has(t.referencia_externa))
-      .map((t) => ({
-        entidade_id: entidadeAtual,
-        conta_id: contaImportacaoId,
-        valor: t.valor,
-        tipo: t.tipo,
-        categoria: 'importado',
-        descricao: t.descricao,
-        data: t.data,
-        origem: 'importado',
-        status: 'pago',
-        referencia_externa: t.referencia_externa,
-      }));
+      .map((t) => {
+        const base = {
+          entidade_id: entidadeAtual,
+          valor: t.valor,
+          tipo: t.tipo,
+          categoria: 'importado',
+          descricao: t.descricao,
+          data: t.data,
+          origem: 'importado',
+          status: 'pago',
+          referencia_externa: t.referencia_externa,
+        };
+
+        if (tipoDestino === 'cartao') {
+          return { ...base, tipo: 'saida', cartao_id: idDestino, mes_fatura: calcularMesFaturaCompra(cartaoSelecionado, t.data) };
+        }
+        return { ...base, conta_id: idDestino };
+      });
 
     const ignoradas = selecionadas.length - novas.length;
 
     if (novas.length > 0) {
       await supabase.from('transacoes').insert(novas);
-      await recalcularSaldoConta(contaImportacaoId);
+      if (tipoDestino === 'conta') await recalcularSaldoConta(idDestino);
     }
 
     setImportando(false);
@@ -1543,6 +1550,7 @@ export default function Dashboard() {
     setMostrarImportar(false);
     carregarContas(entidadeAtual);
     carregarTransacoesDoMes(entidadeAtual, dataAtual.ano, dataAtual.mes);
+    if (tipoDestino === 'cartao') carregarFaturas(entidadeAtual, cartoes);
 
     window.alert(`${novas.length} lançamento(s) importado(s).${ignoradas > 0 ? ` ${ignoradas} já existiam e foram ignorados.` : ''}`);
   }
@@ -2186,15 +2194,30 @@ export default function Dashboard() {
                 {mostrarImportar && (
                   <div style={{ marginBottom: 12, padding: 12, background: 'var(--surface-alt)', borderRadius: 'var(--radius-sm)' }}>
                     <div className="form-row" style={{ marginBottom: previewImportacao.length > 0 ? 12 : 0 }}>
-                      <select className="input" value={contaImportacaoId} onChange={(e) => setContaImportacaoId(e.target.value)} required>
-                        <option value="">Importar para qual conta</option>
-                        {contas.map((c) => (<option key={c.id} value={c.id}>{c.nome}</option>))}
+                      <select className="input" value={destinoImportacaoId} onChange={(e) => setDestinoImportacaoId(e.target.value)} required>
+                        <option value="">Importar para...</option>
+                        {contas.length > 0 && (
+                          <optgroup label="Contas">
+                            {contas.map((c) => (<option key={`conta:${c.id}`} value={`conta:${c.id}`}>{c.nome}</option>))}
+                          </optgroup>
+                        )}
+                        {cartoes.length > 0 && (
+                          <optgroup label="Cartões de crédito">
+                            {cartoes.map((c) => (<option key={`cartao:${c.id}`} value={`cartao:${c.id}`}>{c.nome} (fatura)</option>))}
+                          </optgroup>
+                        )}
                       </select>
                       <label className="btn btn-ghost" style={{ cursor: 'pointer' }}>
                         {nomeArquivoImportado || 'Escolher arquivo .ofx ou .csv'}
                         <input type="file" accept=".ofx,.csv" onChange={handleArquivoExtrato} style={{ display: 'none' }} />
                       </label>
                     </div>
+
+                    {destinoImportacaoId.startsWith('cartao:') && previewImportacao.length > 0 && (
+                      <p className="empty-hint" style={{ margin: '0 0 8px' }}>
+                        Todos os itens selecionados entram como compras (despesa) na fatura correspondente à data de cada um.
+                      </p>
+                    )}
 
                     {previewImportacao.length > 0 && (
                       <>
@@ -2219,7 +2242,7 @@ export default function Dashboard() {
                           ))}
                         </div>
                         <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-                          <button onClick={confirmarImportacao} className="btn btn-primary" disabled={!contaImportacaoId || importando}>
+                          <button onClick={confirmarImportacao} className="btn btn-primary" disabled={!destinoImportacaoId || importando}>
                             {importando ? 'Importando...' : `Importar ${previewImportacao.filter((t) => t.incluir).length} selecionado(s)`}
                           </button>
                           <button onClick={() => { setPreviewImportacao([]); setNomeArquivoImportado(''); }} className="btn-link">Cancelar</button>

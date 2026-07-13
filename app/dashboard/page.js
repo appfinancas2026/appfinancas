@@ -4,6 +4,11 @@ import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { supabase } from '../../lib/supabase';
+import { TEMAS_CORES } from '../../lib/temas';
+import TelaPin from './TelaPin';
+import Sidebar from './Sidebar';
+import MenuConfiguracoes from './MenuConfiguracoes';
+import CardMetas from './CardMetas';
 
 const GraficoComparativoPFPJ = dynamic(() => import('./RelatoriosCharts').then((m) => m.GraficoComparativoPFPJ), { ssr: false, loading: () => <p className="empty-hint">Carregando gráfico...</p> });
 const GraficoEntradasSaidas = dynamic(() => import('./RelatoriosCharts').then((m) => m.GraficoEntradasSaidas), { ssr: false, loading: () => <p className="empty-hint">Carregando gráfico...</p> });
@@ -14,15 +19,6 @@ const NOMES_MESES = [
   'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
   'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
 ];
-
-const TEMAS_CORES = {
-  teal: { primary: '#0F6E56', dark: '#0A4F3D', tint: '#E1F1EA' },
-  azul: { primary: '#1B5FA8', dark: '#123F73', tint: '#E1EBF7' },
-  roxo: { primary: '#6B4FA0', dark: '#4A3573', tint: '#ECE6F5' },
-  vinho: { primary: '#8A3350', dark: '#5E2136', tint: '#F5E3EA' },
-  oliva: { primary: '#5C7A3A', dark: '#3E5527', tint: '#EAF0DF' },
-  grafite: { primary: '#3B5568', dark: '#263845', tint: '#E4EAEE' },
-};
 
 function pad2(n) {
   return String(n).padStart(2, '0');
@@ -239,18 +235,6 @@ export default function Dashboard() {
   const [edicaoOcorrenciaId, setEdicaoOcorrenciaId] = useState(null);
   const [formOcorrencia, setFormOcorrencia] = useState({ valor: '', conta_id: '' });
 
-  const [metas, setMetas] = useState([]);
-  const [mostrarNovaMeta, setMostrarNovaMeta] = useState(false);
-  const [nomeMeta, setNomeMeta] = useState('');
-  const [valorAlvoMeta, setValorAlvoMeta] = useState('');
-  const [dataAlvoMeta, setDataAlvoMeta] = useState('');
-  const [contaMetaId, setContaMetaId] = useState('');
-  const [edicaoMetaId, setEdicaoMetaId] = useState(null);
-  const [formMeta, setFormMeta] = useState({ nome: '', valor_alvo: '', data_alvo: '', conta_id: '' });
-  const [expandirMetas, setExpandirMetas] = useState(false);
-  const [aporteMetaId, setAporteMetaId] = useState(null);
-  const [valorAporte, setValorAporte] = useState('');
-
   const [cartoes, setCartoes] = useState([]);
   const [faturasPorCartao, setFaturasPorCartao] = useState({});
   const [mostrarNovoCartao, setMostrarNovoCartao] = useState(false);
@@ -342,17 +326,6 @@ export default function Dashboard() {
       .order('dia_referencia', { ascending: true });
 
     setLancamentosFixos(data || []);
-  }, []);
-
-  const carregarMetas = useCallback(async (entidadeId) => {
-    if (!entidadeId) return;
-    const { data } = await supabase
-      .from('metas')
-      .select('*')
-      .eq('entidade_id', entidadeId)
-      .order('created_at', { ascending: true });
-
-    setMetas(data || []);
   }, []);
 
   const carregarCartoes = useCallback(async (entidadeId) => {
@@ -803,26 +776,14 @@ export default function Dashboard() {
     }
   }
 
-  function renderTeclado() {
-    const teclas = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', '⌫'];
-    return (
-      <div className="pin-keypad">
-        {teclas.map((t, i) => (t === '' ? <span key={i} /> : (
-          <button key={i} type="button" className="pin-key" onClick={() => digitarPin(t)}>{t}</button>
-        )))}
-      </div>
-    );
-  }
-
   useEffect(() => {
     if (entidadeAtual) {
       setContaLancamentoId('');
       carregarContas(entidadeAtual);
       carregarLancamentosFixos(entidadeAtual);
-      carregarMetas(entidadeAtual);
       carregarCartoes(entidadeAtual);
     }
-  }, [entidadeAtual, carregarContas, carregarLancamentosFixos, carregarMetas, carregarCartoes]);
+  }, [entidadeAtual, carregarContas, carregarLancamentosFixos, carregarCartoes]);
 
   useEffect(() => {
     if (entidadeAtual) {
@@ -1159,81 +1120,6 @@ export default function Dashboard() {
       await supabase.from('contas').update({ principal: true }).eq('id', conta.id);
     }
     carregarContas(entidadeAtual);
-  }
-
-  // ---------- Metas financeiras ----------
-
-  async function adicionarMeta(e) {
-    e.preventDefault();
-    if (!entidadeAtual || !nomeMeta || !valorAlvoMeta) return;
-
-    const { error } = await supabase.from('metas').insert({
-      entidade_id: entidadeAtual,
-      nome: nomeMeta,
-      valor_alvo: parseFloat(valorAlvoMeta),
-      data_alvo: dataAlvoMeta || null,
-      conta_id: contaMetaId || null,
-    });
-
-    if (!error) {
-      setNomeMeta('');
-      setValorAlvoMeta('');
-      setDataAlvoMeta('');
-      setContaMetaId('');
-      setMostrarNovaMeta(false);
-      carregarMetas(entidadeAtual);
-    }
-  }
-
-  function iniciarEdicaoMeta(m) {
-    setEdicaoMetaId(m.id);
-    setFormMeta({ nome: m.nome, valor_alvo: m.valor_alvo, data_alvo: m.data_alvo || '', conta_id: m.conta_id || '' });
-  }
-
-  async function salvarEdicaoMeta(e) {
-    e.preventDefault();
-    const { error } = await supabase
-      .from('metas')
-      .update({
-        nome: formMeta.nome,
-        valor_alvo: parseFloat(formMeta.valor_alvo),
-        data_alvo: formMeta.data_alvo || null,
-        conta_id: formMeta.conta_id || null,
-      })
-      .eq('id', edicaoMetaId);
-
-    if (!error) {
-      setEdicaoMetaId(null);
-      carregarMetas(entidadeAtual);
-    }
-  }
-
-  async function excluirMeta(id) {
-    if (!window.confirm('Excluir esta meta?')) return;
-    const { error } = await supabase.from('metas').delete().eq('id', id);
-    if (!error) carregarMetas(entidadeAtual);
-  }
-
-  function iniciarAporte(meta) {
-    setAporteMetaId(meta.id);
-    setValorAporte('');
-  }
-
-  async function confirmarAporte(e, meta) {
-    e.preventDefault();
-    const incremento = parseFloat(valorAporte);
-    if (!incremento) return;
-
-    const { error } = await supabase
-      .from('metas')
-      .update({ valor_atual: Number(meta.valor_atual) + incremento })
-      .eq('id', meta.id);
-
-    if (!error) {
-      setAporteMetaId(null);
-      setValorAporte('');
-      carregarMetas(entidadeAtual);
-    }
   }
 
   // ---------- Cartões de crédito ----------
@@ -1805,34 +1691,26 @@ export default function Dashboard() {
   if (criandoPin) {
     const confirmando = !!pinNovoPrimeiraEtapa;
     return (
-      <div className="lock-screen">
-        <div className="lock-card">
-          <span className="brand" style={{ justifyContent: 'center', marginBottom: 6 }}>{perfil.logo_url ? <img src={perfil.logo_url} alt="Logo" className="brand-logo" /> : <span className="brand-mark">R$</span>}</span>
-          <p className="card-title" style={{ marginTop: 10 }}>{confirmando ? 'Confirme o PIN' : 'Crie um PIN de 4 dígitos'}</p>
-          <p className="empty-hint">{pinErro ? 'Os PINs não coincidem, tente de novo.' : 'Usado só para reabrir o app rapidamente.'}</p>
-          <div className="pin-dots">
-            {[0, 1, 2, 3].map((i) => <span key={i} className={`pin-dot ${i < pinDigitado.length ? 'pin-dot-filled' : ''}`} />)}
-          </div>
-          {renderTeclado()}
-          <button onClick={cancelarCriacaoPin} className="btn-link" style={{ marginTop: 14 }}>Cancelar</button>
-        </div>
-      </div>
+      <TelaPin
+        titulo={confirmando ? 'Confirme o PIN' : 'Crie um PIN de 4 dígitos'}
+        subtitulo={pinErro ? 'Os PINs não coincidem, tente de novo.' : 'Usado só para reabrir o app rapidamente.'}
+        logoUrl={perfil.logo_url}
+        pinDigitado={pinDigitado}
+        onTecla={digitarPin}
+        onCancelar={cancelarCriacaoPin}
+      />
     );
   }
 
   if (pinConfigurado && !pinDesbloqueado) {
     return (
-      <div className="lock-screen">
-        <div className="lock-card">
-          <span className="brand" style={{ justifyContent: 'center', marginBottom: 6 }}>{perfil.logo_url ? <img src={perfil.logo_url} alt="Logo" className="brand-logo" /> : <span className="brand-mark">R$</span>}</span>
-          <p className="card-title" style={{ marginTop: 10 }}>Digite seu PIN</p>
-          <p className="empty-hint">{pinErro ? 'PIN incorreto.' : 'Controle Financeiro bloqueado'}</p>
-          <div className="pin-dots">
-            {[0, 1, 2, 3].map((i) => <span key={i} className={`pin-dot ${i < pinDigitado.length ? 'pin-dot-filled' : ''}`} />)}
-          </div>
-          {renderTeclado()}
-        </div>
-      </div>
+      <TelaPin
+        titulo="Digite seu PIN"
+        subtitulo={pinErro ? 'PIN incorreto.' : 'Controle Financeiro bloqueado'}
+        logoUrl={perfil.logo_url}
+        pinDigitado={pinDigitado}
+        onTecla={digitarPin}
+      />
     );
   }
 
@@ -2031,36 +1909,18 @@ export default function Dashboard() {
 
   return (
     <div className="layout-root">
-      <div className={`sidebar-backdrop ${sidebarMobileAberta ? 'mobile-open' : ''}`} onClick={() => setSidebarMobileAberta(false)} />
-      <aside className={`sidebar ${sidebarAberta ? '' : 'collapsed'} ${sidebarMobileAberta ? 'mobile-open' : ''}`}>
-        <button onClick={alternarSidebar} className="sidebar-toggle" title="Recolher/expandir menu">☰</button>
-        <div className="sidebar-brand">
-          {perfil.logo_url ? <img src={perfil.logo_url} alt="Logo" className="brand-logo" /> : <span className="brand-mark">R$</span>}
-          <span className="brand-text" style={{ fontWeight: 700, fontSize: 14 }}>{perfil.nome_exibicao || 'Finanças'}</span>
-        </div>
-
-        <button onClick={() => { setAba('painel'); setSidebarMobileAberta(false); }} className={`sidebar-link ${aba === 'painel' ? 'active' : ''}`}>
-          <span className="sidebar-icon">🏠</span><span className="sidebar-label">Painel</span>
-        </button>
-        <button onClick={() => { setAba('relatorios'); setSidebarMobileAberta(false); }} className={`sidebar-link ${aba === 'relatorios' ? 'active' : ''}`}>
-          <span className="sidebar-icon">📊</span><span className="sidebar-label">Relatórios</span>
-        </button>
-
-        <div className="sidebar-divider" />
-
-        <button onClick={() => irParaSecao('secao-contas')} className="sidebar-link"><span className="sidebar-icon">🏦</span><span className="sidebar-label">Contas</span></button>
-        <button onClick={() => irParaSecao('secao-cartoes')} className="sidebar-link"><span className="sidebar-icon">💳</span><span className="sidebar-label">Cartões</span></button>
-        <button onClick={() => irParaSecao('secao-receitas')} className="sidebar-link"><span className="sidebar-icon">⬇</span><span className="sidebar-label">Receitas fixas</span></button>
-        <button onClick={() => irParaSecao('secao-despesas')} className="sidebar-link"><span className="sidebar-icon">⬆</span><span className="sidebar-label">Despesas fixas</span></button>
-        <button onClick={() => irParaSecao('secao-metas')} className="sidebar-link"><span className="sidebar-icon">🎯</span><span className="sidebar-label">Metas</span></button>
-        <button onClick={() => irParaSecao('secao-lancamentos')} className="sidebar-link"><span className="sidebar-icon">🧾</span><span className="sidebar-label">Lançamentos</span></button>
-
-        <div className="sidebar-footer">
-          <div className="sidebar-divider" />
-          <button onClick={() => setMostrarConfiguracoes((v) => !v)} className="sidebar-link"><span className="sidebar-icon">⚙</span><span className="sidebar-label">Configurações</span></button>
-          <button onClick={sair} className="sidebar-link"><span className="sidebar-icon">🚪</span><span className="sidebar-label">Sair</span></button>
-        </div>
-      </aside>
+      <Sidebar
+        perfil={perfil}
+        aba={aba}
+        setAba={setAba}
+        irParaSecao={irParaSecao}
+        sair={sair}
+        sidebarAberta={sidebarAberta}
+        sidebarMobileAberta={sidebarMobileAberta}
+        setSidebarMobileAberta={setSidebarMobileAberta}
+        alternarSidebar={alternarSidebar}
+        setMostrarConfiguracoes={setMostrarConfiguracoes}
+      />
 
       <div className="layout-content">
     <div className={`app-shell ${valoresOcultos ? 'valores-ocultos' : ''}`}>
@@ -2076,60 +1936,20 @@ export default function Dashboard() {
               <button onClick={sair} className="btn-link">Sair</button>
             </div>
             {mostrarConfiguracoes && (
-              <div className="settings-menu">
-                <div className="settings-item">
-                  <span>Modo escuro</span>
-                  <button onClick={alternarTema} className={`toggle-switch ${tema === 'dark' ? 'on' : ''}`} />
-                </div>
-                <div className="settings-item">
-                  <span>Ocultar valores</span>
-                  <button onClick={alternarOcultarValores} className={`toggle-switch ${valoresOcultos ? 'on' : ''}`} />
-                </div>
-                <div className="settings-item">
-                  <span>Bloqueio por PIN</span>
-                  <button onClick={alternarBloqueioPin} className={`toggle-switch ${pinConfigurado ? 'on' : ''}`} />
-                </div>
-
-                <div className="settings-divider" />
-
-                <div className="settings-item" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 6 }}>
-                  <span>Logo</span>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    {perfil.logo_url ? <img src={perfil.logo_url} alt="Logo" className="brand-logo" /> : <span className="brand-mark">R$</span>}
-                    <label className="btn-link" style={{ cursor: 'pointer' }}>
-                      alterar
-                      <input type="file" accept="image/*" onChange={handleUploadLogo} style={{ display: 'none' }} />
-                    </label>
-                  </div>
-                </div>
-
-                <div className="settings-item" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 6 }}>
-                  <span>Nome de exibição</span>
-                  <input
-                    className="input"
-                    style={{ fontSize: 12, padding: '6px 8px', width: '100%' }}
-                    placeholder="Controle Financeiro"
-                    value={nomeExibicaoInput}
-                    onChange={(e) => setNomeExibicaoInput(e.target.value)}
-                    onBlur={() => salvarNomeExibicao(nomeExibicaoInput)}
-                  />
-                </div>
-
-                <div className="settings-item" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 6 }}>
-                  <span>Cor do tema</span>
-                  <div style={{ display: 'flex', gap: 6 }}>
-                    {Object.entries(TEMAS_CORES).map(([chave, t]) => (
-                      <button
-                        key={chave}
-                        onClick={() => selecionarTema(chave)}
-                        title={chave}
-                        className={`color-swatch ${(perfil.cor_destaque || 'teal') === chave ? 'selected' : ''}`}
-                        style={{ background: t.primary }}
-                      />
-                    ))}
-                  </div>
-                </div>
-              </div>
+              <MenuConfiguracoes
+                tema={tema}
+                alternarTema={alternarTema}
+                valoresOcultos={valoresOcultos}
+                alternarOcultarValores={alternarOcultarValores}
+                pinConfigurado={pinConfigurado}
+                alternarBloqueioPin={alternarBloqueioPin}
+                perfil={perfil}
+                handleUploadLogo={handleUploadLogo}
+                nomeExibicaoInput={nomeExibicaoInput}
+                setNomeExibicaoInput={setNomeExibicaoInput}
+                salvarNomeExibicao={salvarNomeExibicao}
+                selecionarTema={selecionarTema}
+              />
             )}
           </div>
         </div>
@@ -2799,98 +2619,12 @@ export default function Dashboard() {
             )}
           </div>
 
-          <div className="card" id="secao-metas">
-            <div className="card-header">
-              <span className="card-title-group"><span className="card-icon">🎯</span><p className="card-title">Metas financeiras</p></span>
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                <button onClick={() => setMostrarNovaMeta((v) => !v)} className="btn btn-ghost">+ Nova meta</button>
-                <button onClick={() => setSecaoAberta({ ...secaoAberta, metas: !secaoAberta.metas })} className="collapse-btn">{secaoAberta.metas ? '▾' : '▸'}</button>
-              </div>
-            </div>
-
-            {secaoAberta.metas && (
-              <>
-                {mostrarNovaMeta && (
-                  <form onSubmit={adicionarMeta} className="form-row" style={{ marginBottom: 12 }}>
-                    <input className="input" placeholder="Nome (ex: Viagem, Reserva)" value={nomeMeta} onChange={(e) => setNomeMeta(e.target.value)} required />
-                    <input className="input" style={{ width: 120 }} type="number" step="0.01" placeholder="Valor alvo" value={valorAlvoMeta} onChange={(e) => setValorAlvoMeta(e.target.value)} required />
-                    <input className="input" style={{ width: 150 }} type="date" value={dataAlvoMeta} onChange={(e) => setDataAlvoMeta(e.target.value)} />
-                    <select className="input" value={contaMetaId} onChange={(e) => setContaMetaId(e.target.value)}>
-                      <option value="">Controle manual (sem conta)</option>
-                      {contas.map((c) => (<option key={c.id} value={c.id}>Vincular: {c.nome}</option>))}
-                    </select>
-                    <button type="submit" className="btn btn-primary">Salvar</button>
-                  </form>
-                )}
-
-                {metas.length === 0 && <p className="empty-hint">Nenhuma meta cadastrada ainda.</p>}
-                {(expandirMetas ? metas : metas.slice(0, LIMITE_LISTA)).map((m) => {
-                  if (edicaoMetaId === m.id) {
-                    return (
-                      <form key={m.id} onSubmit={salvarEdicaoMeta} className="form-row" style={{ padding: '8px 0' }}>
-                        <input className="input" value={formMeta.nome} onChange={(e) => setFormMeta({ ...formMeta, nome: e.target.value })} required />
-                        <input className="input" style={{ width: 120 }} type="number" step="0.01" value={formMeta.valor_alvo} onChange={(e) => setFormMeta({ ...formMeta, valor_alvo: e.target.value })} required />
-                        <input className="input" style={{ width: 150 }} type="date" value={formMeta.data_alvo} onChange={(e) => setFormMeta({ ...formMeta, data_alvo: e.target.value })} />
-                        <select className="input" value={formMeta.conta_id} onChange={(e) => setFormMeta({ ...formMeta, conta_id: e.target.value })}>
-                          <option value="">Controle manual (sem conta)</option>
-                          {contas.map((c) => (<option key={c.id} value={c.id}>Vincular: {c.nome}</option>))}
-                        </select>
-                        <button type="submit" className="btn btn-primary">Salvar</button>
-                        <button type="button" onClick={() => setEdicaoMetaId(null)} className="btn-link">Cancelar</button>
-                      </form>
-                    );
-                  }
-
-                  const contaVinculada = contas.find((c) => c.id === m.conta_id);
-                  const progresso = contaVinculada ? Number(contaVinculada.saldo_atual) : Number(m.valor_atual);
-                  const percentual = Math.max(0, Math.min(100, (progresso / Number(m.valor_alvo)) * 100));
-                  const concluida = progresso >= Number(m.valor_alvo);
-
-                  let prazoTexto = null;
-                  if (m.data_alvo) {
-                    const dias = Math.ceil((new Date(m.data_alvo) - new Date()) / (1000 * 60 * 60 * 24));
-                    prazoTexto = dias < 0 ? `prazo vencido há ${Math.abs(dias)}d` : dias === 0 ? 'prazo é hoje' : `${dias}d restantes`;
-                  }
-
-                  return (
-                    <div key={m.id} style={{ padding: '10px 0', borderBottom: '1px solid var(--surface-alt)' }}>
-                      <div className="row-main" style={{ marginBottom: 6 }}>
-                        <span className="row-title">{concluida && '🎉 '}{m.nome}{contaVinculada ? ` · ${contaVinculada.nome}` : ''}</span>
-                        <span style={{ fontSize: 13 }}>{formatarMoeda(progresso)} / {formatarMoeda(m.valor_alvo)}</span>
-                      </div>
-                      <div style={{ height: 8, borderRadius: 999, background: 'var(--surface-alt)', overflow: 'hidden' }}>
-                        <div style={{ width: `${percentual}%`, height: '100%', background: concluida ? 'var(--primary)' : 'var(--accent)' }} />
-                      </div>
-                      <div className="row-main" style={{ marginTop: 6 }}>
-                        <span className="row-subtitle">{percentual.toFixed(0)}%{prazoTexto ? ` · ${prazoTexto}` : ''}</span>
-                        <div style={{ display: 'flex', gap: 10 }}>
-                          {!contaVinculada && aporteMetaId !== m.id && (
-                            <button onClick={() => iniciarAporte(m)} className="btn-link">+ adicionar valor</button>
-                          )}
-                          <button onClick={() => iniciarEdicaoMeta(m)} className="btn-link">editar</button>
-                          <button onClick={() => excluirMeta(m.id)} className="btn-link">excluir</button>
-                        </div>
-                      </div>
-                      {aporteMetaId === m.id && (
-                        <form onSubmit={(e) => confirmarAporte(e, m)} className="form-row" style={{ marginTop: 8 }}>
-                          <input className="input" style={{ width: 120 }} type="number" step="0.01" placeholder="Valor" value={valorAporte} onChange={(e) => setValorAporte(e.target.value)} required autoFocus />
-                          <button type="submit" className="btn btn-primary">Adicionar</button>
-                          <button type="button" onClick={() => setAporteMetaId(null)} className="btn-link">Cancelar</button>
-                        </form>
-                      )}
-                    </div>
-                  );
-                })}
-                {metas.length > LIMITE_LISTA && (
-                  <div className="show-more-row">
-                    <button onClick={() => setExpandirMetas((v) => !v)} className="btn-link">
-                      {expandirMetas ? 'ver menos' : `ver mais (${metas.length - LIMITE_LISTA})`}
-                    </button>
-                  </div>
-                )}
-              </>
-            )}
-          </div>
+          <CardMetas
+            entidadeAtual={entidadeAtual}
+            contas={contas}
+            aberto={secaoAberta.metas}
+            onAlternarAberto={() => setSecaoAberta({ ...secaoAberta, metas: !secaoAberta.metas })}
+          />
 
           <div className="card card-lancamentos" id="secao-lancamentos">
             <span className="card-title-group" style={{ marginBottom: 14 }}><span className="card-icon">🧾</span><p className="card-title">Novo lançamento</p></span>

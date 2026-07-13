@@ -79,6 +79,8 @@ export default function Dashboard() {
   const [resumoAnual, setResumoAnual] = useState(
     Array.from({ length: 12 }, () => ({ entradas: 0, saidas: 0 }))
   );
+  const [comparativoPFPJ, setComparativoPFPJ] = useState([]);
+  const [evolucaoPatrimonio, setEvolucaoPatrimonio] = useState([]);
 
   const [dataAtual, setDataAtual] = useState(() => {
     const hoje = new Date();
@@ -242,6 +244,61 @@ export default function Dashboard() {
       else porMes[idx].saidas += Number(t.valor);
     });
     setResumoAnual(porMes);
+  }, []);
+
+  const carregarComparativoPFPJ = useCallback(async (listaEntidades, ano, mes) => {
+    if (!listaEntidades || listaEntidades.length < 2) { setComparativoPFPJ([]); return; }
+
+    const resultados = await Promise.all(listaEntidades.map(async (ent) => {
+      const { data } = await supabase
+        .from('transacoes')
+        .select('valor, tipo')
+        .eq('entidade_id', ent.id)
+        .is('transferencia_id', null)
+        .gte('data', primeiroDiaDoMes(ano, mes))
+        .lte('data', ultimoDiaDoMes(ano, mes));
+
+      const entradas = (data || []).filter((t) => t.tipo === 'entrada').reduce((s, t) => s + Number(t.valor), 0);
+      const saidas = (data || []).filter((t) => t.tipo === 'saida').reduce((s, t) => s + Number(t.valor), 0);
+      return { nome: ent.nome_entidade, Entradas: entradas, Saídas: saidas };
+    }));
+
+    setComparativoPFPJ(resultados);
+  }, []);
+
+  const carregarEvolucaoPatrimonio = useCallback(async (entidadeId, listaContas, ano) => {
+    if (!entidadeId || !listaContas || listaContas.length === 0) { setEvolucaoPatrimonio([]); return; }
+
+    const { data: todasTransacoes } = await supabase
+      .from('transacoes')
+      .select('valor, tipo, data, conta_id')
+      .eq('entidade_id', entidadeId)
+      .not('conta_id', 'is', null)
+      .order('data', { ascending: true });
+
+    const porConta = {};
+    listaContas.forEach((c) => { porConta[c.id] = Number(c.saldo_inicial); });
+
+    const aplicadas = new Set();
+    const hoje = new Date();
+    const pontos = [];
+
+    for (let mes = 0; mes < 12; mes++) {
+      if (ano === hoje.getFullYear() && mes > hoje.getMonth()) break;
+      const fimDoMes = ultimoDiaDoMes(ano, mes);
+
+      (todasTransacoes || []).forEach((t, idx) => {
+        if (!aplicadas.has(idx) && t.data <= fimDoMes && porConta[t.conta_id] !== undefined) {
+          porConta[t.conta_id] += t.tipo === 'entrada' ? Number(t.valor) : -Number(t.valor);
+          aplicadas.add(idx);
+        }
+      });
+
+      const total = Object.values(porConta).reduce((s, v) => s + v, 0);
+      pontos.push({ mes: NOMES_MESES[mes].slice(0, 3), Patrimônio: Number(total.toFixed(2)) });
+    }
+
+    setEvolucaoPatrimonio(pontos);
   }, []);
 
   async function recalcularSaldoConta(contaId) {
@@ -439,8 +496,11 @@ export default function Dashboard() {
   useEffect(() => {
     if (entidadeAtual && aba === 'relatorios') {
       carregarResumoAnual(entidadeAtual, dataAtual.ano);
+      carregarComparativoPFPJ(entidades, dataAtual.ano, dataAtual.mes);
+      carregarEvolucaoPatrimonio(entidadeAtual, contas, dataAtual.ano);
     }
-  }, [entidadeAtual, aba, dataAtual.ano, carregarResumoAnual]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entidadeAtual, aba, dataAtual.ano, dataAtual.mes, entidades, contas]);
 
   useEffect(() => {
     if (contas.length > 0 && !contaLancamentoId) {
@@ -895,6 +955,33 @@ export default function Dashboard() {
 
   const dadosBarras = resumoAnual.map((m, i) => ({ mes: NOMES_MESES[i].slice(0, 3), Entradas: m.entradas, Saídas: m.saidas }));
 
+  const saidasDoMes = transacoes.filter((t) => t.tipo === 'saida' && !t.transferencia_id);
+  const totalSaidasMes = saidasDoMes.reduce((s, t) => s + Number(t.valor), 0);
+  const saidasFixasMes = saidasDoMes.filter((t) => t.origem === 'recorrente').reduce((s, t) => s + Number(t.valor), 0);
+  const saidasVariaveisMes = totalSaidasMes - saidasFixasMes;
+  const pctFixas = totalSaidasMes > 0 ? (saidasFixasMes / totalSaidasMes) * 100 : 0;
+
+  const hojeReal = new Date();
+  const compromissosFuturos = lancamentosFixos
+    .filter((f) => f.tipo === 'saida' && f.parcelado && f.mes_inicio)
+    .map((f) => {
+      const [anoInicio, mesInicioStr] = f.mes_inicio.split('-');
+      const mesInicioIdx = parseInt(mesInicioStr, 10) - 1;
+      const numero = (hojeReal.getFullYear() - parseInt(anoInicio, 10)) * 12 + (hojeReal.getMonth() - mesInicioIdx) + 1;
+      let restantes;
+      if (numero < 1) restantes = f.total_parcelas;
+      else if (numero > f.total_parcelas) restantes = 0;
+      else restantes = f.total_parcelas - numero + 1;
+      return { fixo: f, restantes, total: restantes * Number(f.valor_padrao) };
+    })
+    .filter((item) => item.restantes > 0);
+  const totalCompromissosFuturos = compromissosFuturos.reduce((s, item) => s + item.total, 0);
+
+  const maioresLancamentos = [...transacoes]
+    .filter((t) => !t.transferencia_id)
+    .sort((a, b) => Number(b.valor) - Number(a.valor))
+    .slice(0, 5);
+
   function renderListaFixos(tipoAlvo, expandido, aoExpandir) {
     const listaCompleta = lancamentosFixos.filter((f) => {
       if (f.tipo !== tipoAlvo) return false;
@@ -1068,6 +1155,24 @@ export default function Dashboard() {
 
       {aba === 'relatorios' ? (
         <>
+          {comparativoPFPJ.length > 1 && (
+            <div className="card">
+              <p className="card-title" style={{ marginBottom: 4 }}>Comparativo PF x PJ — {NOMES_MESES[dataAtual.mes]}</p>
+              <p className="empty-hint" style={{ marginTop: 0, marginBottom: 12 }}>Quanto cada entidade recebeu e gastou neste mês.</p>
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={comparativoPFPJ}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--surface-alt)" />
+                  <XAxis dataKey="nome" tick={{ fontSize: 12 }} />
+                  <YAxis tick={{ fontSize: 12 }} width={40} />
+                  <Tooltip formatter={(v) => formatarMoeda(v)} contentStyle={{ borderRadius: 8, border: '1px solid var(--border)', fontSize: 13 }} />
+                  <Legend wrapperStyle={{ fontSize: 12 }} />
+                  <Bar dataKey="Entradas" fill="#0F6E56" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="Saídas" fill="#B4472F" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+
           <div className="card">
             <p className="card-title" style={{ marginBottom: 4 }}>Entradas x saídas — {dataAtual.ano}</p>
             <p className="empty-hint" style={{ marginTop: 0, marginBottom: 12 }}>Transferências entre contas não entram nesse total.</p>
@@ -1083,6 +1188,22 @@ export default function Dashboard() {
               </BarChart>
             </ResponsiveContainer>
           </div>
+
+          {evolucaoPatrimonio.length > 1 && (
+            <div className="card">
+              <p className="card-title" style={{ marginBottom: 4 }}>Evolução do patrimônio — {dataAtual.ano}</p>
+              <p className="empty-hint" style={{ marginTop: 0, marginBottom: 12 }}>Soma do saldo de todas as contas ao fim de cada mês.</p>
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={evolucaoPatrimonio}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--surface-alt)" />
+                  <XAxis dataKey="mes" tick={{ fontSize: 12 }} />
+                  <YAxis tick={{ fontSize: 12 }} width={50} />
+                  <Tooltip formatter={(v) => formatarMoeda(v)} contentStyle={{ borderRadius: 8, border: '1px solid var(--border)', fontSize: 13 }} />
+                  <Bar dataKey="Patrimônio" fill="#0F6E56" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
 
           <div className="card">
             <p className="card-title">Despesas por categoria — {NOMES_MESES[dataAtual.mes]}</p>
@@ -1100,6 +1221,55 @@ export default function Dashboard() {
                   <Legend wrapperStyle={{ fontSize: 12 }} />
                 </PieChart>
               </ResponsiveContainer>
+            )}
+          </div>
+
+          <div className="card">
+            <p className="card-title" style={{ marginBottom: 12 }}>Fixas x variáveis — {NOMES_MESES[dataAtual.mes]}</p>
+            {totalSaidasMes === 0 ? (
+              <p className="empty-hint">Nenhuma despesa neste mês ainda.</p>
+            ) : (
+              <>
+                <div style={{ height: 10, borderRadius: 999, background: 'var(--surface-alt)', overflow: 'hidden', display: 'flex' }}>
+                  <div style={{ width: `${pctFixas}%`, background: 'var(--negative)' }} />
+                  <div style={{ width: `${100 - pctFixas}%`, background: 'var(--accent)' }} />
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 10, fontSize: 13 }}>
+                  <span>🔴 Fixas — {formatarMoeda(saidasFixasMes)} ({pctFixas.toFixed(0)}%)</span>
+                  <span>🟡 Variáveis — {formatarMoeda(saidasVariaveisMes)} ({(100 - pctFixas).toFixed(0)}%)</span>
+                </div>
+              </>
+            )}
+          </div>
+
+          {compromissosFuturos.length > 0 && (
+            <div className="card">
+              <p className="card-title" style={{ marginBottom: 4 }}>Compromissos futuros em parcelas</p>
+              <p className="empty-hint" style={{ marginTop: 0, marginBottom: 10 }}>Quanto ainda falta pagar nas despesas parceladas em andamento, a partir de hoje.</p>
+              <p className="amount amount-hero" style={{ color: 'var(--negative)' }}>{formatarMoeda(totalCompromissosFuturos)}</p>
+              {compromissosFuturos.map((item) => (
+                <div key={item.fixo.id} className="row row-main">
+                  <span className="row-title">{item.fixo.nome}</span>
+                  <span className="row-subtitle">{item.restantes} parcela(s) restante(s) · {formatarMoeda(item.total)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="card">
+            <p className="card-title" style={{ marginBottom: 4 }}>Maiores lançamentos — {NOMES_MESES[dataAtual.mes]}</p>
+            {maioresLancamentos.length === 0 ? (
+              <p className="empty-hint">Nenhum lançamento neste mês ainda.</p>
+            ) : (
+              maioresLancamentos.map((t) => (
+                <div key={t.id} className="row row-main">
+                  <div>
+                    <p className="row-title">{t.descricao || t.categoria}</p>
+                    <p className="row-subtitle">{t.categoria} · {t.data}</p>
+                  </div>
+                  <span className={`amount ${t.tipo === 'entrada' ? 'amount-positive' : ''}`}>{formatarMoeda(t.valor)}</span>
+                </div>
+              ))
             )}
           </div>
 

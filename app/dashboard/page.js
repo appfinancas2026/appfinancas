@@ -282,6 +282,7 @@ export default function Dashboard() {
   const [contaLancamentoId, setContaLancamentoId] = useState('');
   const [essencialidade, setEssencialidade] = useState('');
   const [sugestao, setSugestao] = useState(null);
+  const [sugestaoCompraCartao, setSugestaoCompraCartao] = useState(null);
 
   const [alertas, setAlertas] = useState([]);
 
@@ -871,7 +872,7 @@ export default function Dashboard() {
     const timeoutId = setTimeout(async () => {
       const { data } = await supabase
         .from('transacoes')
-        .select('categoria, conta_id, tipo')
+        .select('categoria, conta_id, tipo, essencialidade')
         .eq('entidade_id', entidadeAtual)
         .is('transferencia_id', null)
         .ilike('descricao', `%${descricao.trim()}%`)
@@ -882,11 +883,11 @@ export default function Dashboard() {
 
       const contagem = {};
       data.forEach((t) => {
-        const chave = `${t.categoria}|${t.conta_id}|${t.tipo}`;
+        const chave = `${t.categoria}|${t.conta_id}|${t.tipo}|${t.essencialidade}`;
         contagem[chave] = (contagem[chave] || 0) + 1;
       });
       const [chaveMaisComum] = Object.entries(contagem).sort((a, b) => b[1] - a[1])[0];
-      const [categoriaSugerida, contaSugerida, tipoSugerido] = chaveMaisComum.split('|');
+      const [categoriaSugerida, contaSugerida, tipoSugerido, essencialidadeSugerida] = chaveMaisComum.split('|');
       const contaValida = contas.find((c) => c.id === contaSugerida);
 
       setSugestao({
@@ -894,6 +895,7 @@ export default function Dashboard() {
         conta_id: contaValida ? contaSugerida : '',
         conta_nome: contaValida ? contaValida.nome : null,
         tipo: tipoSugerido,
+        essencialidade: essencialidadeSugerida !== 'null' ? essencialidadeSugerida : '',
       });
     }, 500);
 
@@ -905,7 +907,50 @@ export default function Dashboard() {
     setCategoria(sugestao.categoria || '');
     setTipo(sugestao.tipo === 'entrada' ? 'entrada' : 'saida');
     if (sugestao.conta_id) setContaLancamentoId(sugestao.conta_id);
+    if (sugestao.essencialidade) setEssencialidade(sugestao.essencialidade);
     setSugestao(null);
+  }
+
+  // Mesma lógica de sugestão, aplicada à descrição da compra no cartão.
+  useEffect(() => {
+    if (!entidadeAtual || descricaoCompraCartao.trim().length < 3) {
+      setSugestaoCompraCartao(null);
+      return;
+    }
+    const timeoutId = setTimeout(async () => {
+      const { data } = await supabase
+        .from('transacoes')
+        .select('categoria, essencialidade')
+        .eq('entidade_id', entidadeAtual)
+        .is('transferencia_id', null)
+        .ilike('descricao', `%${descricaoCompraCartao.trim()}%`)
+        .order('data', { ascending: false })
+        .limit(10);
+
+      if (!data || data.length === 0) { setSugestaoCompraCartao(null); return; }
+
+      const contagem = {};
+      data.forEach((t) => {
+        const chave = `${t.categoria}|${t.essencialidade}`;
+        contagem[chave] = (contagem[chave] || 0) + 1;
+      });
+      const [chaveMaisComum] = Object.entries(contagem).sort((a, b) => b[1] - a[1])[0];
+      const [categoriaSugerida, essencialidadeSugerida] = chaveMaisComum.split('|');
+
+      setSugestaoCompraCartao({
+        categoria: categoriaSugerida,
+        essencialidade: essencialidadeSugerida !== 'null' ? essencialidadeSugerida : '',
+      });
+    }, 500);
+
+    return () => clearTimeout(timeoutId);
+  }, [descricaoCompraCartao, entidadeAtual]);
+
+  function aplicarSugestaoCompraCartao() {
+    if (!sugestaoCompraCartao) return;
+    setCategoriaCompraCartao(sugestaoCompraCartao.categoria || '');
+    if (sugestaoCompraCartao.essencialidade) setEssencialidadeCompraCartao(sugestaoCompraCartao.essencialidade);
+    setSugestaoCompraCartao(null);
   }
 
   // ---------- Navegação de mês/ano ----------
@@ -1365,6 +1410,7 @@ export default function Dashboard() {
       setParceladoCompraCartao(false);
       setTotalParcelasCompraCartao('');
       setParcelaAtualCompraCartao('');
+      setSugestaoCompraCartao(null);
       setMostrarCompraCartaoId(null);
       carregarFaturas(entidadeAtual, cartoes);
       if (comprasCartaoVisivelId === cartao.id) carregarComprasCartao(cartao.id);
@@ -2631,7 +2677,17 @@ export default function Dashboard() {
                   )}
 
                   {mostrarCompraCartaoId === cartao.id && (
-                    <form onSubmit={(e) => adicionarCompraCartao(e, cartao)} className="form-row" style={{ marginTop: 10 }}>
+                    <>
+                      {sugestaoCompraCartao && (
+                        <div className="suggestion-banner" style={{ marginTop: 10 }}>
+                          <span>Sugestão baseada no histórico: <strong>{sugestaoCompraCartao.categoria}</strong>{sugestaoCompraCartao.essencialidade && ` · ${sugestaoCompraCartao.essencialidade}`}</span>
+                          <div style={{ display: 'flex', gap: 12 }}>
+                            <button type="button" onClick={aplicarSugestaoCompraCartao} className="btn-link btn-link-accent">usar</button>
+                            <button type="button" onClick={() => setSugestaoCompraCartao(null)} className="btn-link">ignorar</button>
+                          </div>
+                        </div>
+                      )}
+                      <form onSubmit={(e) => adicionarCompraCartao(e, cartao)} className="form-row" style={{ marginTop: sugestaoCompraCartao ? 0 : 10 }}>
                       <input className="input" style={{ width: 100 }} type="number" step="0.01" placeholder={parceladoCompraCartao ? 'Valor da parcela' : 'Valor'} value={valorCompraCartao} onChange={(e) => setValorCompraCartao(e.target.value)} required />
                       <input className="input" style={{ width: 130 }} placeholder="Categoria" value={categoriaCompraCartao} onChange={(e) => setCategoriaCompraCartao(e.target.value)} />
                       <input className="input" style={{ flex: 1, minWidth: 120 }} placeholder="Descrição" value={descricaoCompraCartao} onChange={(e) => setDescricaoCompraCartao(e.target.value)} />
@@ -2654,6 +2710,7 @@ export default function Dashboard() {
                       )}
                       <button type="submit" className="btn btn-primary">Lançar</button>
                     </form>
+                    </>
                   )}
                 </div>
               );
@@ -2839,7 +2896,7 @@ export default function Dashboard() {
             <span className="card-title-group" style={{ marginBottom: 14 }}><span className="card-icon">🧾</span><p className="card-title">Novo lançamento</p></span>
             {sugestao && (
               <div className="suggestion-banner">
-                <span>Sugestão baseada no histórico: <strong>{sugestao.categoria}</strong>{sugestao.conta_nome && ` · ${sugestao.conta_nome}`}</span>
+                <span>Sugestão baseada no histórico: <strong>{sugestao.categoria}</strong>{sugestao.conta_nome && ` · ${sugestao.conta_nome}`}{sugestao.essencialidade && ` · ${sugestao.essencialidade}`}</span>
                 <div style={{ display: 'flex', gap: 12 }}>
                   <button type="button" onClick={aplicarSugestao} className="btn-link btn-link-accent">usar</button>
                   <button type="button" onClick={() => setSugestao(null)} className="btn-link">ignorar</button>

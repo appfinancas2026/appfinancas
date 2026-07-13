@@ -510,6 +510,12 @@ export default function Dashboard() {
     }
   }, [contas, contaLancamentoId]);
 
+  useEffect(() => {
+    if (contas.length > 0 && !contaFixoId) {
+      setContaFixoId(contaPadraoParaLancamento());
+    }
+  }, [contas, contaFixoId]);
+
   // Sugestão de categoria/conta com base no histórico de descrições parecidas.
   useEffect(() => {
     if (!entidadeAtual || descricao.trim().length < 3 || edicaoTransacaoId) {
@@ -684,7 +690,7 @@ export default function Dashboard() {
       setNomeFixo('');
       setDiaFixo('');
       setValorFixo('');
-      setContaFixoId('');
+      setContaFixoId(contaPadraoParaLancamento());
       setParceladoFixo(false);
       setTotalParcelasFixo('');
       setParcelaAtualFixo('');

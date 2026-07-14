@@ -15,6 +15,7 @@ import Sidebar from './Sidebar';
 import BottomNav from './BottomNav';
 import MenuConfiguracoes from './MenuConfiguracoes';
 import CardMetas from './CardMetas';
+import CardOrcamento from './CardOrcamento';
 import CardContas from './CardContas';
 import CardCartoes from './CardCartoes';
 
@@ -110,7 +111,7 @@ export default function Dashboard() {
 
   const [alertas, setAlertas] = useState([]);
 
-  const [secaoAberta, setSecaoAberta] = useState({ contas: true, receitas: true, despesas: true, lancamentos: true, metas: true });
+  const [secaoAberta, setSecaoAberta] = useState({ contas: true, receitas: true, despesas: true, lancamentos: true, metas: true, orcamento: true });
   const [expandirReceitas, setExpandirReceitas] = useState(false);
   const [expandirDespesas, setExpandirDespesas] = useState(false);
   const [expandirLancamentos, setExpandirLancamentos] = useState(false);
@@ -1745,6 +1746,15 @@ export default function Dashboard() {
               </>
             )}
           </div>
+
+          <CardOrcamento
+            entidadeAtual={entidadeAtual}
+            transacoesDoMes={transacoes}
+            ano={dataAtual.ano}
+            mes={dataAtual.mes}
+            aberto={secaoAberta.orcamento}
+            onAlternarAberto={() => setSecaoAberta({ ...secaoAberta, orcamento: !secaoAberta.orcamento })}
+          />
 
           <CardMetas
             entidadeAtual={entidadeAtual}

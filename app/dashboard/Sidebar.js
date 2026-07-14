@@ -5,6 +5,7 @@ const ITENS_SECAO = [
   { id: 'secao-cartoes', icone: '💳', label: 'Cartões' },
   { id: 'secao-receitas', icone: '⬇', label: 'Receitas fixas' },
   { id: 'secao-despesas', icone: '⬆', label: 'Despesas fixas' },
+  { id: 'secao-orcamento', icone: '📋', label: 'Orçamento' },
   { id: 'secao-metas', icone: '🎯', label: 'Metas' },
   { id: 'secao-lancamentos', icone: '🧾', label: 'Lançamentos' },
 ];

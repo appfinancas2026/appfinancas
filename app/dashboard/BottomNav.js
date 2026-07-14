@@ -11,7 +11,9 @@ export default function BottomNav({ aba, setAba, irParaSecao, onAbrirMenu }) {
         <span className="bottom-nav-icon">🏦</span>
         Contas
       </button>
-      <button onClick={() => irParaSecao('secao-lancamentos')} className="bottom-nav-fab" title="Novo lançamento">+</button>
+      <div className="bottom-nav-fab-wrap">
+        <button onClick={() => irParaSecao('secao-lancamentos')} className="bottom-nav-fab" title="Novo lançamento">+</button>
+      </div>
       <button onClick={() => setAba('relatorios')} className={`bottom-nav-item ${aba === 'relatorios' ? 'active' : ''}`}>
         <span className="bottom-nav-icon">📊</span>
         Relatórios

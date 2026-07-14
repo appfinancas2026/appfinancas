@@ -236,6 +236,11 @@ export default function CardCartoes({ entidadeAtual, contas, cartoes, onAtualiza
     }
   }
 
+  async function classificarEssencialidadeCompra(compra, novoValor) {
+    const { error } = await supabase.from('transacoes').update({ essencialidade: novoValor || null }).eq('id', compra.id);
+    if (!error) carregarComprasCartao(compra.cartao_id);
+  }
+
   async function adicionarCompraCartao(e, cartao) {
     e.preventDefault();
     if (!valorCompraCartao) return;
@@ -428,6 +433,19 @@ export default function CardCartoes({ entidadeAtual, contas, cartoes, onAtualiza
                         <p className="row-subtitle">{compra.categoria} · {compra.data} · fatura {compra.mes_fatura?.slice(0, 7)}</p>
                       </div>
                       <div className="row-actions">
+                        {!compra.essencialidade && (
+                          <select
+                            className="input"
+                            style={{ fontSize: 11, padding: '4px 6px', borderColor: 'var(--accent)' }}
+                            value=""
+                            onChange={(e) => classificarEssencialidadeCompra(compra, e.target.value)}
+                          >
+                            <option value="">Classificar</option>
+                            <option value="essencial">Essencial</option>
+                            <option value="desejavel">Desejável</option>
+                            <option value="superfluo">Supérfluo</option>
+                          </select>
+                        )}
                         <span className="amount">{formatarMoeda(compra.valor)}</span>
                         <button onClick={() => iniciarEdicaoCompraCartao(compra)} className="btn-link">editar</button>
                         <button onClick={() => excluirCompraCartao(compra)} className="btn-link">excluir</button>

@@ -122,7 +122,7 @@ export default function Dashboard() {
   const LIMITE_LISTA = 6;
 
   const [edicaoTransacaoId, setEdicaoTransacaoId] = useState(null);
-  const [formTransacao, setFormTransacao] = useState({ valor: '', categoria: '', descricao: '', data: '' });
+  const [formTransacao, setFormTransacao] = useState({ valor: '', categoria: '', descricao: '', data: '', essencialidade: '' });
 
   // ---------- Carregamento ----------
 
@@ -1020,7 +1020,7 @@ export default function Dashboard() {
 
   function iniciarEdicaoTransacao(t) {
     setEdicaoTransacaoId(t.id);
-    setFormTransacao({ valor: t.valor, categoria: t.categoria || '', descricao: t.descricao || '', data: t.data });
+    setFormTransacao({ valor: t.valor, categoria: t.categoria || '', descricao: t.descricao || '', data: t.data, essencialidade: t.essencialidade || '' });
   }
 
   async function salvarEdicaoTransacao(e) {
@@ -1034,6 +1034,7 @@ export default function Dashboard() {
         categoria: formTransacao.categoria || 'outros',
         descricao: formTransacao.descricao,
         data: formTransacao.data,
+        essencialidade: formTransacao.essencialidade || null,
       })
       .eq('id', edicaoTransacaoId);
 
@@ -1043,6 +1044,11 @@ export default function Dashboard() {
       carregarContas(entidadeAtual);
       carregarTransacoesDoMes(entidadeAtual, dataAtual.ano, dataAtual.mes);
     }
+  }
+
+  async function classificarEssencialidade(t, novoValor) {
+    const { error } = await supabase.from('transacoes').update({ essencialidade: novoValor || null }).eq('id', t.id);
+    if (!error) carregarTransacoesDoMes(entidadeAtual, dataAtual.ano, dataAtual.mes);
   }
 
   async function sair() {
@@ -1823,6 +1829,14 @@ export default function Dashboard() {
                             <input className="input" style={{ width: 120 }} value={formTransacao.categoria} onChange={(e) => setFormTransacao({ ...formTransacao, categoria: e.target.value })} />
                             <input className="input" style={{ flex: 1, minWidth: 120 }} value={formTransacao.descricao} onChange={(e) => setFormTransacao({ ...formTransacao, descricao: e.target.value })} />
                             <input className="input" style={{ width: 140 }} type="date" value={formTransacao.data} onChange={(e) => setFormTransacao({ ...formTransacao, data: e.target.value })} />
+                            {t.tipo === 'saida' && (
+                              <select className="input" value={formTransacao.essencialidade} onChange={(e) => setFormTransacao({ ...formTransacao, essencialidade: e.target.value })}>
+                                <option value="">Essencialidade (opc.)</option>
+                                <option value="essencial">Essencial</option>
+                                <option value="desejavel">Desejável</option>
+                                <option value="superfluo">Supérfluo</option>
+                              </select>
+                            )}
                             <button type="submit" className="btn btn-primary">Salvar</button>
                             <button type="button" onClick={() => setEdicaoTransacaoId(null)} className="btn-link">Cancelar</button>
                           </form>
@@ -1833,6 +1847,19 @@ export default function Dashboard() {
                               <p className="row-subtitle">{t.transferencia_id ? 'transferência entre contas' : t.categoria}</p>
                             </div>
                             <div className="row-actions">
+                              {t.tipo === 'saida' && !t.transferencia_id && !t.essencialidade && (
+                                <select
+                                  className="input"
+                                  style={{ fontSize: 11, padding: '4px 6px', borderColor: 'var(--accent)' }}
+                                  value=""
+                                  onChange={(e) => classificarEssencialidade(t, e.target.value)}
+                                >
+                                  <option value="">Classificar</option>
+                                  <option value="essencial">Essencial</option>
+                                  <option value="desejavel">Desejável</option>
+                                  <option value="superfluo">Supérfluo</option>
+                                </select>
+                              )}
                               <span className={`amount ${t.tipo === 'entrada' ? 'amount-positive' : ''}`}>
                                 {t.tipo === 'entrada' ? '+' : '−'} {formatarMoeda(t.valor)}
                               </span>

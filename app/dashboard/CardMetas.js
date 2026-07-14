@@ -21,6 +21,7 @@ export default function CardMetas({ entidadeAtual, contas, aberto, onAlternarAbe
   const [expandirMetas, setExpandirMetas] = useState(false);
   const [aporteMetaId, setAporteMetaId] = useState(null);
   const [valorAporte, setValorAporte] = useState('');
+  const [alturaCheia, setAlturaCheia] = useState(false);
 
   const carregarMetas = useCallback(async (entidadeId) => {
     if (!entidadeId) return;
@@ -122,6 +123,7 @@ export default function CardMetas({ entidadeAtual, contas, aberto, onAlternarAbe
 
       {aberto && (
         <>
+          <div className={`card-limitada ${(alturaCheia || mostrarNovaMeta) ? 'expandida' : ''}`}>
           {mostrarNovaMeta && (
             <form onSubmit={adicionarMeta} className="form-row" style={{ marginBottom: 12 }}>
               <input className="input" placeholder="Nome (ex: Viagem, Reserva)" value={nomeMeta} onChange={(e) => setNomeMeta(e.target.value)} required />
@@ -200,6 +202,10 @@ export default function CardMetas({ entidadeAtual, contas, aberto, onAlternarAbe
               </button>
             </div>
           )}
+          </div>
+          <button onClick={() => setAlturaCheia((v) => !v)} className="ver-card-completo">
+            {alturaCheia ? 'Recolher' : 'Ver metas completas'}
+          </button>
         </>
       )}
     </div>

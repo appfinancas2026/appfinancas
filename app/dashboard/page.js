@@ -277,6 +277,10 @@ export default function Dashboard() {
   const [expandirLancamentos, setExpandirLancamentos] = useState(false);
   const [ordenarReceitasPor, setOrdenarReceitasPor] = useState('data');
   const [ordenarDespesasPor, setOrdenarDespesasPor] = useState('data');
+  const [alturaCheiaContas, setAlturaCheiaContas] = useState(false);
+  const [alturaCheiaCartoes, setAlturaCheiaCartoes] = useState(false);
+  const [alturaCheiaReceitas, setAlturaCheiaReceitas] = useState(false);
+  const [alturaCheiaDespesas, setAlturaCheiaDespesas] = useState(false);
   const LIMITE_LISTA = 6;
 
   const [edicaoTransacaoId, setEdicaoTransacaoId] = useState(null);
@@ -2271,6 +2275,7 @@ export default function Dashboard() {
 
             {secaoAberta.contas && (
               <>
+                <div className={`card-limitada ${(alturaCheiaContas || mostrarNovaConta || mostrarTransferencia || mostrarImportar) ? 'expandida' : ''}`}>
                 {mostrarNovaConta && (
                   <form onSubmit={adicionarConta} className="form-row" style={{ marginBottom: 12 }}>
                     <input className="input" placeholder="Nome (ex: Nubank)" value={nomeConta} onChange={(e) => setNomeConta(e.target.value)} required />
@@ -2387,6 +2392,10 @@ export default function Dashboard() {
                     </button>
                   </div>
                 )}
+                </div>
+                <button onClick={() => setAlturaCheiaContas((v) => !v)} className="ver-card-completo">
+                  {alturaCheiaContas ? 'Recolher' : 'Ver conta completa'}
+                </button>
               </>
             )}
           </div>
@@ -2397,6 +2406,7 @@ export default function Dashboard() {
               <button onClick={() => setMostrarNovoCartao((v) => !v)} className="btn btn-ghost">+ Novo cartão</button>
             </div>
 
+            <div className={`card-limitada ${(alturaCheiaCartoes || mostrarNovoCartao || comprasCartaoVisivelId || mostrarCompraCartaoId) ? 'expandida' : ''}`}>
             {mostrarNovoCartao && (
               <form onSubmit={adicionarCartao} className="form-row" style={{ marginBottom: 12 }}>
                 <input className="input" placeholder="Nome (ex: Nubank)" value={nomeCartao} onChange={(e) => setNomeCartao(e.target.value)} required />
@@ -2544,6 +2554,10 @@ export default function Dashboard() {
                 </div>
               );
             })}
+            </div>
+            <button onClick={() => setAlturaCheiaCartoes((v) => !v)} className="ver-card-completo">
+              {alturaCheiaCartoes ? 'Recolher' : 'Ver cartões completo'}
+            </button>
           </div>
 
           <div className="card card-receitas" id="secao-receitas">
@@ -2561,6 +2575,7 @@ export default function Dashboard() {
 
             {secaoAberta.receitas && (
               <>
+                <div className={`card-limitada ${(alturaCheiaReceitas || mostrarNovaReceitaFixa) ? 'expandida' : ''}`}>
                 {mostrarNovaReceitaFixa && (
                   <form onSubmit={(e) => adicionarLancamentoFixo(e, 'entrada')} className="form-row" style={{ marginBottom: 12 }}>
                     <input className="input" placeholder="Nome (ex: Salário)" value={nomeFixo} onChange={(e) => setNomeFixo(e.target.value)} required />
@@ -2575,6 +2590,10 @@ export default function Dashboard() {
                 )}
 
                 {renderListaFixos('entrada', expandirReceitas, setExpandirReceitas, ordenarReceitasPor)}
+                </div>
+                <button onClick={() => setAlturaCheiaReceitas((v) => !v)} className="ver-card-completo">
+                  {alturaCheiaReceitas ? 'Recolher' : 'Ver receitas completas'}
+                </button>
               </>
             )}
           </div>
@@ -2594,6 +2613,7 @@ export default function Dashboard() {
 
             {secaoAberta.despesas && (
               <>
+                <div className={`card-limitada ${(alturaCheiaDespesas || mostrarNovaDespesaFixa) ? 'expandida' : ''}`}>
                 {mostrarNovaDespesaFixa && (
                   <form onSubmit={(e) => adicionarLancamentoFixo(e, 'saida')} className="form-row" style={{ marginBottom: 12 }}>
                     <input className="input" placeholder="Nome (ex: Aluguel)" value={nomeFixo} onChange={(e) => setNomeFixo(e.target.value)} required />
@@ -2624,6 +2644,10 @@ export default function Dashboard() {
                 )}
 
                 {renderListaFixos('saida', expandirDespesas, setExpandirDespesas, ordenarDespesasPor)}
+                </div>
+                <button onClick={() => setAlturaCheiaDespesas((v) => !v)} className="ver-card-completo">
+                  {alturaCheiaDespesas ? 'Recolher' : 'Ver despesas completas'}
+                </button>
               </>
             )}
           </div>

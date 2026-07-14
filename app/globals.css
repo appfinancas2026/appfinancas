@@ -75,6 +75,42 @@ button, input, select { font-family: var(--font-body); }
   display: block;
 }
 
+.card-limitada {
+  max-height: 380px;
+  overflow: hidden;
+  position: relative;
+}
+
+.card-limitada.expandida {
+  max-height: none;
+}
+
+.card-limitada:not(.expandida)::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 44px;
+  background: linear-gradient(to bottom, transparent, var(--surface));
+  pointer-events: none;
+}
+
+.ver-card-completo {
+  display: block;
+  width: 100%;
+  text-align: center;
+  margin-top: 10px;
+  padding-top: 4px;
+  background: none;
+  border: none;
+  border-top: 1px solid var(--surface-alt);
+  color: var(--primary-dark);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
 @media (min-width: 900px) {
   .cards-grid {
     display: grid;

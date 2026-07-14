@@ -335,6 +335,13 @@ button, input, select { font-family: var(--font-body); }
 
 .card-title { font-size: 14.5px; font-weight: 700; margin: 0; }
 
+.card-header-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
 .card-contas { border-left-color: var(--primary); }
 .card-contas .card-icon { background: var(--primary-tint); color: var(--primary-dark); }
 

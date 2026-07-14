@@ -368,7 +368,7 @@ export default function CardCartoes({ entidadeAtual, contas, cartoes, onAtualiza
           <div key={cartao.id} style={{ padding: '10px 0', borderBottom: '1px solid var(--surface-alt)' }}>
             <div className="row-main">
               <span className="row-title">{cartao.nome}</span>
-              <div style={{ display: 'flex', gap: 10 }}>
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                 <button onClick={() => alternarComprasCartao(cartao.id)} className="btn-link">
                   {comprasCartaoVisivelId === cartao.id ? 'ocultar compras' : 'ver compras'}
                 </button>
@@ -443,7 +443,7 @@ export default function CardCartoes({ entidadeAtual, contas, cartoes, onAtualiza
                 {sugestaoCompraCartao && (
                   <div className="suggestion-banner" style={{ marginTop: 10 }}>
                     <span>Sugestão baseada no histórico: <strong>{sugestaoCompraCartao.categoria}</strong>{sugestaoCompraCartao.essencialidade && ` · ${sugestaoCompraCartao.essencialidade}`}</span>
-                    <div style={{ display: 'flex', gap: 12 }}>
+                    <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
                       <button type="button" onClick={aplicarSugestaoCompraCartao} className="btn-link btn-link-accent">usar</button>
                       <button type="button" onClick={() => setSugestaoCompraCartao(null)} className="btn-link">ignorar</button>
                     </div>

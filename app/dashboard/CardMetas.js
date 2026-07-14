@@ -115,7 +115,7 @@ export default function CardMetas({ entidadeAtual, contas, aberto, onAlternarAbe
     <div className="card" id="secao-metas">
       <div className="card-header">
         <span className="card-title-group"><span className="card-icon">🎯</span><p className="card-title">Metas financeiras</p></span>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        <div className="card-header-actions">
           <button onClick={() => setMostrarNovaMeta((v) => !v)} className="btn btn-ghost">+ Nova meta</button>
           <button onClick={onAlternarAberto} className="collapse-btn">{aberto ? '▾' : '▸'}</button>
         </div>
@@ -177,7 +177,7 @@ export default function CardMetas({ entidadeAtual, contas, aberto, onAlternarAbe
                 </div>
                 <div className="row-main" style={{ marginTop: 6 }}>
                   <span className="row-subtitle">{percentual.toFixed(0)}%{prazoTexto ? ` · ${prazoTexto}` : ''}</span>
-                  <div style={{ display: 'flex', gap: 10 }}>
+                  <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                     {!contaVinculada && aporteMetaId !== m.id && (
                       <button onClick={() => iniciarAporte(m)} className="btn-link">+ adicionar valor</button>
                     )}

@@ -1264,7 +1264,7 @@ export default function Dashboard() {
               )}
             </div>
           </div>
-          <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
+          <div style={{ display: 'flex', gap: 10, marginTop: 4, flexWrap: 'wrap' }}>
             <button onClick={() => iniciarEdicaoFixo(f)} className="btn-link">editar molde</button>
             <button onClick={() => excluirFixo(f)} className="btn-link">excluir</button>
           </div>
@@ -1657,7 +1657,7 @@ export default function Dashboard() {
           <div className="card card-receitas" id="secao-receitas">
             <div className="card-header">
               <span className="card-title-group"><span className="card-icon">⬇</span><p className="card-title">Receitas fixas</p></span>
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <div className="card-header-actions">
                 <select className="input" style={{ padding: '5px 8px', fontSize: 12 }} value={ordenarReceitasPor} onChange={(e) => setOrdenarReceitasPor(e.target.value)}>
                   <option value="data">Ordenar: dia</option>
                   <option value="alfabetica">Ordenar: A-Z</option>
@@ -1695,7 +1695,7 @@ export default function Dashboard() {
           <div className="card card-despesas" id="secao-despesas">
             <div className="card-header">
               <span className="card-title-group"><span className="card-icon">⬆</span><p className="card-title">Despesas fixas</p></span>
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <div className="card-header-actions">
                 <select className="input" style={{ padding: '5px 8px', fontSize: 12 }} value={ordenarDespesasPor} onChange={(e) => setOrdenarDespesasPor(e.target.value)}>
                   <option value="data">Ordenar: dia</option>
                   <option value="alfabetica">Ordenar: A-Z</option>

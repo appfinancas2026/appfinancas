@@ -190,7 +190,7 @@ export default function CardContas({ entidadeAtual, contas, cartoes, aberto, onA
     <div className="card card-contas" id="secao-contas">
       <div className="card-header">
         <span className="card-title-group"><span className="card-icon">🏦</span><p className="card-title">Contas</p></span>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        <div className="card-header-actions">
           {contas.length >= 2 && <button onClick={() => setMostrarTransferencia((v) => !v)} className="btn btn-ghost">⇄ Transferir</button>}
           <button onClick={() => setMostrarImportar((v) => !v)} className="btn btn-ghost">⬆ Importar extrato</button>
           <button onClick={() => setMostrarNovaConta((v) => !v)} className="btn btn-ghost">+ Nova conta</button>
@@ -258,7 +258,7 @@ export default function CardContas({ entidadeAtual, contas, cartoes, aberto, onA
                   <p className="empty-hint" style={{ margin: '0 0 8px' }}>
                     {previewImportacao.length} lançamento(s) encontrado(s). Confira antes de importar.
                   </p>
-                  <div style={{ display: 'flex', gap: 12, marginBottom: 8 }}>
+                  <div style={{ display: 'flex', gap: 12, marginBottom: 8, flexWrap: 'wrap' }}>
                     <button onClick={() => marcarTodosPreview(true)} className="btn-link">marcar todos</button>
                     <button onClick={() => marcarTodosPreview(false)} className="btn-link">desmarcar todos</button>
                   </div>
@@ -275,7 +275,7 @@ export default function CardContas({ entidadeAtual, contas, cartoes, aberto, onA
                       </div>
                     ))}
                   </div>
-                  <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+                  <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
                     <button onClick={confirmarImportacao} className="btn btn-primary" disabled={!destinoImportacaoId || importando}>
                       {importando ? 'Importando...' : `Importar ${previewImportacao.filter((t) => t.incluir).length} selecionado(s)`}
                     </button>

@@ -12,6 +12,7 @@ import {
 } from '../../lib/financeiro';
 import TelaPin from './TelaPin';
 import Sidebar from './Sidebar';
+import BottomNav from './BottomNav';
 import MenuConfiguracoes from './MenuConfiguracoes';
 import CardMetas from './CardMetas';
 import CardContas from './CardContas';
@@ -26,6 +27,13 @@ const NOMES_MESES = [
   'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
   'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
 ];
+
+const DIAS_SEMANA = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
+
+function formatarCabecalhoDia(dataISO) {
+  const d = new Date(`${dataISO}T00:00:00`);
+  return `${DIAS_SEMANA[d.getDay()]}, ${d.getDate()}`;
+}
 
 export default function Dashboard() {
   const router = useRouter();
@@ -1791,32 +1799,42 @@ export default function Dashboard() {
             {secaoAberta.lancamentos && (
               <>
                 {transacoes.length === 0 && <p className="empty-hint">Nenhum lançamento em {NOMES_MESES[dataAtual.mes].toLowerCase()}.</p>}
-                {(expandirLancamentos ? transacoes : transacoes.slice(0, LIMITE_LISTA)).map((t) => (
-                  edicaoTransacaoId === t.id ? (
-                    <form key={t.id} onSubmit={salvarEdicaoTransacao} className="form-row" style={{ padding: '10px 0' }}>
-                      <input className="input" style={{ width: 100 }} type="number" step="0.01" value={formTransacao.valor} onChange={(e) => setFormTransacao({ ...formTransacao, valor: e.target.value })} required />
-                      <input className="input" style={{ width: 120 }} value={formTransacao.categoria} onChange={(e) => setFormTransacao({ ...formTransacao, categoria: e.target.value })} />
-                      <input className="input" style={{ flex: 1, minWidth: 120 }} value={formTransacao.descricao} onChange={(e) => setFormTransacao({ ...formTransacao, descricao: e.target.value })} />
-                      <input className="input" style={{ width: 140 }} type="date" value={formTransacao.data} onChange={(e) => setFormTransacao({ ...formTransacao, data: e.target.value })} />
-                      <button type="submit" className="btn btn-primary">Salvar</button>
-                      <button type="button" onClick={() => setEdicaoTransacaoId(null)} className="btn-link">Cancelar</button>
-                    </form>
-                  ) : (
-                    <div key={t.id} className="row row-main">
-                      <div>
-                        <p className="row-title">{t.transferencia_id && '⇄ '}{t.descricao || t.categoria}</p>
-                        <p className="row-subtitle">{t.transferencia_id ? 'transferência entre contas' : t.categoria} · {t.data}</p>
+                {(() => {
+                  let dataAnterior = null;
+                  return (expandirLancamentos ? transacoes : transacoes.slice(0, LIMITE_LISTA)).map((t) => {
+                    const novoDia = t.data !== dataAnterior;
+                    dataAnterior = t.data;
+                    return (
+                      <div key={t.id}>
+                        {novoDia && <p className="date-header">{formatarCabecalhoDia(t.data)}</p>}
+                        {edicaoTransacaoId === t.id ? (
+                          <form onSubmit={salvarEdicaoTransacao} className="form-row" style={{ padding: '10px 0' }}>
+                            <input className="input" style={{ width: 100 }} type="number" step="0.01" value={formTransacao.valor} onChange={(e) => setFormTransacao({ ...formTransacao, valor: e.target.value })} required />
+                            <input className="input" style={{ width: 120 }} value={formTransacao.categoria} onChange={(e) => setFormTransacao({ ...formTransacao, categoria: e.target.value })} />
+                            <input className="input" style={{ flex: 1, minWidth: 120 }} value={formTransacao.descricao} onChange={(e) => setFormTransacao({ ...formTransacao, descricao: e.target.value })} />
+                            <input className="input" style={{ width: 140 }} type="date" value={formTransacao.data} onChange={(e) => setFormTransacao({ ...formTransacao, data: e.target.value })} />
+                            <button type="submit" className="btn btn-primary">Salvar</button>
+                            <button type="button" onClick={() => setEdicaoTransacaoId(null)} className="btn-link">Cancelar</button>
+                          </form>
+                        ) : (
+                          <div className="row row-main">
+                            <div>
+                              <p className="row-title">{t.transferencia_id && '⇄ '}{t.descricao || t.categoria}</p>
+                              <p className="row-subtitle">{t.transferencia_id ? 'transferência entre contas' : t.categoria}</p>
+                            </div>
+                            <div className="row-actions">
+                              <span className={`amount ${t.tipo === 'entrada' ? 'amount-positive' : ''}`}>
+                                {t.tipo === 'entrada' ? '+' : '−'} {formatarMoeda(t.valor)}
+                              </span>
+                              {!t.transferencia_id && <button onClick={() => iniciarEdicaoTransacao(t)} className="btn-link">editar</button>}
+                              <button onClick={() => excluirTransacao(t)} className="btn-link">excluir</button>
+                            </div>
+                          </div>
+                        )}
                       </div>
-                      <div className="row-actions">
-                        <span className={`amount ${t.tipo === 'entrada' ? 'amount-positive' : ''}`}>
-                          {t.tipo === 'entrada' ? '+' : '−'} {formatarMoeda(t.valor)}
-                        </span>
-                        {!t.transferencia_id && <button onClick={() => iniciarEdicaoTransacao(t)} className="btn-link">editar</button>}
-                        <button onClick={() => excluirTransacao(t)} className="btn-link">excluir</button>
-                      </div>
-                    </div>
-                  )
-                ))}
+                    );
+                  });
+                })()}
                 {transacoes.length > LIMITE_LISTA && (
                   <div className="show-more-row">
                     <button onClick={() => setExpandirLancamentos((v) => !v)} className="btn-link">
@@ -1831,6 +1849,7 @@ export default function Dashboard() {
       )}
     </div>
       </div>
+      <BottomNav aba={aba} setAba={setAba} irParaSecao={irParaSecao} onAbrirMenu={() => setSidebarMobileAberta(true)} />
     </div>
   );
 }

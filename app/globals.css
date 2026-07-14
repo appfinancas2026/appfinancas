@@ -671,6 +671,17 @@ button, input, select { font-family: var(--font-body); }
   border-bottom: 1px solid var(--surface-alt);
 }
 
+.date-header {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin: 16px 0 4px;
+}
+
+.date-header:first-child { margin-top: 4px; }
+
 .row:last-child { border-bottom: none; }
 
 .row-main { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
@@ -720,7 +731,7 @@ table.report-table td { padding: 8px 0; border-top: 1px solid var(--surface-alt)
 /* ---------- Responsivo ---------- */
 
 @media (max-width: 620px) {
-  .app-shell { padding: 0 14px 48px; }
+  .app-shell { padding: 0 14px 96px; }
   .receipt-amount { font-size: 28px; }
   .month-label { min-width: 0; font-size: 14px; }
   .card { padding: 14px; }
@@ -728,4 +739,59 @@ table.report-table td { padding: 8px 0; border-top: 1px solid var(--surface-alt)
   .form-row .input, .form-row select.input, .form-row button { width: 100%; }
   .row-actions { width: 100%; justify-content: space-between; }
   .brand span.brand-text { display: none; }
+}
+
+/* ---------- Barra de navegação inferior (mobile) ---------- */
+
+.bottom-nav { display: none; }
+
+@media (max-width: 620px) {
+  .bottom-nav {
+    display: flex;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 62px;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    align-items: center;
+    justify-content: space-around;
+    z-index: 45;
+    padding-bottom: env(safe-area-inset-bottom, 0);
+  }
+
+  .bottom-nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 6px 6px;
+  }
+
+  .bottom-nav-item.active { color: var(--primary); }
+  .bottom-nav-icon { font-size: 19px; }
+
+  .bottom-nav-fab {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    background: var(--primary);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 26px;
+    line-height: 1;
+    border: none;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(15, 110, 86, 0.4);
+    margin-top: -30px;
+  }
 }

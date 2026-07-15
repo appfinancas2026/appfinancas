@@ -16,6 +16,7 @@ import BottomNav from './BottomNav';
 import MenuConfiguracoes from './MenuConfiguracoes';
 import CardMetas from './CardMetas';
 import CardOrcamento from './CardOrcamento';
+import CapturaRapida from './CapturaRapida';
 import CardContas from './CardContas';
 import CardCartoes from './CardCartoes';
 
@@ -108,6 +109,7 @@ export default function Dashboard() {
   const [contaLancamentoId, setContaLancamentoId] = useState('');
   const [essencialidade, setEssencialidade] = useState('');
   const [sugestao, setSugestao] = useState(null);
+  const [mostrarCapturaRapida, setMostrarCapturaRapida] = useState(false);
 
   const [alertas, setAlertas] = useState([]);
 
@@ -666,6 +668,15 @@ export default function Dashboard() {
     if (sugestao.conta_id) setContaLancamentoId(sugestao.conta_id);
     if (sugestao.essencialidade) setEssencialidade(sugestao.essencialidade);
     setSugestao(null);
+  }
+
+  function aplicarExtracaoIA(dados) {
+    if (dados.valor !== null && dados.valor !== undefined) setValor(String(dados.valor));
+    if (dados.data) setDataLancamento(dados.data);
+    if (dados.descricao) setDescricao(dados.descricao);
+    if (dados.categoria) setCategoria(dados.categoria);
+    if (dados.tipo === 'entrada' || dados.tipo === 'saida') setTipo(dados.tipo);
+    setMostrarCapturaRapida(false);
   }
 
   // ---------- Navegação de mês/ano ----------
@@ -1771,7 +1782,15 @@ export default function Dashboard() {
           </div>
 
           <div className="card card-lancamentos" id="secao-lancamentos">
-            <span className="card-title-group" style={{ marginBottom: 14 }}><span className="card-icon">🧾</span><p className="card-title">Novo lançamento</p></span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, flexWrap: 'wrap', gap: 8 }}>
+              <span className="card-title-group" style={{ marginBottom: 0 }}><span className="card-icon">🧾</span><p className="card-title">Novo lançamento</p></span>
+              {!mostrarCapturaRapida && (
+                <button onClick={() => setMostrarCapturaRapida(true)} className="btn btn-ghost">✨ Capturar com IA</button>
+              )}
+            </div>
+            {mostrarCapturaRapida && (
+              <CapturaRapida onExtraido={aplicarExtracaoIA} onFechar={() => setMostrarCapturaRapida(false)} />
+            )}
             {sugestao && (
               <div className="suggestion-banner">
                 <span>Sugestão baseada no histórico: <strong>{sugestao.categoria}</strong>{sugestao.conta_nome && ` · ${sugestao.conta_nome}`}{sugestao.essencialidade && ` · ${sugestao.essencialidade}`}</span>

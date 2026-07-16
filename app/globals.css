@@ -689,6 +689,22 @@ button, input, select { font-family: var(--font-body); }
 
 /* ---------- Tela de login / cadastro ---------- */
 
+.onboarding-progresso {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 20px;
+}
+
+.onboarding-bolinha {
+  flex: 1;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--surface-alt);
+  transition: background 0.25s;
+}
+
+.onboarding-bolinha.ativa { background: var(--primary); }
+
 .auth-tabs {
   display: flex;
   gap: 4px;

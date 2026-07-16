@@ -20,6 +20,7 @@ import CardOrcamento from './CardOrcamento';
 import CardMembros from './CardMembros';
 import CardAuditoria from './CardAuditoria';
 import AbaRelatorios from './AbaRelatorios';
+import Onboarding from './Onboarding';
 import CapturaRapida from './CapturaRapida';
 import CardContas from './CardContas';
 import CardCartoes from './CardCartoes';
@@ -118,6 +119,7 @@ export default function Dashboard() {
   const [secaoAberta, setSecaoAberta] = useState({ contas: true, receitas: true, despesas: true, lancamentos: true, metas: true, orcamento: true, membros: true, atividade: false });
   const [usuarioId, setUsuarioId] = useState(null);
   const [cadastroIncompleto, setCadastroIncompleto] = useState(false);
+  const [onboardingDispensado, setOnboardingDispensado] = useState(false);
   const [expandirReceitas, setExpandirReceitas] = useState(false);
   const [expandirDespesas, setExpandirDespesas] = useState(false);
   const [expandirLancamentos, setExpandirLancamentos] = useState(false);
@@ -1180,6 +1182,24 @@ export default function Dashboard() {
         onConcluido={() => {
           setCadastroIncompleto(false);
           carregarPerfil(usuarioId);
+        }}
+      />
+    );
+  }
+
+  // Primeiro acesso: sem nenhuma conta cadastrada, o app não tem o que mostrar.
+  // Usar a ausência de contas (e não uma flag) faz o assistente reaparecer se a
+  // pessoa entrar de outro dispositivo antes de configurar, e some sozinho
+  // assim que existir uma conta — inclusive para quem já usava o app antes.
+  if (!onboardingDispensado && entidadeAtual && contas.length === 0 && aba === 'painel') {
+    return (
+      <Onboarding
+        entidadeAtual={entidadeAtual}
+        onConcluir={() => {
+          setOnboardingDispensado(true);
+          carregarContas(entidadeAtual);
+          carregarLancamentosFixos(entidadeAtual);
+          carregarTransacoesDoMes(entidadeAtual, dataAtual.ano, dataAtual.mes);
         }}
       />
     );

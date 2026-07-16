@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '../../lib/supabase';
+import { formatarCPF, cpfValido } from '../../lib/cpf';
 
 const MENSAGENS_ERRO = {
   'Invalid login credentials': 'Email ou senha incorretos.',
@@ -11,6 +12,7 @@ const MENSAGENS_ERRO = {
   'Unable to validate email address: invalid format': 'Esse email não parece válido.',
   'Email not confirmed': 'Confirme seu email antes de entrar (verifique sua caixa de entrada).',
   'For security purposes, you can only request this after 60 seconds': 'Aguarde um minuto antes de tentar de novo.',
+  'Database error saving new user': 'Não foi possível criar a conta. Esse CPF pode já estar cadastrado.',
 };
 
 function traduzirErro(mensagem) {
@@ -23,6 +25,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
   const [nome, setNome] = useState('');
+  const [cpf, setCpf] = useState('');
   const [carregando, setCarregando] = useState(false);
   const [carregandoGoogle, setCarregandoGoogle] = useState(false);
   const [mensagem, setMensagem] = useState(null);
@@ -48,10 +51,16 @@ export default function LoginPage() {
     setMensagem(null);
 
     if (modo === 'cadastro') {
+      if (!cpfValido(cpf)) {
+        setCarregando(false);
+        setMensagem({ tipo: 'erro', texto: 'Esse CPF não é válido. Confira os números.' });
+        return;
+      }
+
       const { error } = await supabase.auth.signUp({
         email,
         password: senha,
-        options: { data: { nome } },
+        options: { data: { nome, cpf: cpf.replace(/\D/g, '') } },
       });
 
       setCarregando(false);
@@ -149,13 +158,23 @@ export default function LoginPage() {
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {modo === 'cadastro' && (
-            <input
-              className="input"
-              placeholder="Seu nome"
-              value={nome}
-              onChange={(e) => setNome(e.target.value)}
-              required
-            />
+            <>
+              <input
+                className="input"
+                placeholder="Seu nome"
+                value={nome}
+                onChange={(e) => setNome(e.target.value)}
+                required
+              />
+              <input
+                className="input"
+                inputMode="numeric"
+                placeholder="CPF"
+                value={cpf}
+                onChange={(e) => setCpf(formatarCPF(e.target.value))}
+                required
+              />
+            </>
           )}
           <input
             className="input"

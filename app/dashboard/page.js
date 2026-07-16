@@ -11,6 +11,7 @@ import {
   parseOFX, parseCSVExtrato, calcularParcela, formatarMoeda, recalcularSaldoConta,
 } from '../../lib/financeiro';
 import TelaPin from './TelaPin';
+import CompletarCadastro from './CompletarCadastro';
 import Sidebar from './Sidebar';
 import BottomNav from './BottomNav';
 import MenuConfiguracoes from './MenuConfiguracoes';
@@ -117,6 +118,7 @@ export default function Dashboard() {
 
   const [secaoAberta, setSecaoAberta] = useState({ contas: true, receitas: true, despesas: true, lancamentos: true, metas: true, orcamento: true, membros: true, atividade: false });
   const [usuarioId, setUsuarioId] = useState(null);
+  const [cadastroIncompleto, setCadastroIncompleto] = useState(false);
   const [expandirReceitas, setExpandirReceitas] = useState(false);
   const [expandirDespesas, setExpandirDespesas] = useState(false);
   const [expandirLancamentos, setExpandirLancamentos] = useState(false);
@@ -147,10 +149,12 @@ export default function Dashboard() {
   }, []);
 
   const carregarPerfil = useCallback(async (userId) => {
-    const { data } = await supabase.from('usuarios').select('logo_url, nome_exibicao, cor_destaque').eq('id', userId).single();
+    const { data } = await supabase.from('usuarios').select('logo_url, nome_exibicao, cor_destaque, cpf, nome').eq('id', userId).single();
     if (data) {
       setPerfil(data);
       setNomeExibicaoInput(data.nome_exibicao || '');
+      // Quem entrou por login social ainda não tem CPF: precisa completar.
+      setCadastroIncompleto(!data.cpf);
     }
   }, []);
 
@@ -1143,6 +1147,20 @@ export default function Dashboard() {
   }
 
   if (carregando) return <p style={{ padding: 24 }}>Carregando...</p>;
+
+  // Login social não fornece CPF: exige o preenchimento antes de liberar o app.
+  if (cadastroIncompleto && usuarioId) {
+    return (
+      <CompletarCadastro
+        usuarioId={usuarioId}
+        nomeAtual={perfil.nome}
+        onConcluido={() => {
+          setCadastroIncompleto(false);
+          carregarPerfil(usuarioId);
+        }}
+      />
+    );
+  }
 
   const saldoContas = contas.reduce((soma, c) => soma + Number(c.saldo_atual), 0);
   const despesasFixasPendentes = lancamentosFixos

@@ -16,6 +16,8 @@ import BottomNav from './BottomNav';
 import MenuConfiguracoes from './MenuConfiguracoes';
 import CardMetas from './CardMetas';
 import CardOrcamento from './CardOrcamento';
+import CardMembros from './CardMembros';
+import CardAuditoria from './CardAuditoria';
 import CapturaRapida from './CapturaRapida';
 import CardContas from './CardContas';
 import CardCartoes from './CardCartoes';
@@ -113,10 +115,12 @@ export default function Dashboard() {
 
   const [alertas, setAlertas] = useState([]);
 
-  const [secaoAberta, setSecaoAberta] = useState({ contas: true, receitas: true, despesas: true, lancamentos: true, metas: true, orcamento: true });
+  const [secaoAberta, setSecaoAberta] = useState({ contas: true, receitas: true, despesas: true, lancamentos: true, metas: true, orcamento: true, membros: true, atividade: false });
+  const [usuarioId, setUsuarioId] = useState(null);
   const [expandirReceitas, setExpandirReceitas] = useState(false);
   const [expandirDespesas, setExpandirDespesas] = useState(false);
   const [expandirLancamentos, setExpandirLancamentos] = useState(false);
+  const [mostrarTabelaAnual, setMostrarTabelaAnual] = useState(false);
   const [ordenarReceitasPor, setOrdenarReceitasPor] = useState('data');
   const [ordenarDespesasPor, setOrdenarDespesasPor] = useState('data');
   const [alturaCheiaReceitas, setAlturaCheiaReceitas] = useState(false);
@@ -129,10 +133,11 @@ export default function Dashboard() {
   // ---------- Carregamento ----------
 
   const carregarEntidades = useCallback(async (userId) => {
+    // Sem filtro por usuario_id: a RLS já devolve as entidades das quais
+    // o usuário é membro (próprias ou compartilhadas com ele).
     const { data } = await supabase
       .from('entidades')
       .select('*')
-      .eq('usuario_id', userId)
       .order('padrao', { ascending: false });
 
     setEntidades(data || []);
@@ -420,13 +425,28 @@ export default function Dashboard() {
   }
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
+    supabase.auth.getSession().then(async ({ data }) => {
       if (!data.session) {
         router.replace('/login');
         return;
       }
-      carregarEntidades(data.session.user.id).finally(() => setCarregando(false));
-      carregarPerfil(data.session.user.id);
+
+      const userId = data.session.user.id;
+      setUsuarioId(userId);
+
+      // Se a pessoa clicou num link de convite antes de ter conta/estar logada,
+      // o token ficou guardado — agora que está logada, aceita automaticamente.
+      const convitePendente = window.localStorage.getItem('convite_pendente');
+      if (convitePendente) {
+        const { data: resultado } = await supabase.rpc('aceitar_convite', { token_convite: convitePendente });
+        window.localStorage.removeItem('convite_pendente');
+        if (resultado?.ok) {
+          setEntidadeAtual(resultado.entidade_id);
+        }
+      }
+
+      carregarEntidades(userId).finally(() => setCarregando(false));
+      carregarPerfil(userId);
     });
   }, [router, carregarEntidades, carregarPerfil]);
 
@@ -832,6 +852,17 @@ export default function Dashboard() {
     }
   }
 
+  async function alternarSecaoOculta(chave) {
+    const entidadeAtualObjLocal = entidades.find((e) => e.id === entidadeAtual);
+    const atual = entidadeAtualObjLocal?.secoes_ocultas || [];
+    const nova = atual.includes(chave) ? atual.filter((s) => s !== chave) : [...atual, chave];
+
+    const { error } = await supabase.from('entidades').update({ secoes_ocultas: nova }).eq('id', entidadeAtual);
+    if (!error) {
+      setEntidades((lista) => lista.map((e) => (e.id === entidadeAtual ? { ...e, secoes_ocultas: nova } : e)));
+    }
+  }
+
   // ---------- Lançamentos fixos (molde) ----------
 
   async function adicionarLancamentoFixo(e, tipoAlvo) {
@@ -1132,6 +1163,7 @@ export default function Dashboard() {
   ).sort((a, b) => b.valor - a.valor);
 
   const entidadeAtualObj = entidades.find((e) => e.id === entidadeAtual);
+  const secoesOcultasAtual = entidadeAtualObj?.secoes_ocultas || [];
 
   const mesInicioVisivel = (() => {
     const referencia = entidadeAtualObj?.mes_inicio_controle || primeiroMovimento;
@@ -1317,6 +1349,7 @@ export default function Dashboard() {
         setSidebarMobileAberta={setSidebarMobileAberta}
         alternarSidebar={alternarSidebar}
         setMostrarConfiguracoes={setMostrarConfiguracoes}
+        secoesOcultas={secoesOcultasAtual}
       />
 
       <div className="layout-content">
@@ -1349,6 +1382,8 @@ export default function Dashboard() {
                 setNomeExibicaoInput={setNomeExibicaoInput}
                 salvarNomeExibicao={salvarNomeExibicao}
                 selecionarTema={selecionarTema}
+                secoesOcultas={entidadeAtualObj?.secoes_ocultas || []}
+                alternarSecaoOculta={alternarSecaoOculta}
               />
             )}
           </div>
@@ -1429,7 +1464,7 @@ export default function Dashboard() {
           )}
 
           <div className="card">
-            <p className="card-title" style={{ marginBottom: 12 }}>DRE simplificado — {NOMES_MESES[dataAtual.mes]}</p>
+            <p className="card-title" style={{ marginBottom: 12 }}>Resumo do mês — {NOMES_MESES[dataAtual.mes]}</p>
             <div className="row row-main"><span className="row-title">Receitas</span><span className="amount amount-positive">{formatarMoeda(totalEntradasMes)}</span></div>
             <div className="row row-main"><span className="row-title">Despesas</span><span className="amount">{formatarMoeda(totalSaidasMes)}</span></div>
             <div className="row row-main">
@@ -1437,27 +1472,13 @@ export default function Dashboard() {
               <span className="amount" style={{ fontSize: 18, color: resultadoMes >= 0 ? 'var(--primary)' : 'var(--negative)' }}>{formatarMoeda(resultadoMes)}</span>
             </div>
             {totalEntradasMes > 0 && (
-              <p className="empty-hint" style={{ marginTop: 6, marginBottom: 0 }}>Margem: {margemMes.toFixed(1)}% da receita</p>
+              <p className="empty-hint" style={{ marginTop: 6, marginBottom: 12 }}>Margem: {margemMes.toFixed(1)}% da receita</p>
             )}
-          </div>
-
-          <div className="card">
-            <p className="card-title" style={{ marginBottom: 12 }}>Pagas x em aberto — {NOMES_MESES[dataAtual.mes]}</p>
-            <div className="row row-main">
-              <span className="row-title">Despesas pagas</span>
-              <span>{despesasPagasMes.length} · <span className="amount">{formatarMoeda(totalDespesasPagasMes)}</span></span>
-            </div>
-            <div className="row row-main">
-              <span className="row-title">Despesas em aberto</span>
-              <span>{despesasAbertoMes.length} · <span className="amount">{formatarMoeda(totalDespesasAbertoMes)}</span></span>
-            </div>
-            <div className="row row-main">
-              <span className="row-title">Receitas recebidas</span>
-              <span>{receitasRecebidasMes.length} · <span className="amount amount-positive">{formatarMoeda(totalReceitasRecebidasMes)}</span></span>
-            </div>
-            <div className="row row-main">
-              <span className="row-title">Receitas a receber</span>
-              <span>{receitasAbertoMes.length} · <span className="amount">{formatarMoeda(totalReceitasAbertoMes)}</span></span>
+            <div style={{ borderTop: '1px solid var(--surface-alt)', paddingTop: 8, display: 'flex', flexWrap: 'wrap', gap: 16, fontSize: 13 }}>
+              <span>Despesas pagas: {despesasPagasMes.length} · <strong>{formatarMoeda(totalDespesasPagasMes)}</strong></span>
+              <span>Despesas em aberto: {despesasAbertoMes.length} · <strong>{formatarMoeda(totalDespesasAbertoMes)}</strong></span>
+              <span>Receitas recebidas: {receitasRecebidasMes.length} · <strong>{formatarMoeda(totalReceitasRecebidasMes)}</strong></span>
+              <span>Receitas a receber: {receitasAbertoMes.length} · <strong>{formatarMoeda(totalReceitasAbertoMes)}</strong></span>
             </div>
           </div>
 
@@ -1490,6 +1511,34 @@ export default function Dashboard() {
             <p className="card-title" style={{ marginBottom: 4 }}>Entradas x saídas — {dataAtual.ano}</p>
             <p className="empty-hint" style={{ marginTop: 0, marginBottom: 12 }}>Transferências entre contas não entram nesse total.</p>
             <GraficoEntradasSaidas dados={dadosBarras} />
+            <button onClick={() => setMostrarTabelaAnual((v) => !v)} className="btn-link" style={{ marginTop: 10 }}>
+              {mostrarTabelaAnual ? 'ocultar detalhamento mês a mês' : 'ver detalhamento mês a mês'}
+            </button>
+            {mostrarTabelaAnual && (
+              indicesMesesVisiveis.length === 0 ? (
+                <p className="empty-hint" style={{ marginTop: 10 }}>Nenhuma movimentação registrada até {dataAtual.ano}.</p>
+              ) : (
+                <table className="report-table" style={{ marginTop: 10 }}>
+                  <thead>
+                    <tr><th>Mês</th><th>Entradas</th><th>Saídas</th><th>Saldo do mês</th></tr>
+                  </thead>
+                  <tbody>
+                    {indicesMesesVisiveis.map((i) => {
+                      const m = resumoAnual[i];
+                      const saldoMes = m.entradas - m.saidas;
+                      return (
+                        <tr key={i}>
+                          <td>{NOMES_MESES[i]}</td>
+                          <td style={{ color: 'var(--primary)' }}>{formatarMoeda(m.entradas)}</td>
+                          <td>{formatarMoeda(m.saidas)}</td>
+                          <td style={{ fontWeight: 600, color: saldoMes >= 0 ? 'var(--primary)' : 'var(--negative)' }}>{formatarMoeda(saldoMes)}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )
+            )}
           </div>
 
           {evolucaoPatrimonio.length > 1 && (
@@ -1510,31 +1559,24 @@ export default function Dashboard() {
           </div>
 
           <div className="card">
-            <p className="card-title" style={{ marginBottom: 12 }}>Fixas x variáveis — {NOMES_MESES[dataAtual.mes]}</p>
+            <p className="card-title" style={{ marginBottom: 12 }}>Perfil de gastos — {NOMES_MESES[dataAtual.mes]}</p>
             {totalSaidasMes === 0 ? (
               <p className="empty-hint">Nenhuma despesa neste mês ainda.</p>
             ) : (
               <>
+                <p className="row-subtitle" style={{ margin: '0 0 6px' }}>Fixas x variáveis</p>
                 <div style={{ height: 10, borderRadius: 999, background: 'var(--surface-alt)', overflow: 'hidden', display: 'flex' }}>
                   <div style={{ width: `${pctFixas}%`, background: 'var(--negative)' }} />
                   <div style={{ width: `${100 - pctFixas}%`, background: 'var(--accent)' }} />
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 10, fontSize: 13 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6, marginTop: 8, marginBottom: 18, fontSize: 13 }}>
                   <span>🔴 Fixas — {formatarMoeda(saidasFixasMes)} ({pctFixas.toFixed(0)}%)</span>
                   <span>🟡 Variáveis — {formatarMoeda(saidasVariaveisMes)} ({(100 - pctFixas).toFixed(0)}%)</span>
                 </div>
-              </>
-            )}
-          </div>
 
-          <div className="card">
-            <p className="card-title" style={{ marginBottom: 4 }}>Essencialidade dos gastos — {NOMES_MESES[dataAtual.mes]}</p>
-            {totalSaidasMes === 0 ? (
-              <p className="empty-hint">Nenhuma despesa neste mês ainda.</p>
-            ) : (
-              <>
+                <p className="row-subtitle" style={{ margin: '0 0 6px' }}>Essencialidade</p>
                 {totalEntradasMes > 0 && (
-                  <p style={{ fontSize: 13, margin: '4px 0 12px', color: corComprometimento, fontWeight: 600 }}>
+                  <p style={{ fontSize: 13, margin: '0 0 8px', color: corComprometimento, fontWeight: 600 }}>
                     {pctRendaComprometida.toFixed(0)}% da renda comprometida com despesas essenciais
                     {pctRendaComprometida > 70 && ' — acima do recomendado (até ~50%)'}
                   </p>
@@ -1545,7 +1587,7 @@ export default function Dashboard() {
                   <div style={{ width: `${(despesasSuperfluas / totalSaidasMes) * 100}%`, background: 'var(--negative)' }} />
                   <div style={{ width: `${(despesasNaoClassificadas / totalSaidasMes) * 100}%`, background: 'var(--border)' }} />
                 </div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginTop: 10, fontSize: 12 }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginTop: 8, fontSize: 12 }}>
                   <span>🟢 Essencial — {formatarMoeda(despesasEssenciais)}</span>
                   <span>🟡 Desejável — {formatarMoeda(despesasDesejaveis)}</span>
                   <span>🔴 Supérfluo — {formatarMoeda(despesasSuperfluas)}</span>
@@ -1585,32 +1627,6 @@ export default function Dashboard() {
               ))
             )}
           </div>
-
-          <div className="card">
-            <p className="card-title" style={{ marginBottom: 12 }}>Resumo mês a mês — {dataAtual.ano}</p>
-            {indicesMesesVisiveis.length === 0 ? (
-              <p className="empty-hint">Nenhuma movimentação registrada até {dataAtual.ano}.</p>
-            ) : (
-              <table className="report-table">
-                <thead>
-                  <tr><th>Mês</th><th>Entradas</th><th>Saídas</th><th>Saldo do mês</th></tr>
-                </thead>
-                <tbody>
-                  {indicesMesesVisiveis.map((i) => {
-                    const m = resumoAnual[i];
-                    const saldoMes = m.entradas - m.saidas;
-                    return (
-                      <tr key={i}>
-                        <td>{NOMES_MESES[i]}</td>
-                        <td style={{ color: 'var(--primary)' }}>{formatarMoeda(m.entradas)}</td>
-                        <td>{formatarMoeda(m.saidas)}</td>
-                        <td style={{ fontWeight: 600, color: saldoMes >= 0 ? 'var(--primary)' : 'var(--negative)' }}>{formatarMoeda(saldoMes)}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            )}          </div>
         </>
       ) : (
         <>
@@ -1662,16 +1678,18 @@ export default function Dashboard() {
             }}
           />
 
-          <CardCartoes
-            entidadeAtual={entidadeAtual}
-            contas={contas}
-            cartoes={cartoes}
-            onAtualizar={() => {
-              carregarCartoes(entidadeAtual);
-              carregarContas(entidadeAtual);
-              carregarTransacoesDoMes(entidadeAtual, dataAtual.ano, dataAtual.mes);
-            }}
-          />
+          {!secoesOcultasAtual.includes('cartoes') && (
+            <CardCartoes
+              entidadeAtual={entidadeAtual}
+              contas={contas}
+              cartoes={cartoes}
+              onAtualizar={() => {
+                carregarCartoes(entidadeAtual);
+                carregarContas(entidadeAtual);
+                carregarTransacoesDoMes(entidadeAtual, dataAtual.ano, dataAtual.mes);
+              }}
+            />
+          )}
           <div className="card card-receitas" id="secao-receitas">
             <div className="card-header">
               <span className="card-title-group"><span className="card-icon">⬇</span><p className="card-title">Receitas fixas</p></span>
@@ -1764,21 +1782,42 @@ export default function Dashboard() {
             )}
           </div>
 
-          <CardOrcamento
-            entidadeAtual={entidadeAtual}
-            transacoesDoMes={transacoes}
-            ano={dataAtual.ano}
-            mes={dataAtual.mes}
-            aberto={secaoAberta.orcamento}
-            onAlternarAberto={() => setSecaoAberta({ ...secaoAberta, orcamento: !secaoAberta.orcamento })}
-          />
+          {!secoesOcultasAtual.includes('orcamento') && (
+            <CardOrcamento
+              entidadeAtual={entidadeAtual}
+              transacoesDoMes={transacoes}
+              ano={dataAtual.ano}
+              mes={dataAtual.mes}
+              aberto={secaoAberta.orcamento}
+              onAlternarAberto={() => setSecaoAberta({ ...secaoAberta, orcamento: !secaoAberta.orcamento })}
+            />
+          )}
 
-          <CardMetas
-            entidadeAtual={entidadeAtual}
-            contas={contas}
-            aberto={secaoAberta.metas}
-            onAlternarAberto={() => setSecaoAberta({ ...secaoAberta, metas: !secaoAberta.metas })}
-          />
+          {!secoesOcultasAtual.includes('metas') && (
+            <CardMetas
+              entidadeAtual={entidadeAtual}
+              contas={contas}
+              aberto={secaoAberta.metas}
+              onAlternarAberto={() => setSecaoAberta({ ...secaoAberta, metas: !secaoAberta.metas })}
+            />
+          )}
+
+          {!secoesOcultasAtual.includes('membros') && (
+            <CardMembros
+              entidadeAtual={entidadeAtual}
+              usuarioId={usuarioId}
+              aberto={secaoAberta.membros}
+              onAlternarAberto={() => setSecaoAberta({ ...secaoAberta, membros: !secaoAberta.membros })}
+            />
+          )}
+
+          {!secoesOcultasAtual.includes('atividade') && (
+            <CardAuditoria
+              entidadeAtual={entidadeAtual}
+              aberto={secaoAberta.atividade}
+              onAlternarAberto={() => setSecaoAberta({ ...secaoAberta, atividade: !secaoAberta.atividade })}
+            />
+          )}
           </div>
 
           <div className="card card-lancamentos" id="secao-lancamentos">
@@ -1794,7 +1833,7 @@ export default function Dashboard() {
             {sugestao && (
               <div className="suggestion-banner">
                 <span>Sugestão baseada no histórico: <strong>{sugestao.categoria}</strong>{sugestao.conta_nome && ` · ${sugestao.conta_nome}`}{sugestao.essencialidade && ` · ${sugestao.essencialidade}`}</span>
-                <div style={{ display: 'flex', gap: 12 }}>
+                <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
                   <button type="button" onClick={aplicarSugestao} className="btn-link btn-link-accent">usar</button>
                   <button type="button" onClick={() => setSugestao(null)} className="btn-link">ignorar</button>
                 </div>

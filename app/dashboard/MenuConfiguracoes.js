@@ -15,7 +15,17 @@ export default function MenuConfiguracoes({
   setNomeExibicaoInput,
   salvarNomeExibicao,
   selecionarTema,
+  secoesOcultas,
+  alternarSecaoOculta,
 }) {
+  const SECOES_OPCIONAIS = [
+    { chave: 'cartoes', label: 'Cartões de crédito' },
+    { chave: 'metas', label: 'Metas financeiras' },
+    { chave: 'orcamento', label: 'Orçamento por categoria' },
+    { chave: 'membros', label: 'Quem tem acesso' },
+    { chave: 'atividade', label: 'Atividade recente' },
+  ];
+
   return (
     <div className="settings-menu">
       <div className="settings-item">
@@ -29,6 +39,22 @@ export default function MenuConfiguracoes({
       <div className="settings-item">
         <span>Bloqueio por PIN</span>
         <button onClick={alternarBloqueioPin} className={`toggle-switch ${pinConfigurado ? 'on' : ''}`} />
+      </div>
+
+      <div className="settings-divider" />
+
+      <div className="settings-item" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 6 }}>
+        <span>Cards visíveis</span>
+        <p className="empty-hint" style={{ margin: '0 0 4px' }}>Desative o que você não usa.</p>
+        {SECOES_OPCIONAIS.map((s) => (
+          <div key={s.chave} className="settings-item" style={{ padding: '4px 0', width: '100%' }}>
+            <span style={{ fontSize: 12 }}>{s.label}</span>
+            <button
+              onClick={() => alternarSecaoOculta(s.chave)}
+              className={`toggle-switch ${!secoesOcultas.includes(s.chave) ? 'on' : ''}`}
+            />
+          </div>
+        ))}
       </div>
 
       <div className="settings-divider" />

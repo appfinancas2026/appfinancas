@@ -1,13 +1,15 @@
 'use client';
 
 const ITENS_SECAO = [
-  { id: 'secao-contas', icone: '🏦', label: 'Contas' },
-  { id: 'secao-cartoes', icone: '💳', label: 'Cartões' },
-  { id: 'secao-receitas', icone: '⬇', label: 'Receitas fixas' },
-  { id: 'secao-despesas', icone: '⬆', label: 'Despesas fixas' },
-  { id: 'secao-orcamento', icone: '📋', label: 'Orçamento' },
-  { id: 'secao-metas', icone: '🎯', label: 'Metas' },
-  { id: 'secao-lancamentos', icone: '🧾', label: 'Lançamentos' },
+  { id: 'secao-contas', chave: 'contas', icone: '🏦', label: 'Contas' },
+  { id: 'secao-cartoes', chave: 'cartoes', icone: '💳', label: 'Cartões' },
+  { id: 'secao-receitas', chave: 'receitas', icone: '⬇', label: 'Receitas fixas' },
+  { id: 'secao-despesas', chave: 'despesas', icone: '⬆', label: 'Despesas fixas' },
+  { id: 'secao-orcamento', chave: 'orcamento', icone: '📋', label: 'Orçamento' },
+  { id: 'secao-metas', chave: 'metas', icone: '🎯', label: 'Metas' },
+  { id: 'secao-lancamentos', chave: 'lancamentos', icone: '🧾', label: 'Lançamentos' },
+  { id: 'secao-membros', chave: 'membros', icone: '👥', label: 'Quem tem acesso' },
+  { id: 'secao-atividade', chave: 'atividade', icone: '📜', label: 'Atividade' },
 ];
 
 export default function Sidebar({
@@ -21,6 +23,7 @@ export default function Sidebar({
   setSidebarMobileAberta,
   alternarSidebar,
   setMostrarConfiguracoes,
+  secoesOcultas = [],
 }) {
   return (
     <>
@@ -42,7 +45,7 @@ export default function Sidebar({
 
         <div className="sidebar-divider" />
 
-        {ITENS_SECAO.map((item) => (
+        {ITENS_SECAO.filter((item) => !secoesOcultas.includes(item.chave)).map((item) => (
           <button key={item.id} onClick={() => irParaSecao(item.id)} className="sidebar-link">
             <span className="sidebar-icon">{item.icone}</span><span className="sidebar-label">{item.label}</span>
           </button>

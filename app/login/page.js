@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '../../lib/supabase';
 import { formatarCPF, cpfValido } from '../../lib/cpf';
+import { urlDoApp } from '../../lib/urls';
 
 const MENSAGENS_ERRO = {
   'Invalid login credentials': 'Email ou senha incorretos.',
@@ -98,7 +99,7 @@ export default function LoginPage() {
 
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: `${window.location.origin}/dashboard` },
+      options: { redirectTo: `${urlDoApp()}/dashboard` },
     });
 
     if (error) {

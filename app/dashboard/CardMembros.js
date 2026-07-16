@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../lib/supabase';
+import { linkDeConvite } from '../../lib/urls';
 
 export default function CardMembros({ entidadeAtual, usuarioId, aberto, onAlternarAberto }) {
   const [membros, setMembros] = useState([]);
@@ -11,6 +12,16 @@ export default function CardMembros({ entidadeAtual, usuarioId, aberto, onAltern
   const [enviando, setEnviando] = useState(false);
   const [aviso, setAviso] = useState(null);
   const [linkGerado, setLinkGerado] = useState(null);
+  const [avisoDominio, setAvisoDominio] = useState(false);
+
+  useEffect(() => {
+    // Sem NEXT_PUBLIC_APP_URL configurada, o link herda o endereço atual —
+    // que pode ser uma URL de preview da Vercel, protegida por login de equipe.
+    // Previews terminam com "-<usuario>-<time>-projects.vercel.app".
+    if (!process.env.NEXT_PUBLIC_APP_URL && typeof window !== 'undefined') {
+      setAvisoDominio(/-projects\.vercel\.app$/.test(window.location.hostname));
+    }
+  }, []);
 
   const carregarMembros = useCallback(async (entidadeId) => {
     if (!entidadeId) return;
@@ -67,7 +78,7 @@ export default function CardMembros({ entidadeAtual, usuarioId, aberto, onAltern
       return;
     }
 
-    const link = `${window.location.origin}/convite/${data.token}`;
+    const link = linkDeConvite(data.token);
     setLinkGerado(link);
     setEmailConvite('');
     carregarConvites(entidadeAtual);
@@ -152,6 +163,11 @@ export default function CardMembros({ entidadeAtual, usuarioId, aberto, onAltern
                   <p className="empty-hint" style={{ margin: '0 0 6px' }}>
                     Convite criado. Envie este link para a pessoa — ele só funciona para o email convidado e vale por 7 dias.
                   </p>
+                  {avisoDominio && (
+                    <p style={{ fontSize: 12, margin: '0 0 6px', color: 'var(--negative)' }}>
+                      ⚠ Você está acessando o app por um endereço de teste. Confira se este link abre normalmente antes de enviar.
+                    </p>
+                  )}
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
                     <input className="input" readOnly value={linkGerado} style={{ flex: 1, minWidth: 180, fontSize: 12 }} onFocus={(e) => e.target.select()} />
                     <button onClick={() => copiarLink(linkGerado)} className="btn btn-ghost">Copiar</button>
@@ -186,7 +202,7 @@ export default function CardMembros({ entidadeAtual, usuarioId, aberto, onAltern
               <p className="row-subtitle" style={{ marginTop: 14, marginBottom: 4, fontWeight: 600 }}>Convites pendentes</p>
               {convites.map((c) => {
                 const expirado = new Date(c.expira_em) < new Date();
-                const link = `${typeof window !== 'undefined' ? window.location.origin : ''}/convite/${c.token}`;
+                const link = linkDeConvite(c.token);
                 return (
                   <div key={c.id} className="row row-main">
                     <div>

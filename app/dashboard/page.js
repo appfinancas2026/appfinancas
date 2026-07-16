@@ -8,8 +8,9 @@ import { TEMAS_CORES } from '../../lib/temas';
 import {
   mesReferenciaStr, primeiroDiaDoMes, ultimoDiaDoMes, subtrairMeses,
   calcularPeriodoFaturaAberta, calcularMesFaturaCompra, avancarMeses,
-  parseOFX, parseCSVExtrato, calcularParcela, formatarMoeda, recalcularSaldoConta,
+  parseOFX, parseCSVExtrato, calcularParcela, formatarMoeda,
 } from '../../lib/financeiro';
+import { recalcularSaldoConta } from '../../lib/saldos';
 import TelaPin from './TelaPin';
 import CompletarCadastro from './CompletarCadastro';
 import Sidebar from './Sidebar';

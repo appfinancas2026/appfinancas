@@ -1,0 +1,406 @@
+import { test, describe } from 'node:test';
+import assert from 'node:assert/strict';
+
+import {
+  pad2,
+  mesReferenciaStr,
+  ultimoDiaDoMes,
+  subtrairMeses,
+  avancarMeses,
+  calcularParcela,
+  calcularPeriodoFaturaAberta,
+  calcularMesFaturaCompra,
+  formatarMoeda,
+  parseOFX,
+  parseCSVExtrato,
+  parseValorMonetario,
+  calcularSaldoConta,
+} from '../lib/financeiro.js';
+
+// Lembrete: mês é 0-based (0 = janeiro), como no Date do JavaScript.
+
+describe('pad2', () => {
+  test('completa com zero à esquerda', () => {
+    assert.equal(pad2(1), '01');
+    assert.equal(pad2(9), '09');
+  });
+
+  test('não mexe em números de dois dígitos', () => {
+    assert.equal(pad2(10), '10');
+    assert.equal(pad2(12), '12');
+  });
+});
+
+describe('mesReferenciaStr', () => {
+  test('converte mês 0-based para data do primeiro dia', () => {
+    assert.equal(mesReferenciaStr(2026, 0), '2026-01-01');
+    assert.equal(mesReferenciaStr(2026, 11), '2026-12-01');
+  });
+});
+
+describe('ultimoDiaDoMes', () => {
+  test('meses de 31 e 30 dias', () => {
+    assert.equal(ultimoDiaDoMes(2026, 0), '2026-01-31');
+    assert.equal(ultimoDiaDoMes(2026, 3), '2026-04-30');
+  });
+
+  test('fevereiro em ano comum e bissexto', () => {
+    assert.equal(ultimoDiaDoMes(2026, 1), '2026-02-28');
+    assert.equal(ultimoDiaDoMes(2024, 1), '2024-02-29');
+  });
+});
+
+describe('subtrairMeses', () => {
+  test('dentro do mesmo ano', () => {
+    assert.deepEqual(subtrairMeses(2026, 5, 2), { ano: 2026, mes: 3 });
+  });
+
+  test('atravessando o ano para trás', () => {
+    assert.deepEqual(subtrairMeses(2026, 0, 1), { ano: 2025, mes: 11 });
+  });
+
+  test('quantidade negativa avança', () => {
+    assert.deepEqual(subtrairMeses(2026, 11, -1), { ano: 2027, mes: 0 });
+  });
+
+  test('vários anos para trás', () => {
+    assert.deepEqual(subtrairMeses(2026, 2, 24), { ano: 2024, mes: 2 });
+  });
+});
+
+describe('avancarMeses', () => {
+  test('avança dentro do ano', () => {
+    assert.equal(avancarMeses('2026-01-01', 2), '2026-03-01');
+  });
+
+  test('vira o ano', () => {
+    assert.equal(avancarMeses('2026-11-01', 2), '2027-01-01');
+  });
+
+  test('avançar zero devolve o mesmo mês', () => {
+    assert.equal(avancarMeses('2026-07-01', 0), '2026-07-01');
+  });
+
+  test('12 meses = um ano exato', () => {
+    assert.equal(avancarMeses('2026-07-01', 12), '2027-07-01');
+  });
+});
+
+describe('calcularParcela', () => {
+  const fixo = { parcelado: true, mes_inicio: '2026-01-01', total_parcelas: 6 };
+
+  test('primeira parcela no mês de início', () => {
+    assert.equal(calcularParcela(fixo, 2026, 0), 1);
+  });
+
+  test('parcela do meio', () => {
+    assert.equal(calcularParcela(fixo, 2026, 2), 3);
+  });
+
+  test('última parcela', () => {
+    assert.equal(calcularParcela(fixo, 2026, 5), 6);
+  });
+
+  test('depois da última devolve null', () => {
+    assert.equal(calcularParcela(fixo, 2026, 6), null);
+  });
+
+  test('antes do início devolve null', () => {
+    assert.equal(calcularParcela(fixo, 2025, 11), null);
+  });
+
+  test('não parcelado devolve null', () => {
+    assert.equal(calcularParcela({ parcelado: false, mes_inicio: '2026-01-01' }, 2026, 0), null);
+  });
+
+  test('parcelado sem mes_inicio devolve null', () => {
+    assert.equal(calcularParcela({ parcelado: true }, 2026, 0), null);
+  });
+
+  test('atravessa a virada do ano', () => {
+    const f = { parcelado: true, mes_inicio: '2025-11-01', total_parcelas: 6 };
+    assert.equal(calcularParcela(f, 2026, 0), 3); // nov=1, dez=2, jan=3
+  });
+
+  test('sem total_parcelas não tem limite superior', () => {
+    const f = { parcelado: true, mes_inicio: '2026-01-01' };
+    assert.equal(calcularParcela(f, 2030, 0), 49);
+  });
+});
+
+describe('calcularPeriodoFaturaAberta', () => {
+  const cartao = { dia_fechamento: 10 };
+
+  test('antes do fechamento: fatura do mês atual', () => {
+    assert.deepEqual(calcularPeriodoFaturaAberta(cartao, new Date(2026, 6, 5)), { ano: 2026, mes: 6 });
+  });
+
+  test('no dia do fechamento: ainda o mês atual', () => {
+    assert.deepEqual(calcularPeriodoFaturaAberta(cartao, new Date(2026, 6, 10)), { ano: 2026, mes: 6 });
+  });
+
+  test('depois do fechamento: fatura do mês seguinte', () => {
+    assert.deepEqual(calcularPeriodoFaturaAberta(cartao, new Date(2026, 6, 11)), { ano: 2026, mes: 7 });
+  });
+
+  test('dezembro depois do fechamento vira janeiro do ano seguinte', () => {
+    assert.deepEqual(calcularPeriodoFaturaAberta(cartao, new Date(2026, 11, 20)), { ano: 2027, mes: 0 });
+  });
+});
+
+describe('calcularMesFaturaCompra', () => {
+  const cartao = { dia_fechamento: 10 };
+
+  test('compra antes do fechamento entra na fatura do mês', () => {
+    assert.equal(calcularMesFaturaCompra(cartao, '2026-07-05'), '2026-07-01');
+  });
+
+  test('compra no dia do fechamento ainda entra no mês', () => {
+    assert.equal(calcularMesFaturaCompra(cartao, '2026-07-10'), '2026-07-01');
+  });
+
+  test('compra depois do fechamento vai para o mês seguinte', () => {
+    assert.equal(calcularMesFaturaCompra(cartao, '2026-07-11'), '2026-08-01');
+  });
+
+  test('compra em dezembro depois do fechamento vai para janeiro', () => {
+    assert.equal(calcularMesFaturaCompra(cartao, '2026-12-15'), '2027-01-01');
+  });
+
+  test('fechamento no dia 1', () => {
+    const c = { dia_fechamento: 1 };
+    assert.equal(calcularMesFaturaCompra(c, '2026-07-01'), '2026-07-01');
+    assert.equal(calcularMesFaturaCompra(c, '2026-07-02'), '2026-08-01');
+  });
+});
+
+describe('formatarMoeda', () => {
+  test('duas casas decimais', () => {
+    assert.equal(formatarMoeda(10), 'R$ 10.00');
+    assert.equal(formatarMoeda(10.5), 'R$ 10.50');
+  });
+
+  test('arredonda', () => {
+    assert.equal(formatarMoeda(10.567), 'R$ 10.57');
+  });
+
+  test('zero e negativo', () => {
+    assert.equal(formatarMoeda(0), 'R$ 0.00');
+    assert.equal(formatarMoeda(-50.5), 'R$ -50.50');
+  });
+
+  test('aceita string numérica', () => {
+    assert.equal(formatarMoeda('123.456'), 'R$ 123.46');
+  });
+});
+
+describe('parseOFX', () => {
+  const ofx = `
+<OFX><BANKMSGSRSV1><STMTTRNRS><STMTRS><BANKTRANLIST>
+<STMTTRN>
+<TRNTYPE>DEBIT
+<DTPOSTED>20260705120000
+<TRNAMT>-45.90
+<FITID>ABC123
+<MEMO>SUPERMERCADO XYZ
+</STMTTRN>
+<STMTTRN>
+<TRNTYPE>CREDIT
+<DTPOSTED>20260701
+<TRNAMT>3500.00
+<FITID>DEF456
+<MEMO>SALARIO
+</STMTTRN>
+</BANKTRANLIST></STMTRS></STMTTRNRS></BANKMSGSRSV1></OFX>`;
+
+  test('extrai todas as transações', () => {
+    assert.equal(parseOFX(ofx).length, 2);
+  });
+
+  test('valor negativo vira saída com valor absoluto', () => {
+    const [primeira] = parseOFX(ofx);
+    assert.equal(primeira.tipo, 'saida');
+    assert.equal(primeira.valor, 45.9);
+  });
+
+  test('valor positivo vira entrada', () => {
+    const [, segunda] = parseOFX(ofx);
+    assert.equal(segunda.tipo, 'entrada');
+    assert.equal(segunda.valor, 3500);
+  });
+
+  test('converte a data para ISO', () => {
+    assert.equal(parseOFX(ofx)[0].data, '2026-07-05');
+  });
+
+  test('guarda o FITID (usado para não duplicar na importação)', () => {
+    assert.equal(parseOFX(ofx)[0].referencia_externa, 'ABC123');
+  });
+
+  test('usa o MEMO como descrição', () => {
+    assert.equal(parseOFX(ofx)[0].descricao, 'SUPERMERCADO XYZ');
+  });
+
+  test('vem marcada para incluir por padrão', () => {
+    assert.equal(parseOFX(ofx)[0].incluir, true);
+  });
+
+  test('texto vazio devolve lista vazia', () => {
+    assert.deepEqual(parseOFX(''), []);
+  });
+
+  test('ignora transação sem valor', () => {
+    const semValor = '<STMTTRN><DTPOSTED>20260705<MEMO>X</STMTTRN>';
+    assert.deepEqual(parseOFX(semValor), []);
+  });
+
+  test('cai para NAME quando não há MEMO', () => {
+    const comName = '<STMTTRN><DTPOSTED>20260705<TRNAMT>-10.00<NAME>POSTO ABC</STMTTRN>';
+    assert.equal(parseOFX(comName)[0].descricao, 'POSTO ABC');
+  });
+
+  test('sem MEMO nem NAME usa descrição padrão', () => {
+    const semDesc = '<STMTTRN><DTPOSTED>20260705<TRNAMT>-10.00</STMTTRN>';
+    assert.equal(parseOFX(semDesc)[0].descricao, 'Importado do extrato');
+  });
+});
+
+describe('parseValorMonetario', () => {
+  test('formato brasileiro: vírgula decimal', () => {
+    assert.equal(parseValorMonetario('45,90'), 45.9);
+    assert.equal(parseValorMonetario('-45,90'), -45.9);
+  });
+
+  test('formato brasileiro com milhar', () => {
+    assert.equal(parseValorMonetario('1.234,56'), 1234.56);
+    assert.equal(parseValorMonetario('1.234.567,89'), 1234567.89);
+  });
+
+  test('formato internacional: ponto decimal', () => {
+    assert.equal(parseValorMonetario('45.90'), 45.9);
+    assert.equal(parseValorMonetario('-45.90'), -45.9);
+  });
+
+  test('formato internacional com milhar', () => {
+    assert.equal(parseValorMonetario('1,234.56'), 1234.56);
+  });
+
+  test('número inteiro sem separador', () => {
+    assert.equal(parseValorMonetario('100'), 100);
+    assert.equal(parseValorMonetario('-100'), -100);
+  });
+
+  test('ignora símbolo de moeda e espaços', () => {
+    assert.equal(parseValorMonetario('R$ 45,90'), 45.9);
+    assert.equal(parseValorMonetario(' 45,90 '), 45.9);
+  });
+
+  test('texto inválido devolve NaN', () => {
+    assert.ok(Number.isNaN(parseValorMonetario('abc')));
+    assert.ok(Number.isNaN(parseValorMonetario('')));
+  });
+});
+
+describe('parseCSVExtrato', () => {
+  test('formato brasileiro: ponto e vírgula, vírgula decimal, data dd/mm/aaaa', () => {
+    const csv = 'Data;Valor;Descrição\n05/07/2026;-45,90;SUPERMERCADO\n01/07/2026;3500,00;SALARIO';
+    const r = parseCSVExtrato(csv);
+
+    assert.equal(r.length, 2);
+    assert.equal(r[0].data, '2026-07-05');
+    assert.equal(r[0].valor, 45.9);
+    assert.equal(r[0].tipo, 'saida');
+    assert.equal(r[1].tipo, 'entrada');
+  });
+
+  test('formato internacional: vírgula separadora, ponto decimal', () => {
+    const csv = 'Date,Amount,Description\n2026-07-05,-45.90,MARKET';
+    const r = parseCSVExtrato(csv);
+
+    assert.equal(r.length, 1);
+    assert.equal(r[0].valor, 45.9);
+  });
+
+  test('milhar com ponto e decimal com vírgula', () => {
+    const csv = 'Data;Valor;Descrição\n05/07/2026;1.234,56;COMPRA';
+    assert.equal(parseCSVExtrato(csv)[0].valor, 1234.56);
+  });
+
+  test('ano com dois dígitos vira 20xx', () => {
+    const csv = 'Data;Valor;Descrição\n05/07/26;-10,00;X';
+    assert.equal(parseCSVExtrato(csv)[0].data, '2026-07-05');
+  });
+
+  test('dia e mês sem zero à esquerda', () => {
+    const csv = 'Data;Valor;Descrição\n5/7/2026;-10,00;X';
+    assert.equal(parseCSVExtrato(csv)[0].data, '2026-07-05');
+  });
+
+  test('cabeçalho alternativo (histórico)', () => {
+    const csv = 'Data;Valor;Histórico\n05/07/2026;-10,00;PAGAMENTO';
+    assert.equal(parseCSVExtrato(csv)[0].descricao, 'PAGAMENTO');
+  });
+
+  test('sem coluna de data devolve vazio', () => {
+    assert.deepEqual(parseCSVExtrato('Valor;Descrição\n-10,00;X'), []);
+  });
+
+  test('sem coluna de valor devolve vazio', () => {
+    assert.deepEqual(parseCSVExtrato('Data;Descrição\n05/07/2026;X'), []);
+  });
+
+  test('só cabeçalho devolve vazio', () => {
+    assert.deepEqual(parseCSVExtrato('Data;Valor;Descrição'), []);
+  });
+
+  test('texto vazio devolve vazio', () => {
+    assert.deepEqual(parseCSVExtrato(''), []);
+  });
+
+  test('pula linhas com valor inválido', () => {
+    const csv = 'Data;Valor;Descrição\n05/07/2026;abc;X\n06/07/2026;-10,00;Y';
+    const r = parseCSVExtrato(csv);
+    assert.equal(r.length, 1);
+    assert.equal(r[0].descricao, 'Y');
+  });
+
+  test('ignora linhas em branco no meio', () => {
+    const csv = 'Data;Valor;Descrição\n05/07/2026;-10,00;X\n\n06/07/2026;-20,00;Y';
+    assert.equal(parseCSVExtrato(csv).length, 2);
+  });
+});
+
+describe('calcularSaldoConta', () => {
+  test('entradas somam, saídas subtraem', () => {
+    const txs = [
+      { valor: 100, tipo: 'entrada' },
+      { valor: 30, tipo: 'saida' },
+    ];
+    assert.equal(calcularSaldoConta(1000, txs), 1070);
+  });
+
+  test('sem transações mantém o saldo inicial', () => {
+    assert.equal(calcularSaldoConta(500, []), 500);
+  });
+
+  test('lista nula não quebra', () => {
+    assert.equal(calcularSaldoConta(500, null), 500);
+  });
+
+  test('aceita valores em string (como vêm do banco)', () => {
+    const txs = [{ valor: '250.50', tipo: 'saida' }];
+    assert.equal(calcularSaldoConta('1000.00', txs), 749.5);
+  });
+
+  test('saldo pode ficar negativo', () => {
+    assert.equal(calcularSaldoConta(100, [{ valor: 150, tipo: 'saida' }]), -50);
+  });
+
+  test('vários pagamentos parciais da mesma conta', () => {
+    const txs = [
+      { valor: 200, tipo: 'saida' },
+      { valor: 100, tipo: 'saida' },
+    ];
+    assert.equal(calcularSaldoConta(1000, txs), 700);
+  });
+});

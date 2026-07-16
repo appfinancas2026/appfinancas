@@ -2,7 +2,8 @@
 
 import { useState } from 'react';
 import { supabase } from '../../lib/supabase';
-import { formatarMoeda, parseOFX, parseCSVExtrato, calcularMesFaturaCompra, recalcularSaldoConta } from '../../lib/financeiro';
+import { formatarMoeda, parseOFX, parseCSVExtrato, calcularMesFaturaCompra } from '../../lib/financeiro';
+import { recalcularSaldoConta } from '../../lib/saldos';
 
 const LIMITE_LISTA = 6;
 

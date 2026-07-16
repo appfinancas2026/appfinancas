@@ -4,8 +4,9 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../lib/supabase';
 import {
   formatarMoeda, calcularMesFaturaCompra, avancarMeses,
-  calcularPeriodoFaturaAberta, subtrairMeses, mesReferenciaStr, recalcularSaldoConta,
+  calcularPeriodoFaturaAberta, subtrairMeses, mesReferenciaStr,
 } from '../../lib/financeiro';
+import { recalcularSaldoConta } from '../../lib/saldos';
 
 export default function CardCartoes({ entidadeAtual, contas, cartoes, onAtualizar }) {
   const [faturasPorCartao, setFaturasPorCartao] = useState({});

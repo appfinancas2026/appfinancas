@@ -438,8 +438,11 @@ export default function Dashboard() {
       const userId = data.session.user.id;
       setUsuarioId(userId);
 
-      // Se a pessoa clicou num link de convite antes de ter conta/estar logada,
-      // o token ficou guardado — agora que está logada, aceita automaticamente.
+      // Quem foi cadastrado por email ganha o acesso aqui, sem precisar de link.
+      await supabase.rpc('sincronizar_meus_acessos');
+
+      // Se a pessoa chegou por um link de convite antes de ter conta,
+      // o token ficou guardado — agora que está logada, aceita.
       const convitePendente = window.localStorage.getItem('convite_pendente');
       if (convitePendente) {
         const { data: resultado } = await supabase.rpc('aceitar_convite', { token_convite: convitePendente });

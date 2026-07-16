@@ -12,6 +12,8 @@ export default function CardMembros({ entidadeAtual, usuarioId, aberto, onAltern
   const [enviando, setEnviando] = useState(false);
   const [aviso, setAviso] = useState(null);
   const [linkGerado, setLinkGerado] = useState(null);
+  const [ultimoEmail, setUltimoEmail] = useState(null);
+  const [mostrarLink, setMostrarLink] = useState(false);
   const [avisoDominio, setAvisoDominio] = useState(false);
 
   useEffect(() => {
@@ -59,27 +61,32 @@ export default function CardMembros({ entidadeAtual, usuarioId, aberto, onAltern
 
   async function convidar(e) {
     e.preventDefault();
-    if (!emailConvite.trim()) return;
+    const email = emailConvite.trim().toLowerCase();
+    if (!email) return;
 
     setEnviando(true);
     setAviso(null);
     setLinkGerado(null);
+    setUltimoEmail(null);
 
     const { data, error } = await supabase
       .from('convites')
-      .insert({ entidade_id: entidadeAtual, email: emailConvite.trim().toLowerCase(), criado_por: usuarioId })
+      .insert({ entidade_id: entidadeAtual, email, criado_por: usuarioId })
       .select()
       .single();
 
-    setEnviando(false);
-
     if (error) {
-      setAviso({ tipo: 'erro', texto: 'Não foi possível criar o convite. Verifique se você é dono desta entidade.' });
+      setEnviando(false);
+      setAviso({ tipo: 'erro', texto: 'Não foi possível cadastrar. Verifique se você é dono desta entidade.' });
       return;
     }
 
-    const link = linkDeConvite(data.token);
-    setLinkGerado(link);
+    // Descobre se a pessoa já tem conta, para explicar o que acontece agora.
+    const { data: temConta } = await supabase.rpc('email_ja_tem_conta', { email_alvo: email });
+
+    setEnviando(false);
+    setLinkGerado(linkDeConvite(data.token));
+    setUltimoEmail({ email, temConta: temConta === true });
     setEmailConvite('');
     carregarConvites(entidadeAtual);
   }
@@ -144,34 +151,49 @@ export default function CardMembros({ entidadeAtual, usuarioId, aberto, onAltern
 
           {mostrarConvidar && souDono && (
             <div style={{ marginBottom: 12, padding: 12, background: 'var(--surface-alt)', borderRadius: 'var(--radius-sm)' }}>
-              <form onSubmit={convidar} className="form-row" style={{ marginBottom: linkGerado ? 10 : 0 }}>
+              <p className="empty-hint" style={{ margin: '0 0 8px' }}>
+                Informe o email da pessoa. Ela terá acesso assim que entrar no app com esse email.
+              </p>
+              <form onSubmit={convidar} className="form-row" style={{ marginBottom: ultimoEmail ? 10 : 0 }}>
                 <input
                   className="input"
                   type="email"
-                  placeholder="Email de quem você quer convidar"
+                  placeholder="email@exemplo.com"
                   value={emailConvite}
                   onChange={(e) => setEmailConvite(e.target.value)}
                   required
                 />
                 <button type="submit" className="btn btn-primary" disabled={enviando}>
-                  {enviando ? 'Gerando...' : 'Gerar convite'}
+                  {enviando ? 'Cadastrando...' : 'Dar acesso'}
                 </button>
               </form>
 
-              {linkGerado && (
+              {ultimoEmail && (
                 <div>
-                  <p className="empty-hint" style={{ margin: '0 0 6px' }}>
-                    Convite criado. Envie este link para a pessoa — ele só funciona para o email convidado e vale por 7 dias.
+                  <p style={{ fontSize: 13, margin: '0 0 8px', color: 'var(--primary)' }}>
+                    ✓ <strong>{ultimoEmail.email}</strong> cadastrado.{' '}
+                    {ultimoEmail.temConta
+                      ? 'Como já tem conta, o acesso aparece no próximo login.'
+                      : 'Assim que criar a conta com esse email, o acesso é liberado.'}
                   </p>
-                  {avisoDominio && (
-                    <p style={{ fontSize: 12, margin: '0 0 6px', color: 'var(--negative)' }}>
-                      ⚠ Você está acessando o app por um endereço de teste. Confira se este link abre normalmente antes de enviar.
-                    </p>
+
+                  <button onClick={() => setMostrarLink((v) => !v)} className="btn-link">
+                    {mostrarLink ? 'ocultar link' : 'ou envie um link de convite'}
+                  </button>
+
+                  {mostrarLink && (
+                    <div style={{ marginTop: 8 }}>
+                      {avisoDominio && (
+                        <p style={{ fontSize: 12, margin: '0 0 6px', color: 'var(--negative)' }}>
+                          ⚠ Você está acessando o app por um endereço de teste. Confira se este link abre normalmente antes de enviar.
+                        </p>
+                      )}
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                        <input className="input" readOnly value={linkGerado} style={{ flex: 1, minWidth: 180, fontSize: 12 }} onFocus={(e) => e.target.select()} />
+                        <button onClick={() => copiarLink(linkGerado)} className="btn btn-ghost">Copiar</button>
+                      </div>
+                    </div>
                   )}
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-                    <input className="input" readOnly value={linkGerado} style={{ flex: 1, minWidth: 180, fontSize: 12 }} onFocus={(e) => e.target.select()} />
-                    <button onClick={() => copiarLink(linkGerado)} className="btn btn-ghost">Copiar</button>
-                  </div>
                 </div>
               )}
             </div>
@@ -199,7 +221,7 @@ export default function CardMembros({ entidadeAtual, usuarioId, aberto, onAltern
 
           {convites.length > 0 && (
             <>
-              <p className="row-subtitle" style={{ marginTop: 14, marginBottom: 4, fontWeight: 600 }}>Convites pendentes</p>
+              <p className="row-subtitle" style={{ marginTop: 14, marginBottom: 4, fontWeight: 600 }}>Aguardando entrar</p>
               {convites.map((c) => {
                 const expirado = new Date(c.expira_em) < new Date();
                 const link = linkDeConvite(c.token);
@@ -208,7 +230,7 @@ export default function CardMembros({ entidadeAtual, usuarioId, aberto, onAltern
                     <div>
                       <p className="row-title">{c.email}</p>
                       <p className="row-subtitle" style={{ color: expirado ? 'var(--negative)' : 'var(--text-muted)' }}>
-                        {expirado ? 'expirado' : `expira em ${new Date(c.expira_em).toLocaleDateString('pt-BR')}`}
+                        {expirado ? 'expirou — cadastre de novo' : 'terá acesso ao entrar no app'}
                       </p>
                     </div>
                     <div className="row-actions">

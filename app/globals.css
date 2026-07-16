@@ -14,6 +14,11 @@
   --negative-tint: #F8EAE6;
   --accent: #C68A2E;
   --accent-tint: #FBF0DC;
+  --info: #3B6E8F;
+  --info-tint: #E7EFF4;
+  --info-text: #2C526B;
+  --accent-text: #8A5A11;
+  --alerta-text: #6B4A10;
   --radius-sm: 8px;
   --radius-md: 14px;
   --radius-lg: 22px;
@@ -22,21 +27,37 @@
   --font-body: 'Public Sans', system-ui, sans-serif;
 }
 
+/* Tema escuro — "grafite neutro".
+ *
+ * Três decisões que evitam cansaço visual em uso prolongado:
+ *   1. Fundo neutro-frio, não colorido. Superfície escura tingida com a cor da
+ *      marca compete com o conteúdo; a cor fica reservada ao que significa algo.
+ *   2. Texto ~#D8DDE3 sobre #0F1214 (contraste ~11:1), não branco puro sobre
+ *      preto (~19:1). Contraste máximo causa halation — o brilho que borra as
+ *      letras e força a vista.
+ *   3. Profundidade por camada, não por sombra: cada nível é um pouco mais
+ *      claro que o anterior. Sombra preta sobre fundo escuro é invisível.
+ */
 [data-theme='dark'] {
-  --bg: #131C16;
-  --surface: #1B2620;
-  --surface-alt: #23312A;
-  --border: #33453B;
-  --text: #E8ECE6;
-  --text-muted: #93A399;
-  --primary: #3FBE9B;
-  --primary-dark: #0F6E56;
-  --primary-tint: #1E3A32;
-  --negative: #E38267;
-  --negative-tint: #3A241E;
-  --accent: #E2AD57;
-  --accent-tint: #3A2E15;
-  --shadow: 0 1px 2px rgba(0, 0, 0, 0.2), 0 6px 16px rgba(0, 0, 0, 0.25);
+  --bg: #0F1214;
+  --surface: #171B1F;
+  --surface-alt: #1F242A;
+  --border: #2A3037;
+  --text: #BFC7CF;
+  --text-muted: #7E8792;
+  --primary: #5FB89A;
+  --primary-dark: #4A9C81;
+  --primary-tint: #17302A;
+  --negative: #E0836C;
+  --negative-tint: #2E1F1B;
+  --accent: #D4A45C;
+  --accent-tint: #2C2418;
+  --info: #6BA8D4;
+  --info-tint: #182833;
+  --info-text: #8FBEDE;
+  --accent-text: #D4A45C;
+  --alerta-text: #D4A45C;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 6px 16px rgba(0, 0, 0, 0.4);
 }
 
 body { transition: background-color 0.15s ease, color 0.15s ease; }
@@ -345,14 +366,14 @@ button, input, select { font-family: var(--font-body); }
 .card-contas { border-left-color: var(--primary); }
 .card-contas .card-icon { background: var(--primary-tint); color: var(--primary-dark); }
 
-.card-receitas { border-left-color: #3B6E8F; }
-.card-receitas .card-icon { background: #E7EFF4; color: #2C526B; }
+.card-receitas { border-left-color: var(--info); }
+.card-receitas .card-icon { background: var(--info-tint); color: var(--info-text); }
 
 .card-despesas { border-left-color: var(--negative); }
 .card-despesas .card-icon { background: var(--negative-tint); color: var(--negative); }
 
 .card-lancamentos { border-left-color: var(--accent); }
-.card-lancamentos .card-icon { background: var(--accent-tint); color: #8A5A11; }
+.card-lancamentos .card-icon { background: var(--accent-tint); color: var(--accent-text); }
 
 /* Card de saldo — estilo "recibo", elemento de assinatura do design */
 .receipt-card {
@@ -429,8 +450,8 @@ button, input, select { font-family: var(--font-body); }
   margin-bottom: 20px;
 }
 
-.alert-banner-title { margin: 0 0 4px; font-size: 13px; font-weight: 700; color: #6B4A10; }
-.alert-item { margin: 2px 0; font-size: 13px; color: #6B4A10; }
+.alert-banner-title { margin: 0 0 4px; font-size: 13px; font-weight: 700; color: var(--alerta-text); }
+.alert-item { margin: 2px 0; font-size: 13px; color: var(--alerta-text); }
 .alert-item-overdue { color: var(--negative); font-weight: 700; }
 
 .collapse-btn {
@@ -794,8 +815,8 @@ button, input, select { font-family: var(--font-body); }
   white-space: nowrap;
 }
 
-.badge-pending { background: var(--accent-tint); color: #8A5A11; }
-.badge-partial { background: #DBEAFE; color: #1E40AF; }
+.badge-pending { background: var(--accent-tint); color: var(--accent-text); }
+.badge-partial { background: var(--info-tint); color: var(--info-text); }
 .badge-confirmed { background: var(--primary-tint); color: var(--primary-dark); }
 
 .star-btn {

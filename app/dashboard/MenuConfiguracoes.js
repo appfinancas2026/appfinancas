@@ -91,7 +91,7 @@ export default function MenuConfiguracoes({
               onClick={() => selecionarTema(chave)}
               title={chave}
               className={`color-swatch ${(perfil.cor_destaque || 'teal') === chave ? 'selected' : ''}`}
-              style={{ background: t.primary }}
+              style={{ background: tema === 'dark' ? t.escuro.primary : t.primary }}
             />
           ))}
         </div>

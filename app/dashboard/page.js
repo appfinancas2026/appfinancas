@@ -469,22 +469,30 @@ export default function Dashboard() {
   }, []);
 
   function aplicarCorPersonalizada(chave, temaAtual) {
-    if (temaAtual === 'dark') {
-      document.documentElement.style.removeProperty('--primary');
-      document.documentElement.style.removeProperty('--primary-dark');
-      document.documentElement.style.removeProperty('--primary-tint');
-      return;
-    }
+    const raiz = document.documentElement;
+    const limpar = () => {
+      raiz.style.removeProperty('--primary');
+      raiz.style.removeProperty('--primary-dark');
+      raiz.style.removeProperty('--primary-tint');
+    };
+
     const escolhido = TEMAS_CORES[chave];
     if (!escolhido) {
-      document.documentElement.style.removeProperty('--primary');
-      document.documentElement.style.removeProperty('--primary-dark');
-      document.documentElement.style.removeProperty('--primary-tint');
+      limpar();
       return;
     }
-    document.documentElement.style.setProperty('--primary', escolhido.primary);
-    document.documentElement.style.setProperty('--primary-dark', escolhido.dark);
-    document.documentElement.style.setProperty('--primary-tint', escolhido.tint);
+
+    // No escuro, usa a variante dessaturada: as cores do tema claro vibram
+    // sobre fundo escuro e cansam a vista.
+    const cores = temaAtual === 'dark' ? escolhido.escuro : escolhido;
+    if (!cores) {
+      limpar();
+      return;
+    }
+
+    raiz.style.setProperty('--primary', cores.primary);
+    raiz.style.setProperty('--primary-dark', cores.dark);
+    raiz.style.setProperty('--primary-tint', cores.tint);
   }
 
   async function selecionarTema(chave) {

@@ -101,6 +101,8 @@ export default function Dashboard() {
 
   const [edicaoOcorrenciaId, setEdicaoOcorrenciaId] = useState(null);
   const [formOcorrencia, setFormOcorrencia] = useState({ valor: '', conta_id: '' });
+  const [pagamentoParcialId, setPagamentoParcialId] = useState(null);
+  const [valorParcial, setValorParcial] = useState('');
 
   const [cartoes, setCartoes] = useState([]);
 
@@ -959,13 +961,17 @@ export default function Dashboard() {
     garantirOcorrenciasDoMes(entidadeAtual, lancamentosFixos, dataAtual.ano, dataAtual.mes);
   }
 
-  async function confirmarOcorrencia(fixo, ocorrencia) {
+  async function confirmarOcorrencia(fixo, ocorrencia, valorPago = null) {
     const hoje = new Date().toISOString().slice(0, 10);
+    const valor = valorPago !== null ? valorPago : Number(ocorrencia.valor) - jaPagoNaOcorrencia(ocorrencia.id);
+
+    if (!valor || valor <= 0) return;
 
     const novaTransacao = {
       entidade_id: entidadeAtual,
       conta_id: ocorrencia.conta_id,
-      valor: ocorrencia.valor,
+      lancamento_mensal_id: ocorrencia.id,
+      valor,
       tipo: fixo.tipo,
       categoria: fixo.nome,
       descricao: fixo.nome,
@@ -975,10 +981,10 @@ export default function Dashboard() {
       data: hoje,
     };
 
-    const { data: inserida, error } = await supabase.from('transacoes').insert(novaTransacao).select().single();
+    // O status da ocorrência (pendente/parcial/confirmado) é definido por
+    // trigger no banco, a partir da soma dos pagamentos — não é escrito aqui.
+    const { error } = await supabase.from('transacoes').insert(novaTransacao);
     if (error) return;
-
-    await supabase.from('lancamentos_fixos_mensal').update({ status: 'confirmado', transacao_id: inserida.id }).eq('id', ocorrencia.id);
 
     if (ocorrencia.conta_id) await recalcularSaldoConta(ocorrencia.conta_id);
 
@@ -989,9 +995,27 @@ export default function Dashboard() {
     carregarPendenciasVencidas(entidadeAtual, entidades.find((e) => e.id === entidadeAtual)?.mes_inicio_controle);
   }
 
-  function desfazerOcorrencia(ocorrencia) {
-    if (!ocorrencia.transacao_id) return;
-    reverterTransacao({ id: ocorrencia.transacao_id, conta_id: ocorrencia.conta_id });
+  async function desfazerOcorrencia(ocorrencia) {
+    // Uma ocorrência pode ter vários pagamentos (parciais). Desfazer significa
+    // remover todos e devolver o status para pendente — o trigger cuida do status.
+    if (!window.confirm('Desfazer o pagamento? Os lançamentos correspondentes serão removidos.')) return;
+
+    const { error } = await supabase.from('transacoes').delete().eq('lancamento_mensal_id', ocorrencia.id);
+    if (error) return;
+
+    // Compatibilidade: ocorrências antigas guardavam a transação neste campo.
+    if (ocorrencia.transacao_id) {
+      await supabase.from('transacoes').delete().eq('id', ocorrencia.transacao_id);
+      await supabase.from('lancamentos_fixos_mensal').update({ transacao_id: null, status: 'pendente' }).eq('id', ocorrencia.id);
+    }
+
+    if (ocorrencia.conta_id) await recalcularSaldoConta(ocorrencia.conta_id);
+
+    carregarContas(entidadeAtual);
+    carregarTransacoesDoMes(entidadeAtual, dataAtual.ano, dataAtual.mes);
+    garantirOcorrenciasDoMes(entidadeAtual, lancamentosFixos, dataAtual.ano, dataAtual.mes);
+    carregarAlertas(entidadeAtual, lancamentosFixos);
+    carregarPendenciasVencidas(entidadeAtual, entidades.find((e) => e.id === entidadeAtual)?.mes_inicio_controle);
   }
 
   // ---------- Transações ----------
@@ -1165,13 +1189,33 @@ export default function Dashboard() {
     );
   }
 
+  // Quanto já foi pago de cada ocorrência: soma das transações vinculadas a ela.
+  // Derivado das transações, nunca de um campo editável — mesmo princípio do
+  // saldo das contas.
+  const pagoPorOcorrencia = transacoes.reduce((mapa, t) => {
+    if (t.lancamento_mensal_id) {
+      mapa[t.lancamento_mensal_id] = (mapa[t.lancamento_mensal_id] || 0) + Number(t.valor);
+    }
+    return mapa;
+  }, {});
+
+  function jaPagoNaOcorrencia(ocorrenciaId) {
+    return pagoPorOcorrencia[ocorrenciaId] || 0;
+  }
+
+  function pendenteNaOcorrencia(ocorrencia) {
+    return Math.max(0, Number(ocorrencia.valor) - jaPagoNaOcorrencia(ocorrencia.id));
+  }
+
   const saldoContas = contas.reduce((soma, c) => soma + Number(c.saldo_atual), 0);
+
+  // Considera parciais: uma conta de 300 com 200 pagos ainda pesa 100 no consolidado.
   const despesasFixasPendentes = lancamentosFixos
-    .filter((f) => f.tipo === 'saida' && ocorrenciasDoMes[f.id] && ocorrenciasDoMes[f.id].status === 'pendente')
-    .reduce((soma, f) => soma + Number(ocorrenciasDoMes[f.id].valor), 0);
+    .filter((f) => f.tipo === 'saida' && ocorrenciasDoMes[f.id] && ocorrenciasDoMes[f.id].status !== 'confirmado')
+    .reduce((soma, f) => soma + pendenteNaOcorrencia(ocorrenciasDoMes[f.id]), 0);
   const receitasFixasPendentes = lancamentosFixos
-    .filter((f) => f.tipo === 'entrada' && ocorrenciasDoMes[f.id] && ocorrenciasDoMes[f.id].status === 'pendente')
-    .reduce((soma, f) => soma + Number(ocorrenciasDoMes[f.id].valor), 0);
+    .filter((f) => f.tipo === 'entrada' && ocorrenciasDoMes[f.id] && ocorrenciasDoMes[f.id].status !== 'confirmado')
+    .reduce((soma, f) => soma + pendenteNaOcorrencia(ocorrenciasDoMes[f.id]), 0);
   const saldoConsolidado = saldoContas - despesasFixasPendentes;
 
   const despesasPorCategoria = Object.values(
@@ -1222,15 +1266,17 @@ export default function Dashboard() {
     return { fixo, ocorrencia };
   }).filter((item) => item.fixo);
 
+  // "Pago" = quitado. "Em aberto" = pendente ou parcial (ainda deve algo).
   const despesasPagasMes = ocorrenciasArray.filter((i) => i.fixo.tipo === 'saida' && i.ocorrencia.status === 'confirmado');
-  const despesasAbertoMes = ocorrenciasArray.filter((i) => i.fixo.tipo === 'saida' && i.ocorrencia.status === 'pendente');
+  const despesasAbertoMes = ocorrenciasArray.filter((i) => i.fixo.tipo === 'saida' && i.ocorrencia.status !== 'confirmado');
   const receitasRecebidasMes = ocorrenciasArray.filter((i) => i.fixo.tipo === 'entrada' && i.ocorrencia.status === 'confirmado');
-  const receitasAbertoMes = ocorrenciasArray.filter((i) => i.fixo.tipo === 'entrada' && i.ocorrencia.status === 'pendente');
+  const receitasAbertoMes = ocorrenciasArray.filter((i) => i.fixo.tipo === 'entrada' && i.ocorrencia.status !== 'confirmado');
 
   const totalDespesasPagasMes = despesasPagasMes.reduce((s, i) => s + Number(i.ocorrencia.valor), 0);
-  const totalDespesasAbertoMes = despesasAbertoMes.reduce((s, i) => s + Number(i.ocorrencia.valor), 0);
+  // Em aberto = só o que falta pagar. Uma conta de 300 com 200 pagos entra como 100.
+  const totalDespesasAbertoMes = despesasAbertoMes.reduce((s, i) => s + pendenteNaOcorrencia(i.ocorrencia), 0);
   const totalReceitasRecebidasMes = receitasRecebidasMes.reduce((s, i) => s + Number(i.ocorrencia.valor), 0);
-  const totalReceitasAbertoMes = receitasAbertoMes.reduce((s, i) => s + Number(i.ocorrencia.valor), 0);
+  const totalReceitasAbertoMes = receitasAbertoMes.reduce((s, i) => s + pendenteNaOcorrencia(i.ocorrencia), 0);
 
   const hojeReal = new Date();
   const compromissosFuturos = lancamentosFixos
@@ -1307,6 +1353,10 @@ export default function Dashboard() {
         );
       }
 
+      const pago = jaPagoNaOcorrencia(ocorrencia.id);
+      const pendente = pendenteNaOcorrencia(ocorrencia);
+      const ehParcial = ocorrencia.status === 'parcial';
+
       return (
         <div key={f.id} className="row">
           <div className="row-main">
@@ -1315,7 +1365,14 @@ export default function Dashboard() {
                 {f.nome}
                 {ocorrencia.parcela_numero && <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}> · {ocorrencia.parcela_numero}/{f.total_parcelas}</span>}
               </p>
-              <p className="row-subtitle">todo dia {f.dia_referencia}{contaVinculada ? ` · ${contaVinculada.nome}` : ''}</p>
+              <p className="row-subtitle">
+                todo dia {f.dia_referencia}{contaVinculada ? ` · ${contaVinculada.nome}` : ''}
+                {ehParcial && (
+                  <span style={{ color: 'var(--accent)' }}>
+                    {' '}· {formatarMoeda(pago)} {tipoAlvo === 'entrada' ? 'recebido' : 'pago'}, falta {formatarMoeda(pendente)}
+                  </span>
+                )}
+              </p>
             </div>
             <div className="row-actions">
               <span className="amount">{formatarMoeda(ocorrencia.valor)}</span>
@@ -1326,15 +1383,56 @@ export default function Dashboard() {
                 </>
               ) : (
                 <>
-                  <span className="badge badge-pending">Pendente</span>
+                  <span className={`badge ${ehParcial ? 'badge-partial' : 'badge-pending'}`}>
+                    {ehParcial ? 'Parcial' : 'Pendente'}
+                  </span>
                   <button onClick={() => iniciarEdicaoOcorrencia(ocorrencia)} className="btn-link">ajustar</button>
+                  <button onClick={() => setPagamentoParcialId(pagamentoParcialId === ocorrencia.id ? null : ocorrencia.id)} className="btn-link">
+                    parcial
+                  </button>
                   <button onClick={() => confirmarOcorrencia(f, ocorrencia)} className="btn btn-primary" style={{ padding: '6px 10px', fontSize: 12 }}>
-                    {tipoAlvo === 'entrada' ? 'Recebido' : 'Pago'}
+                    {ehParcial ? 'Quitar' : (tipoAlvo === 'entrada' ? 'Recebido' : 'Pago')}
                   </button>
                 </>
               )}
             </div>
           </div>
+          {pagamentoParcialId === ocorrencia.id && (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                const valor = parseFloat(valorParcial);
+                if (!valor || valor <= 0) return;
+                confirmarOcorrencia(f, ocorrencia, valor);
+                setValorParcial('');
+                setPagamentoParcialId(null);
+              }}
+              className="form-row"
+              style={{ marginTop: 8, padding: 10, background: 'var(--surface-alt)', borderRadius: 'var(--radius-sm)' }}
+            >
+              <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                Falta {formatarMoeda(pendente)} —
+              </span>
+              <input
+                className="input"
+                style={{ width: 120 }}
+                type="number"
+                step="0.01"
+                max={pendente}
+                placeholder="Quanto agora?"
+                value={valorParcial}
+                onChange={(e) => setValorParcial(e.target.value)}
+                autoFocus
+                required
+              />
+              <button type="submit" className="btn btn-primary">
+                {tipoAlvo === 'entrada' ? 'Receber' : 'Pagar'}
+              </button>
+              <button type="button" onClick={() => { setPagamentoParcialId(null); setValorParcial(''); }} className="btn-link">
+                Cancelar
+              </button>
+            </form>
+          )}
           <div style={{ display: 'flex', gap: 10, marginTop: 4, flexWrap: 'wrap' }}>
             <button onClick={() => iniciarEdicaoFixo(f)} className="btn-link">editar molde</button>
             <button onClick={() => excluirFixo(f)} className="btn-link">excluir</button>

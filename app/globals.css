@@ -779,6 +779,7 @@ button, input, select { font-family: var(--font-body); }
 }
 
 .badge-pending { background: var(--accent-tint); color: #8A5A11; }
+.badge-partial { background: #DBEAFE; color: #1E40AF; }
 .badge-confirmed { background: var(--primary-tint); color: var(--primary-dark); }
 
 .star-btn {

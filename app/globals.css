@@ -18,7 +18,6 @@
   --info-tint: #E7EFF4;
   --info-text: #2C526B;
   --accent-text: #8A5A11;
-  --alerta-text: #6B4A10;
   --radius-sm: 8px;
   --radius-md: 14px;
   --radius-lg: 22px;
@@ -56,14 +55,15 @@
   --info-tint: #182833;
   --info-text: #8FBEDE;
   --accent-text: #D4A45C;
-  --alerta-text: #D4A45C;
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 6px 16px rgba(0, 0, 0, 0.4);
 }
 
 body { transition: background-color 0.15s ease, color 0.15s ease; }
 
 .valores-ocultos .amount,
-.valores-ocultos .receipt-amount {
+.valores-ocultos .saldo-hero-valor,
+.valores-ocultos .atencao-valor,
+.valores-ocultos .atencao-total {
   filter: blur(7px);
   user-select: none;
 }
@@ -376,36 +376,117 @@ button, input, select { font-family: var(--font-body); }
 .card-lancamentos .card-icon { background: var(--accent-tint); color: var(--accent-text); }
 
 /* Card de saldo — estilo "recibo", elemento de assinatura do design */
-.receipt-card {
-  position: relative;
-  background: linear-gradient(165deg, var(--primary) 0%, var(--primary-dark) 100%);
-  color: #fff;
-  border-radius: var(--radius-lg);
-  padding: 26px 24px 22px;
+/* ---------- Card "Precisa de você" ---------- */
+
+.atencao-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--negative);
+  border-radius: var(--radius-md);
+  padding: 16px 18px;
+  margin-bottom: 16px;
+}
+
+.atencao-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.atencao-titulo {
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.atencao-total {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--negative);
+  font-variant-numeric: tabular-nums;
+}
+
+.atencao-linha {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 9px 0;
+  border-top: 1px solid var(--surface-alt);
+}
+
+.atencao-linha-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.atencao-nome { font-size: 14px; font-weight: 500; }
+.atencao-prazo { font-size: 12px; color: var(--text-muted); }
+.atencao-prazo.atrasado { color: var(--negative); font-weight: 600; }
+
+.atencao-linha-acao { display: flex; align-items: center; gap: 10px; }
+.atencao-valor { font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.atencao-btn { padding: 5px 12px; font-size: 12px; }
+
+.atencao-observacao {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 10px 0 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--surface-alt);
+  line-height: 1.5;
+}
+
+/* ---------- Saldo em destaque ----------
+ * Sem gradiente nem ornamento: o número é o protagonista. Superfície plana
+ * com uma barra de cor à esquerda — no escuro, gradiente vira mancha e
+ * decoração compete com a informação.
+ */
+
+.saldo-hero {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--primary);
+  border-radius: var(--radius-md);
+  padding: 20px 22px;
   margin-bottom: 24px;
-  overflow: hidden;
 }
 
-.receipt-card-negative {
-  background: linear-gradient(165deg, var(--negative) 0%, #7E3423 100%);
+.saldo-hero-negativo { border-left-color: var(--negative); }
+
+.saldo-hero-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
 }
 
-.receipt-card::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: -1px;
-  height: 9px;
-  background-image: radial-gradient(circle at 6px 0, var(--bg) 5px, transparent 5.5px);
-  background-size: 13px 9px;
-  background-position: 2px 0;
-  opacity: 0.9;
+.saldo-hero-valor {
+  font-family: var(--font-display);
+  font-size: 36px;
+  font-weight: 600;
+  margin: 4px 0 0;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
 }
 
-.receipt-label { font-size: 12px; opacity: 0.75; margin: 0; text-transform: uppercase; letter-spacing: 0.06em; }
-.receipt-amount { font-size: 34px; font-weight: 700; margin: 6px 0 0; font-variant-numeric: tabular-nums; }
-.receipt-detail { font-size: 12px; opacity: 0.8; margin: 8px 0 0; line-height: 1.5; }
+.saldo-hero-negativo .saldo-hero-valor { color: var(--negative); }
+
+.saldo-hero-detalhe {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 10px 0 0;
+  line-height: 1.6;
+}
+
+.saldo-hero-menos { color: var(--negative); font-weight: 600; }
+.saldo-hero-mais { color: var(--primary); font-weight: 600; }
+
+@media (max-width: 640px) {
+  .saldo-hero-valor { font-size: 30px; }
+}
 
 /* ---------- Formulários ---------- */
 
@@ -438,21 +519,6 @@ button, input, select { font-family: var(--font-body); }
   margin: -4px 0 10px;
   flex-wrap: wrap;
 }
-
-.alert-banner {
-  display: flex;
-  gap: 12px;
-  align-items: flex-start;
-  background: var(--accent-tint);
-  border: 1px solid var(--accent);
-  border-radius: var(--radius-md);
-  padding: 14px 16px;
-  margin-bottom: 20px;
-}
-
-.alert-banner-title { margin: 0 0 4px; font-size: 13px; font-weight: 700; color: var(--alerta-text); }
-.alert-item { margin: 2px 0; font-size: 13px; color: var(--alerta-text); }
-.alert-item-overdue { color: var(--negative); font-weight: 700; }
 
 .collapse-btn {
   background: none;
@@ -844,7 +910,6 @@ table.report-table td { padding: 8px 0; border-top: 1px solid var(--surface-alt)
 
 @media (max-width: 620px) {
   .app-shell { padding: 0 14px 96px; }
-  .receipt-amount { font-size: 28px; }
   .month-label { min-width: 0; font-size: 14px; }
   .card { padding: 14px; }
   .form-row { flex-direction: column; align-items: stretch; }

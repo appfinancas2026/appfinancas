@@ -412,7 +412,8 @@ export default function Dashboard() {
 
     const lista = despesas
       .map((f) => ({ fixo: f, ocorrencia: mapa[f.id] }))
-      .filter((item) => item.ocorrencia && item.ocorrencia.status === 'pendente')
+      // 'parcial' também está em aberto: pagar metade não quita a conta.
+      .filter((item) => item.ocorrencia && item.ocorrencia.status !== 'confirmado')
       .map((item) => ({ ...item, diasRestantes: item.fixo.dia_referencia - diaReal }))
       .filter((item) => item.diasRestantes <= 5)
       .sort((a, b) => a.diasRestantes - b.diasRestantes);
@@ -1242,6 +1243,11 @@ export default function Dashboard() {
     .reduce((soma, f) => soma + pendenteNaOcorrencia(ocorrenciasDoMes[f.id]), 0);
   const saldoConsolidado = saldoContas - despesasFixasPendentes;
 
+  // Soma do que falta pagar nas contas que estão vencendo ou atrasadas.
+  // Usa o pendente real, não o valor cheio: uma conta parcialmente paga
+  // deve entrar só com o que resta.
+  const totalEmAberto = alertas.reduce((s, a) => s + pendenteNaOcorrencia(a.ocorrencia), 0);
+
   const despesasPorCategoria = Object.values(
     transacoes.filter((t) => t.tipo === 'saida' && !t.transferencia_id).reduce((acc, t) => {
       const chave = t.categoria || 'outros';
@@ -1616,38 +1622,56 @@ export default function Dashboard() {
         />
       ) : (
         <>
-          {alertas.length > 0 && (
-            <div className="alert-banner">
-              <span className="card-icon" style={{ background: '#fff', color: 'var(--negative)' }}>⏰</span>
-              <div>
-                <p className="alert-banner-title">Vencimentos próximos</p>
-                {alertas.map(({ fixo, ocorrencia, diasRestantes }) => (
-                  <p key={fixo.id} className={`alert-item ${diasRestantes < 0 ? 'alert-item-overdue' : ''}`}>
-                    {fixo.nome} — {diasRestantes < 0 ? `atrasada há ${Math.abs(diasRestantes)} dia(s)` : diasRestantes === 0 ? 'vence hoje' : `vence em ${diasRestantes} dia(s)`} · {formatarMoeda(ocorrencia.valor)}
-                  </p>
-                ))}
+          {(alertas.length > 0 || pctRendaComprometida > 70) && (
+            <div className="atencao-card">
+              <div className="atencao-header">
+                <span className="atencao-titulo">Precisa de você</span>
+                {alertas.length > 0 && (
+                  <span className="atencao-total">{formatarMoeda(totalEmAberto)}</span>
+                )}
               </div>
-            </div>
-          )}
 
-          {pctRendaComprometida > 70 && (
-            <div className="alert-banner">
-              <span className="card-icon" style={{ background: '#fff', color: 'var(--negative)' }}>📊</span>
-              <div>
-                <p className="alert-banner-title">Renda comprometida</p>
-                <p className="alert-item alert-item-overdue">
-                  {pctRendaComprometida.toFixed(0)}% da renda de {NOMES_MESES[dataAtual.mes]} já está comprometida só com despesas essenciais (recomendado: até ~50%).
+              {alertas.map(({ fixo, ocorrencia, diasRestantes }) => {
+                const pendente = pendenteNaOcorrencia(ocorrencia);
+                const ehParcial = ocorrencia.status === 'parcial';
+                return (
+                  <div key={fixo.id} className="atencao-linha">
+                    <div className="atencao-linha-info">
+                      <span className="atencao-nome">{fixo.nome}</span>
+                      <span className={`atencao-prazo ${diasRestantes < 0 ? 'atrasado' : ''}`}>
+                        {diasRestantes < 0
+                          ? `atrasada há ${Math.abs(diasRestantes)} dia${Math.abs(diasRestantes) > 1 ? 's' : ''}`
+                          : diasRestantes === 0
+                            ? 'vence hoje'
+                            : `vence em ${diasRestantes} dia${diasRestantes > 1 ? 's' : ''}`}
+                        {ehParcial && ` · falta ${formatarMoeda(pendente)}`}
+                      </span>
+                    </div>
+                    <div className="atencao-linha-acao">
+                      <span className="atencao-valor">{formatarMoeda(pendente)}</span>
+                      <button onClick={() => confirmarOcorrencia(fixo, ocorrencia)} className="btn btn-primary atencao-btn">
+                        Pagar
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+
+              {pctRendaComprometida > 70 && (
+                <p className="atencao-observacao">
+                  {pctRendaComprometida.toFixed(0)}% da renda de {NOMES_MESES[dataAtual.mes]} está comprometida com despesas essenciais (recomendado: até ~50%).
                 </p>
-              </div>
+              )}
             </div>
           )}
 
-          <div className={`receipt-card ${saldoConsolidado < 0 ? 'receipt-card-negative' : ''}`}>
-            <p className="receipt-label">Saldo consolidado</p>
-            <p className="receipt-amount">{formatarMoeda(saldoConsolidado)}</p>
-            <p className="receipt-detail">
-              {formatarMoeda(saldoContas)} em contas − {formatarMoeda(despesasFixasPendentes)} de despesas fixas pendentes
-              {receitasFixasPendentes > 0 && ` · ${formatarMoeda(receitasFixasPendentes)} a receber`}
+          <div className={`saldo-hero ${saldoConsolidado < 0 ? 'saldo-hero-negativo' : ''}`}>
+            <p className="saldo-hero-label">Disponível hoje</p>
+            <p className="saldo-hero-valor">{formatarMoeda(saldoConsolidado)}</p>
+            <p className="saldo-hero-detalhe">
+              {formatarMoeda(saldoContas)} em contas
+              {despesasFixasPendentes > 0 && <> · <span className="saldo-hero-menos">−{formatarMoeda(despesasFixasPendentes)}</span> a pagar</>}
+              {receitasFixasPendentes > 0 && <> · <span className="saldo-hero-mais">+{formatarMoeda(receitasFixasPendentes)}</span> a receber</>}
             </p>
           </div>
 

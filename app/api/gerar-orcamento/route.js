@@ -4,7 +4,7 @@ export async function POST(request) {
     return Response.json({ error: 'GROQ_API_KEY não configurada.' }, { status: 500 });
   }
 
-  const { historico, rendaMedia, mesesAnalisados } = await request.json();
+  const { historico, rendaMedia, mesesAnalisados, mesesReais } = await request.json();
 
   if (!historico || historico.length === 0) {
     return Response.json({ error: 'Sem histórico suficiente para análise.' }, { status: 400 });
@@ -42,12 +42,16 @@ Regras:
     `${h.categoria}: média R$ ${h.media.toFixed(2)}/mês (essencialidade: ${h.essencialidade || 'não classificada'})`
   ).join('\n');
 
-  const prompt = `Período analisado: últimos ${mesesAnalisados} meses
+  const aviso = mesesReais < 3
+    ? `\nATENÇÃO: O histórico tem apenas ${mesesReais} ${mesesReais === 1 ? 'mês' : 'meses'} de dados (o ideal é 3). Mencione isso no resumo e seja conservador nas sugestões — elas ficarão mais precisas com mais histórico.`
+    : '';
+
+  const prompt = `Período analisado: ${mesesReais} ${mesesReais === 1 ? 'mês' : 'meses'} de histórico real
 Renda média mensal: R$ ${rendaMedia.toFixed(2)}
 
 Gastos médios mensais por categoria:
 ${histFormatado}
-
+${aviso}
 Gere o orçamento inteligente.`;
 
   let resposta;

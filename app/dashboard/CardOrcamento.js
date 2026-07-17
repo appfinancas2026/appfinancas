@@ -107,26 +107,28 @@ export default function CardOrcamento({ entidadeAtual, transacoesDoMes, ano, mes
     setModoAplicar(null);
 
     try {
-      // Busca os últimos 3 meses de transações
+      // Busca até 6 meses para garantir que captura quem tem menos de 3.
+      // O ideal é 3 meses — com menos, a análise avisa sobre a limitação.
       const hoje = new Date();
-      const tresMesesAtras = new Date(hoje.getFullYear(), hoje.getMonth() - 3, 1).toISOString().slice(0, 10);
+      const seisMesesAtras = new Date(hoje.getFullYear(), hoje.getMonth() - 6, 1).toISOString().slice(0, 10);
 
       const { data: txs } = await supabase
         .from('transacoes')
         .select('tipo, valor, categoria, essencialidade, data')
         .eq('entidade_id', entidadeAtual)
         .is('transferencia_id', null)
-        .gte('data', tresMesesAtras)
+        .gte('data', seisMesesAtras)
         .order('data', { ascending: false });
 
       if (!txs || txs.length === 0) {
-        setErroAnalise('Sem histórico suficiente. Registre pelo menos alguns lançamentos primeiro.');
+        setErroAnalise('Nenhum lançamento encontrado. Registre algumas transações primeiro para que o sistema possa analisar seu perfil de gastos.');
         return;
       }
 
-      // Descobre quantos meses distintos existem no histórico
-      const mesesDistintos = new Set(txs.map((t) => t.data.slice(0, 7))).size;
-      const mesesRef = Math.max(1, mesesDistintos);
+      // Quantos meses distintos existem, limitado a 3 (o ideal para análise)
+      const mesesDistintos = new Set(txs.map((t) => t.data.slice(0, 7)));
+      const mesesRef = Math.min(3, Math.max(1, mesesDistintos.size));
+      const mesesReais = mesesDistintos.size;
 
       // Renda média
       const totalReceitas = txs.filter((t) => t.tipo === 'entrada').reduce((s, t) => s + Number(t.valor), 0);
@@ -152,13 +154,13 @@ export default function CardOrcamento({ entidadeAtual, transacoesDoMes, ano, mes
       const resposta = await fetch('/api/gerar-orcamento', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ historico, rendaMedia, mesesAnalisados: mesesRef }),
+        body: JSON.stringify({ historico, rendaMedia, mesesAnalisados: mesesRef, mesesReais }),
       });
 
       const json = await resposta.json();
       if (json.error) { setErroAnalise(json.error); return; }
 
-      setAnalise({ ...json, rendaMedia, mesesAnalisados: mesesRef });
+      setAnalise({ ...json, rendaMedia, mesesAnalisados: mesesRef, mesesReais });
       setSugestoesEditaveis(json.categorias.map((c) => ({ ...c, incluir: true, valorEditado: c.sugestao })));
 
     } catch {
@@ -248,13 +250,21 @@ export default function CardOrcamento({ entidadeAtual, transacoesDoMes, ano, mes
 
               {/* Resumo */}
               <div style={{ background: 'var(--surface-alt)', borderRadius: 'var(--radius-sm)', padding: '12px 16px', marginBottom: 16 }}>
-                <p style={{ fontSize: 'var(--text-md)', margin: '0 0 4px', fontWeight: 'var(--weight-semibold)' }}>
-                  📊 Análise dos últimos {analise.mesesAnalisados} meses
-                </p>
-                <p style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)', margin: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 4 }}>
+                  <p style={{ fontSize: 'var(--text-md)', margin: 0, fontWeight: 'var(--weight-semibold)' }}>
+                    📊 Análise baseada em {analise.mesesReais} {analise.mesesReais === 1 ? 'mês' : 'meses'} de histórico
+                  </p>
+                  {analise.mesesReais < 3 && (
+                    <span style={{ fontSize: 'var(--text-xs)', padding: '2px 8px', borderRadius: 999, background: 'var(--accent-tint)', color: 'var(--accent-text)', fontWeight: 'var(--weight-semibold)' }}>
+                      análise parcial — ideal com 3 meses
+                    </span>
+                  )}
+                </div>
+                <p style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)', margin: '0 0 10px' }}>
                   Renda média: <strong>{formatarMoeda(analise.rendaMedia)}/mês</strong>
+                  {analise.mesesReais < 3 && ' · as sugestões ficarão mais precisas conforme você registrar mais lançamentos'}
                 </p>
-                <p style={{ fontSize: 'var(--text-md)', margin: '10px 0 0', lineHeight: 1.6 }}>{analise.resumo}</p>
+                <p style={{ fontSize: 'var(--text-md)', margin: 0, lineHeight: 1.6 }}>{analise.resumo}</p>
               </div>
 
               {/* Alertas */}
@@ -384,7 +394,7 @@ export default function CardOrcamento({ entidadeAtual, transacoesDoMes, ano, mes
                 )}
 
                 {orcamentos.length === 0 && !mostrarNovoOrcamento && (
-                  <p className="empty-hint">Nenhum orçamento cadastrado. Clique em "✨ Gerar inteligente" para o sistema analisar seu histórico e sugerir limites por categoria.</p>
+                  <p className="empty-hint">Nenhum orçamento cadastrado. Use "✨ Gerar inteligente" para o sistema analisar seu histórico — funciona com qualquer quantidade de dados, mas fica mais preciso com 3 meses de lançamentos.</p>
                 )}
 
                 {(expandir ? orcamentos : orcamentos.slice(0, LIMITE_LISTA)).map((o) => {

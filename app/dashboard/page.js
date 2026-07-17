@@ -1940,8 +1940,8 @@ export default function Dashboard() {
                 <option value="entrada">Entrada (receita)</option>
               </select>
               <input className="input" style={{ width: 100 }} type="number" step="0.01" placeholder="Valor" value={valor} onChange={(e) => setValor(e.target.value)} required />
-              <CampoCategoria entidadeAtual={entidadeAtual} tipo={tipo} value={categoria} onChange={(e) => setCategoria(e.target.value)} style={{ width: 140 }} />
               <CampoDescricao entidadeAtual={entidadeAtual} tipo={tipo} value={descricao} onChange={(e) => setDescricao(e.target.value)} style={{ flex: 1, minWidth: 140 }} />
+              <CampoCategoria entidadeAtual={entidadeAtual} tipo={tipo} value={categoria} onChange={(e) => setCategoria(e.target.value)} style={{ width: 140 }} />
               <input className="input" style={{ width: 150 }} type="date" value={dataLancamento} onChange={(e) => setDataLancamento(e.target.value)} required />
               {tipo === 'saida' && (
                 <select className="input" value={essencialidade} onChange={(e) => setEssencialidade(e.target.value)}>
@@ -1979,8 +1979,8 @@ export default function Dashboard() {
                         {edicaoTransacaoId === t.id ? (
                           <form onSubmit={salvarEdicaoTransacao} className="form-row" style={{ padding: '10px 0' }}>
                             <input className="input" style={{ width: 100 }} type="number" step="0.01" value={formTransacao.valor} onChange={(e) => setFormTransacao({ ...formTransacao, valor: e.target.value })} required />
-                            <CampoCategoria entidadeAtual={entidadeAtual} tipo={formTransacao.tipo} value={formTransacao.categoria} onChange={(e) => setFormTransacao({ ...formTransacao, categoria: e.target.value })} style={{ width: 120 }} />
                             <CampoDescricao entidadeAtual={entidadeAtual} tipo={formTransacao.tipo} value={formTransacao.descricao} onChange={(e) => setFormTransacao({ ...formTransacao, descricao: e.target.value })} style={{ flex: 1, minWidth: 120 }} />
+                            <CampoCategoria entidadeAtual={entidadeAtual} tipo={formTransacao.tipo} value={formTransacao.categoria} onChange={(e) => setFormTransacao({ ...formTransacao, categoria: e.target.value })} style={{ width: 120 }} />
                             <input className="input" style={{ width: 140 }} type="date" value={formTransacao.data} onChange={(e) => setFormTransacao({ ...formTransacao, data: e.target.value })} />
                             {t.tipo === 'saida' && (
                               <select className="input" value={formTransacao.essencialidade} onChange={(e) => setFormTransacao({ ...formTransacao, essencialidade: e.target.value })}>

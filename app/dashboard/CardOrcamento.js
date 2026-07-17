@@ -120,7 +120,7 @@ export default function CardOrcamento({ entidadeAtual, transacoesDoMes, ano, mes
           <div className={`card-limitada ${(alturaCheia || mostrarNovoOrcamento) ? 'expandida' : ''}`}>
           {mostrarNovoOrcamento && (
             <form onSubmit={adicionarOrcamento} className="form-row" style={{ marginBottom: 12 }}>
-              <input className="input" placeholder="Categoria (ex: Alimentação)" value={categoriaOrcamento} onChange={(e) => setCategoriaOrcamento(e.target.value)} required />
+              <input className="input" placeholder="Categoria (ex: Alimentação)" value={categoriaOrcamento} onChange={(e) => setCategoriaOrcamento(e.target.value)} required autoFocus />
               <input className="input" style={{ width: 130 }} type="number" step="0.01" placeholder="Limite mensal" value={valorLimiteOrcamento} onChange={(e) => setValorLimiteOrcamento(e.target.value)} required />
               <button type="submit" className="btn btn-primary">Salvar</button>
             </form>

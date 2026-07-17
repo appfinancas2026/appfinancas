@@ -204,7 +204,7 @@ export default function CardContas({ entidadeAtual, contas, cartoes, aberto, onA
           <div className={`card-limitada ${(alturaCheiaContas || mostrarNovaConta || mostrarTransferencia || mostrarImportar) ? 'expandida' : ''}`}>
           {mostrarNovaConta && (
             <form onSubmit={adicionarConta} className="form-row" style={{ marginBottom: 12 }}>
-              <input className="input" placeholder="Nome (ex: Nubank)" value={nomeConta} onChange={(e) => setNomeConta(e.target.value)} required />
+              <input className="input" placeholder="Nome (ex: Nubank)" value={nomeConta} onChange={(e) => setNomeConta(e.target.value)} required autoFocus />
               <input className="input" style={{ width: 120 }} type="number" step="0.01" placeholder="Saldo inicial" value={saldoConta} onChange={(e) => setSaldoConta(e.target.value)} />
               <button type="submit" className="btn btn-primary">Salvar</button>
             </form>

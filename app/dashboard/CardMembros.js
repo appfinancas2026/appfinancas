@@ -162,6 +162,7 @@ export default function CardMembros({ entidadeAtual, usuarioId, aberto, onAltern
                   value={emailConvite}
                   onChange={(e) => setEmailConvite(e.target.value)}
                   required
+                  autoFocus
                 />
                 <button type="submit" className="btn btn-primary" disabled={enviando}>
                   {enviando ? 'Cadastrando...' : 'Dar acesso'}

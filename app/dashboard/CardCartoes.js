@@ -343,7 +343,7 @@ export default function CardCartoes({ entidadeAtual, contas, cartoes, onAtualiza
       <div className={`card-limitada ${(alturaCheiaCartoes || mostrarNovoCartao || comprasCartaoVisivelId || mostrarCompraCartaoId) ? 'expandida' : ''}`}>
       {mostrarNovoCartao && (
         <form onSubmit={adicionarCartao} className="form-row" style={{ marginBottom: 12 }}>
-          <input className="input" placeholder="Nome (ex: Nubank)" value={nomeCartao} onChange={(e) => setNomeCartao(e.target.value)} required />
+          <input className="input" placeholder="Nome (ex: Nubank)" value={nomeCartao} onChange={(e) => setNomeCartao(e.target.value)} required autoFocus />
           <input className="input" style={{ width: 100 }} type="number" min="1" max="31" placeholder="Dia fecham." value={diaFechamentoCartao} onChange={(e) => setDiaFechamentoCartao(e.target.value)} required />
           <input className="input" style={{ width: 100 }} type="number" min="1" max="31" placeholder="Dia venc." value={diaVencimentoCartao} onChange={(e) => setDiaVencimentoCartao(e.target.value)} required />
           <select className="input" value={contaPagamentoCartaoId} onChange={(e) => setContaPagamentoCartaoId(e.target.value)}>
@@ -474,7 +474,7 @@ export default function CardCartoes({ entidadeAtual, contas, cartoes, onAtualiza
                   </div>
                 )}
                 <form onSubmit={(e) => adicionarCompraCartao(e, cartao)} className="form-row" style={{ marginTop: sugestaoCompraCartao ? 0 : 10 }}>
-                <input className="input" style={{ width: 100 }} type="number" step="0.01" placeholder={parceladoCompraCartao ? 'Valor da parcela' : 'Valor'} value={valorCompraCartao} onChange={(e) => setValorCompraCartao(e.target.value)} required />
+                <input className="input" style={{ width: 100 }} type="number" step="0.01" placeholder={parceladoCompraCartao ? 'Valor da parcela' : 'Valor'} value={valorCompraCartao} onChange={(e) => setValorCompraCartao(e.target.value)} required autoFocus />
                 <input className="input" style={{ width: 130 }} placeholder="Categoria" value={categoriaCompraCartao} onChange={(e) => setCategoriaCompraCartao(e.target.value)} />
                 <input className="input" style={{ flex: 1, minWidth: 120 }} placeholder="Descrição" value={descricaoCompraCartao} onChange={(e) => setDescricaoCompraCartao(e.target.value)} />
                 <input className="input" style={{ width: 150 }} type="date" value={dataCompraCartao} onChange={(e) => setDataCompraCartao(e.target.value)} required />

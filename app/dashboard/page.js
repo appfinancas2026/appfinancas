@@ -1601,7 +1601,7 @@ export default function Dashboard() {
 
         {mostrarNovaEntidade && (
           <form onSubmit={adicionarEntidadePJ} className="form-row" style={{ marginBottom: 14 }}>
-            <input className="input" placeholder="Nome da empresa" value={nomeEmpresa} onChange={(e) => setNomeEmpresa(e.target.value)} required />
+            <input className="input" placeholder="Nome da empresa" value={nomeEmpresa} onChange={(e) => setNomeEmpresa(e.target.value)} required autoFocus />
             <input className="input" placeholder="CNPJ" value={cnpj} onChange={(e) => setCnpj(e.target.value)} required />
             <button type="submit" className="btn btn-primary">Salvar</button>
           </form>
@@ -1782,7 +1782,7 @@ export default function Dashboard() {
                 <div className={`card-limitada ${(alturaCheiaReceitas || mostrarNovaReceitaFixa) ? 'expandida' : ''}`}>
                 {mostrarNovaReceitaFixa && (
                   <form onSubmit={(e) => adicionarLancamentoFixo(e, 'entrada')} className="form-row" style={{ marginBottom: 12 }}>
-                    <input className="input" placeholder="Nome (ex: Salário)" value={nomeFixo} onChange={(e) => setNomeFixo(e.target.value)} required />
+                    <input className="input" placeholder="Nome (ex: Salário)" value={nomeFixo} onChange={(e) => setNomeFixo(e.target.value)} required autoFocus />
                     <input className="input" style={{ width: 90 }} type="number" min="1" max="31" placeholder="Dia" value={diaFixo} onChange={(e) => setDiaFixo(e.target.value)} required />
                     <input className="input" style={{ width: 110 }} type="number" step="0.01" placeholder="Valor" value={valorFixo} onChange={(e) => setValorFixo(e.target.value)} required />
                     <select className="input" value={contaFixoId} onChange={(e) => setContaFixoId(e.target.value)}>
@@ -1820,7 +1820,7 @@ export default function Dashboard() {
                 <div className={`card-limitada ${(alturaCheiaDespesas || mostrarNovaDespesaFixa) ? 'expandida' : ''}`}>
                 {mostrarNovaDespesaFixa && (
                   <form onSubmit={(e) => adicionarLancamentoFixo(e, 'saida')} className="form-row" style={{ marginBottom: 12 }}>
-                    <input className="input" placeholder="Nome (ex: Aluguel)" value={nomeFixo} onChange={(e) => setNomeFixo(e.target.value)} required />
+                    <input className="input" placeholder="Nome (ex: Aluguel)" value={nomeFixo} onChange={(e) => setNomeFixo(e.target.value)} required autoFocus />
                     <input className="input" style={{ width: 90 }} type="number" min="1" max="31" placeholder="Dia" value={diaFixo} onChange={(e) => setDiaFixo(e.target.value)} required />
                     <input className="input" style={{ width: 110 }} type="number" step="0.01" placeholder="Valor" value={valorFixo} onChange={(e) => setValorFixo(e.target.value)} required />
                     <select className="input" value={contaFixoId} onChange={(e) => setContaFixoId(e.target.value)}>

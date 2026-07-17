@@ -123,7 +123,7 @@ export default function CardMetas({ entidadeAtual, contas, aberto, onAlternarAbe
           <div className={`card-limitada ${(alturaCheia || mostrarNovaMeta) ? 'expandida' : ''}`}>
           {mostrarNovaMeta && (
             <form onSubmit={adicionarMeta} className="form-row" style={{ marginBottom: 12 }}>
-              <input className="input" placeholder="Nome (ex: Viagem, Reserva)" value={nomeMeta} onChange={(e) => setNomeMeta(e.target.value)} required />
+              <input className="input" placeholder="Nome (ex: Viagem, Reserva)" value={nomeMeta} onChange={(e) => setNomeMeta(e.target.value)} required autoFocus />
               <input className="input" style={{ width: 120 }} type="number" step="0.01" placeholder="Valor alvo" value={valorAlvoMeta} onChange={(e) => setValorAlvoMeta(e.target.value)} required />
               <input className="input" style={{ width: 150 }} type="date" value={dataAlvoMeta} onChange={(e) => setDataAlvoMeta(e.target.value)} />
               <select className="input" value={contaMetaId} onChange={(e) => setContaMetaId(e.target.value)}>

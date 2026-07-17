@@ -1563,12 +1563,25 @@ export default function Dashboard() {
     <div className={`app-shell ${valoresOcultos ? 'valores-ocultos' : ''}`}>
       <div className="topbar">
         <div className="topbar-row">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
             <button onClick={alternarSidebar} className="mobile-menu-btn" title="Menu">☰</button>
-            <span className="brand">
-              {perfil.logo_url ? <img src={perfil.logo_url} alt="Logo" className="brand-logo" /> : <span className="brand-mark">R$</span>}
-              <span className="brand-text">{perfil.nome_exibicao || 'Controle Financeiro'}</span>
-            </span>
+            <div className="entity-row" style={{ margin: 0 }}>
+              {entidades.map((ent) => (
+                <div key={ent.id} className="entity-pill-group">
+                  <button
+                    onClick={() => setEntidadeAtual(ent.id)}
+                    className={`pill ${entidadeAtual === ent.id ? 'pill-active' : ''}`}
+                    style={ent.tipo === 'PJ' ? { borderRadius: '999px 0 0 999px' } : undefined}
+                  >
+                    {ent.nome_entidade}
+                  </button>
+                  {ent.tipo === 'PJ' && (
+                    <button onClick={() => excluirEntidade(ent)} title="Remover empresa" className="pill-remove">×</button>
+                  )}
+                </div>
+              ))}
+              <button onClick={() => setMostrarNovaEntidade((v) => !v)} className="btn btn-ghost">+ Adicionar CNPJ</button>
+            </div>
           </div>
           <div className="settings-wrap" ref={refConfiguracoes}>
             <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
@@ -1594,24 +1607,6 @@ export default function Dashboard() {
               />
             )}
           </div>
-        </div>
-
-        <div className="entity-row">
-          {entidades.map((ent) => (
-            <div key={ent.id} className="entity-pill-group">
-              <button
-                onClick={() => setEntidadeAtual(ent.id)}
-                className={`pill ${entidadeAtual === ent.id ? 'pill-active' : ''}`}
-                style={ent.tipo === 'PJ' ? { borderRadius: '999px 0 0 999px' } : undefined}
-              >
-                {ent.nome_entidade}
-              </button>
-              {ent.tipo === 'PJ' && (
-                <button onClick={() => excluirEntidade(ent)} title="Remover empresa" className="pill-remove">×</button>
-              )}
-            </div>
-          ))}
-          <button onClick={() => setMostrarNovaEntidade((v) => !v)} className="btn btn-ghost">+ Adicionar CNPJ</button>
         </div>
 
         {mostrarNovaEntidade && (

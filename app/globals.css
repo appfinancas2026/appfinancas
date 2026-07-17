@@ -198,7 +198,7 @@ button, input, select { font-family: var(--font-body); }
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
-  margin-bottom: 14px;
+  align-items: center;
 }
 
 .entity-pill-group { display: flex; align-items: stretch; }

@@ -1,13 +1,14 @@
 /** @type {import('next').NextConfig} */
+
+// O Next 16 usa Turbopack por padrão. A Vercel injeta uma config webpack
+// própria no build ("Applying modifyConfig from Vercel"), e o Next para ao
+// encontrar webpack sem turbopack configurado — ele não sabe se a config
+// webpack é intencional ou resíduo de uma migração incompleta.
+//
+// Este projeto não tem config customizada, então declarar turbopack vazio
+// diz ao Next: "Turbopack é intencional, pode seguir".
 const nextConfig = {
-  webpack: (config) => {
-    // Desativa a concatenação de módulos do webpack (scope hoisting).
-    // Essa otimização, combinada com bibliotecas grandes como @supabase/supabase-js,
-    // pode gerar "ReferenceError: Cannot access 'x' before initialization" em produção
-    // depois da minificação — um bug conhecido do empacotador, não do código do app.
-    config.optimization.concatenateModules = false;
-    return config;
-  },
+  turbopack: {},
 };
 
 module.exports = nextConfig;

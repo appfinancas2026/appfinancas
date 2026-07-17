@@ -1645,6 +1645,7 @@ export default function Dashboard() {
         />
       ) : aba === 'relatorios' ? (
         <AbaRelatorios
+          entidadeAtual={entidadeAtual}
           entidadeAtualObj={entidadeAtualObj}
           salvarMesInicioControle={salvarMesInicioControle}
           exportarMesCSV={exportarMesCSV}
@@ -1652,38 +1653,8 @@ export default function Dashboard() {
           exportarPDF={exportarPDF}
           comparativoPFPJ={comparativoPFPJ}
           dataAtual={dataAtual}
-          totalEntradasMes={totalEntradasMes}
-          totalSaidasMes={totalSaidasMes}
-          resultadoMes={resultadoMes}
-          margemMes={margemMes}
-          despesasPagasMes={despesasPagasMes}
-          totalDespesasPagasMes={totalDespesasPagasMes}
-          despesasAbertoMes={despesasAbertoMes}
-          totalDespesasAbertoMes={totalDespesasAbertoMes}
-          receitasRecebidasMes={receitasRecebidasMes}
-          totalReceitasRecebidasMes={totalReceitasRecebidasMes}
-          receitasAbertoMes={receitasAbertoMes}
-          totalReceitasAbertoMes={totalReceitasAbertoMes}
           pendenciasVencidas={pendenciasVencidas}
           confirmarOcorrencia={confirmarOcorrencia}
-          lancamentosFixos={lancamentosFixos}
-          dadosBarras={dadosBarras}
-          indicesMesesVisiveis={indicesMesesVisiveis}
-          resumoAnual={resumoAnual}
-          evolucaoPatrimonio={evolucaoPatrimonio}
-          despesasPorCategoria={despesasPorCategoria}
-          saidasFixasMes={saidasFixasMes}
-          saidasVariaveisMes={saidasVariaveisMes}
-          pctFixas={pctFixas}
-          pctRendaComprometida={pctRendaComprometida}
-          corComprometimento={corComprometimento}
-          despesasEssenciais={despesasEssenciais}
-          despesasDesejaveis={despesasDesejaveis}
-          despesasSuperfluas={despesasSuperfluas}
-          despesasNaoClassificadas={despesasNaoClassificadas}
-          compromissosFuturos={compromissosFuturos}
-          totalCompromissosFuturos={totalCompromissosFuturos}
-          maioresLancamentos={maioresLancamentos}
         />
       ) : (
         <>

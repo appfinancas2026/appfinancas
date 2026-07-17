@@ -1446,3 +1446,69 @@ table.report-table td { padding: 8px 0; border-top: 1px solid var(--surface-alt)
   0%, 100% { box-shadow: 0 0 0 0 rgba(180,71,47,0.3); }
   50% { box-shadow: 0 0 0 6px rgba(180,71,47,0); }
 }
+
+/* ---------- Relatórios melhorados ---------- */
+
+.relatorio-filtros {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.relatorio-filtros-periodos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.relatorio-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+}
+
+.relatorio-kpi {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 16px 18px;
+}
+
+.relatorio-kpi.destaque {
+  border-left: 3px solid var(--primary);
+}
+
+.relatorio-kpi-label {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin: 0 0 4px;
+}
+
+.relatorio-kpi-valor {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: var(--weight-semibold);
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+.relatorio-kpi-valor.positivo { color: var(--primary); }
+.relatorio-kpi-valor.negativo { color: var(--negative); }
+
+.relatorio-kpi-var {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  margin: 4px 0 0;
+}
+
+.relatorio-kpi-var.pos { color: var(--primary); }
+.relatorio-kpi-var.neg { color: var(--negative); }
+
+.relatorio-abas {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}

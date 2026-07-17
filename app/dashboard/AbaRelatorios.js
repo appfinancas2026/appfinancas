@@ -1,19 +1,43 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import dynamic from 'next/dynamic';
+import { supabase } from '../../lib/supabase';
 import { formatarMoeda } from '../../lib/financeiro';
 
-// Carregamento sob demanda: os gráficos (recharts) só entram no bundle quando
-// a aba Relatórios é aberta, não no carregamento inicial do app.
-const GraficoComparativoPFPJ = dynamic(() => import('./RelatoriosCharts').then((m) => m.GraficoComparativoPFPJ), { ssr: false, loading: () => <p className="empty-hint">Carregando gráfico...</p> });
-const GraficoEntradasSaidas = dynamic(() => import('./RelatoriosCharts').then((m) => m.GraficoEntradasSaidas), { ssr: false, loading: () => <p className="empty-hint">Carregando gráfico...</p> });
-const GraficoEvolucaoPatrimonio = dynamic(() => import('./RelatoriosCharts').then((m) => m.GraficoEvolucaoPatrimonio), { ssr: false, loading: () => <p className="empty-hint">Carregando gráfico...</p> });
-const GraficoDespesasPorCategoria = dynamic(() => import('./RelatoriosCharts').then((m) => m.GraficoDespesasPorCategoria), { ssr: false, loading: () => <p className="empty-hint">Carregando gráfico...</p> });
+const GraficoEntradasSaidas    = dynamic(() => import('./RelatoriosCharts').then((m) => m.GraficoEntradasSaidas),    { ssr: false });
+const GraficoDespesasPorCategoria = dynamic(() => import('./RelatoriosCharts').then((m) => m.GraficoDespesasPorCategoria), { ssr: false });
+const GraficoEvolucaoPatrimonio  = dynamic(() => import('./RelatoriosCharts').then((m) => m.GraficoEvolucaoPatrimonio),  { ssr: false });
+const GraficoComparativoPFPJ    = dynamic(() => import('./RelatoriosCharts').then((m) => m.GraficoComparativoPFPJ),    { ssr: false });
 
-const NOMES_MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+const NOMES_MESES = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+const NOMES_MESES_FULL = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+
+const CORES_CAT = ['#0F6E56','#C68A2E','#B4472F','#3B6E8F','#7A5C9E','#5C8A3A','#A6763F','#4A5A6B','#2E7D6E','#8B5E3C'];
+
+function hoje() { return new Date().toISOString().slice(0, 10); }
+function primeiroDiaMes(data = new Date()) { return `${data.getFullYear()}-${String(data.getMonth()+1).padStart(2,'0')}-01`; }
+function ultimoDiaMes(data = new Date()) {
+  const ultimo = new Date(data.getFullYear(), data.getMonth()+1, 0);
+  return ultimo.toISOString().slice(0, 10);
+}
+function mesesAtras(n) {
+  const d = new Date(); d.setMonth(d.getMonth() - n + 1); d.setDate(1);
+  return d.toISOString().slice(0, 10);
+}
+function anoAtual() { return new Date().getFullYear(); }
+
+const PERIODOS = [
+  { label: 'Este mês',      de: () => primeiroDiaMes(), ate: () => ultimoDiaMes() },
+  { label: 'Mês anterior',  de: () => { const d = new Date(); d.setMonth(d.getMonth()-1); return primeiroDiaMes(d); }, ate: () => { const d = new Date(); d.setMonth(d.getMonth()-1); return ultimoDiaMes(d); } },
+  { label: 'Últimos 3 meses', de: () => mesesAtras(3), ate: () => ultimoDiaMes() },
+  { label: 'Últimos 6 meses', de: () => mesesAtras(6), ate: () => ultimoDiaMes() },
+  { label: `Ano ${anoAtual()}`, de: () => `${anoAtual()}-01-01`, ate: () => `${anoAtual()}-12-31` },
+  { label: 'Personalizado', de: null, ate: null },
+];
 
 export default function AbaRelatorios({
+  entidadeAtual,
   entidadeAtualObj,
   salvarMesInicioControle,
   exportarMesCSV,
@@ -21,239 +45,409 @@ export default function AbaRelatorios({
   exportarPDF,
   comparativoPFPJ,
   dataAtual,
-  totalEntradasMes,
-  totalSaidasMes,
-  resultadoMes,
-  margemMes,
-  despesasPagasMes,
-  totalDespesasPagasMes,
-  despesasAbertoMes,
-  totalDespesasAbertoMes,
-  receitasRecebidasMes,
-  totalReceitasRecebidasMes,
-  receitasAbertoMes,
-  totalReceitasAbertoMes,
-  pendenciasVencidas,
   confirmarOcorrencia,
-  lancamentosFixos,
-  dadosBarras,
-  indicesMesesVisiveis,
-  resumoAnual,
-  evolucaoPatrimonio,
-  despesasPorCategoria,
-  saidasFixasMes,
-  saidasVariaveisMes,
-  pctFixas,
-  pctRendaComprometida,
-  corComprometimento,
-  despesasEssenciais,
-  despesasDesejaveis,
-  despesasSuperfluas,
-  despesasNaoClassificadas,
-  compromissosFuturos,
-  totalCompromissosFuturos,
-  maioresLancamentos,
+  pendenciasVencidas,
 }) {
-  const [mostrarTabelaAnual, setMostrarTabelaAnual] = useState(false);
+  const [periodoPre, setPeriodoPre] = useState(0);
+  const [dataInicio, setDataInicio] = useState(primeiroDiaMes());
+  const [dataFim, setDataFim] = useState(ultimoDiaMes());
+  const [filtroTipo, setFiltroTipo] = useState('todos');
+  const [filtroCategoria, setFiltroCategoria] = useState('');
+  const [filtroEssencialidade, setFiltroEssencialidade] = useState('');
+  const [carregando, setCarregando] = useState(false);
+  const [dados, setDados] = useState(null);
+  const [categorias, setCategorias] = useState([]);
+  const [abaAtiva, setAbaAtiva] = useState('resumo');
+
+  // Aplica preset de período
+  function aplicarPeriodo(idx) {
+    setPeriodoPre(idx);
+    const p = PERIODOS[idx];
+    if (p.de && p.ate) { setDataInicio(p.de()); setDataFim(p.ate()); }
+  }
+
+  const buscarDados = useCallback(async () => {
+    if (!entidadeAtual) return;
+    setCarregando(true);
+
+    let query = supabase
+      .from('transacoes')
+      .select('id, tipo, valor, categoria, descricao, data, essencialidade, status, conta_id, transferencia_id')
+      .eq('entidade_id', entidadeAtual)
+      .is('transferencia_id', null)
+      .gte('data', dataInicio)
+      .lte('data', dataFim)
+      .order('data', { ascending: false });
+
+    if (filtroTipo !== 'todos') query = query.eq('tipo', filtroTipo);
+    if (filtroCategoria) query = query.eq('categoria', filtroCategoria);
+    if (filtroEssencialidade) query = query.eq('essencialidade', filtroEssencialidade);
+
+    const { data: txs } = await query;
+    const lista = txs || [];
+
+    // Categorias disponíveis para o filtro
+    const { data: catData } = await supabase
+      .from('transacoes')
+      .select('categoria')
+      .eq('entidade_id', entidadeAtual)
+      .is('transferencia_id', null)
+      .gte('data', dataInicio)
+      .lte('data', dataFim)
+      .neq('categoria', null)
+      .neq('categoria', '');
+    setCategorias([...new Set((catData || []).map((t) => t.categoria))].sort());
+
+    // Cálculos
+    const entradas = lista.filter((t) => t.tipo === 'entrada');
+    const saidas   = lista.filter((t) => t.tipo === 'saida');
+    const totalE   = entradas.reduce((s, t) => s + Number(t.valor), 0);
+    const totalS   = saidas.reduce((s, t) => s + Number(t.valor), 0);
+    const resultado = totalE - totalS;
+    const margem   = totalE > 0 ? (resultado / totalE) * 100 : 0;
+
+    // Por categoria
+    const porCat = {};
+    saidas.forEach((t) => {
+      const c = t.categoria || 'Sem categoria';
+      porCat[c] = (porCat[c] || 0) + Number(t.valor);
+    });
+    const despesasPorCategoria = Object.entries(porCat)
+      .map(([categoria, valor]) => ({ categoria, valor }))
+      .sort((a, b) => b.valor - a.valor);
+
+    // Por mês (para gráfico de tendência)
+    const porMes = {};
+    lista.forEach((t) => {
+      const m = t.data.slice(0, 7);
+      if (!porMes[m]) porMes[m] = { mes: m, Entradas: 0, Saídas: 0 };
+      if (t.tipo === 'entrada') porMes[m].Entradas += Number(t.valor);
+      else porMes[m].Saídas += Number(t.valor);
+    });
+    const dadosMensais = Object.values(porMes)
+      .sort((a, b) => a.mes.localeCompare(b.mes))
+      .map((m) => ({ ...m, mes: `${NOMES_MESES[parseInt(m.mes.slice(5,7))-1]}/${m.mes.slice(2,4)}` }));
+
+    // Essencialidade
+    const ess = { essencial: 0, desejavel: 0, superfluo: 0, outro: 0 };
+    saidas.forEach((t) => {
+      const e = t.essencialidade;
+      if (e === 'essencial') ess.essencial += Number(t.valor);
+      else if (e === 'desejável') ess.desejavel += Number(t.valor);
+      else if (e === 'supérfluo') ess.superfluo += Number(t.valor);
+      else ess.outro += Number(t.valor);
+    });
+
+    // Maiores lançamentos
+    const maiores = [...lista].sort((a, b) => Number(b.valor) - Number(a.valor)).slice(0, 10);
+
+    // Variação mês a mês (últimos 2 meses disponíveis)
+    const mesesOrdenados = Object.values(porMes).sort((a, b) => b.mes.localeCompare(a.mes));
+    let variacaoE = null, variacaoS = null;
+    if (mesesOrdenados.length >= 2) {
+      const [atual, anterior] = mesesOrdenados;
+      variacaoE = anterior.Entradas > 0 ? ((atual.Entradas - anterior.Entradas) / anterior.Entradas) * 100 : null;
+      variacaoS = anterior.Saídas > 0 ? ((atual.Saídas - anterior.Saídas) / anterior.Saídas) * 100 : null;
+    }
+
+    setDados({ lista, totalE, totalS, resultado, margem, despesasPorCategoria, dadosMensais, ess, maiores, variacaoE, variacaoS });
+    setCarregando(false);
+  }, [entidadeAtual, dataInicio, dataFim, filtroTipo, filtroCategoria, filtroEssencialidade]);
+
+  useEffect(() => { buscarDados(); }, [buscarDados]);
+
+  const nDias = Math.round((new Date(dataFim) - new Date(dataInicio)) / 86400000) + 1;
+  const labelPeriodo = periodoPre < 5 ? PERIODOS[periodoPre].label : `${dataInicio} → ${dataFim}`;
 
   return (
-    <>
-      <div className="card" style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-        <span className="card-title" style={{ marginRight: 4 }}>Considerando dados a partir de</span>
-        <input
-          className="input"
-          type="month"
-          style={{ width: 160 }}
-          value={entidadeAtualObj?.mes_inicio_controle ? entidadeAtualObj.mes_inicio_controle.slice(0, 7) : ''}
-          onChange={(e) => salvarMesInicioControle(e.target.value)}
-        />
-        {entidadeAtualObj?.mes_inicio_controle && (
-          <button onClick={() => salvarMesInicioControle('')} className="btn-link">usar detecção automática</button>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+      {/* ── Filtros ── */}
+      <div className="card relatorio-filtros">
+        <div className="relatorio-filtros-periodos">
+          {PERIODOS.map((p, i) => (
+            <button
+              key={p.label}
+              onClick={() => aplicarPeriodo(i)}
+              className={`pill ${periodoPre === i ? 'pill-active' : ''}`}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+
+        {periodoPre === 5 && (
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginTop: 10 }}>
+            <input className="input" type="date" value={dataInicio} onChange={(e) => setDataInicio(e.target.value)} style={{ width: 150 }} />
+            <span style={{ color: 'var(--text-muted)' }}>até</span>
+            <input className="input" type="date" value={dataFim} onChange={(e) => setDataFim(e.target.value)} style={{ width: 150 }} />
+          </div>
         )}
-        <p className="empty-hint" style={{ margin: 0, width: '100%' }}>
-          Meses anteriores a essa data ficam fora dos relatórios, mas continuam acessíveis navegando pelo Painel.
+
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
+          <select className="input" value={filtroTipo} onChange={(e) => setFiltroTipo(e.target.value)} style={{ width: 140 }}>
+            <option value="todos">Todos os tipos</option>
+            <option value="entrada">Só entradas</option>
+            <option value="saida">Só saídas</option>
+          </select>
+          <select className="input" value={filtroCategoria} onChange={(e) => setFiltroCategoria(e.target.value)} style={{ width: 180 }}>
+            <option value="">Todas as categorias</option>
+            {categorias.map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
+          <select className="input" value={filtroEssencialidade} onChange={(e) => setFiltroEssencialidade(e.target.value)} style={{ width: 180 }}>
+            <option value="">Toda essencialidade</option>
+            <option value="essencial">Essencial</option>
+            <option value="desejável">Desejável</option>
+            <option value="supérfluo">Supérfluo</option>
+          </select>
+          {(filtroTipo !== 'todos' || filtroCategoria || filtroEssencialidade) && (
+            <button onClick={() => { setFiltroTipo('todos'); setFiltroCategoria(''); setFiltroEssencialidade(''); }} className="btn-link">
+              Limpar filtros
+            </button>
+          )}
+        </div>
+
+        <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', margin: '8px 0 0' }}>
+          {carregando ? 'Carregando...' : dados ? `${dados.lista.length} lançamentos em ${nDias} dias — ${labelPeriodo}` : ''}
         </p>
       </div>
 
-      <div className="card" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-        <span className="card-title" style={{ marginRight: 4 }}>Exportar</span>
-        <button onClick={exportarMesCSV} className="btn btn-ghost">CSV do mês</button>
-        <button onClick={exportarAnoCSV} className="btn btn-ghost">CSV do ano</button>
-        <button onClick={exportarPDF} className="btn btn-ghost">PDF do mês</button>
-      </div>
-
-      {comparativoPFPJ.length > 1 && (
-        <div className="card">
-          <p className="card-title" style={{ marginBottom: 4 }}>Comparativo PF x PJ — {NOMES_MESES[dataAtual.mes]}</p>
-          <p className="empty-hint" style={{ marginTop: 0, marginBottom: 12 }}>Quanto cada entidade recebeu e gastou neste mês.</p>
-          <GraficoComparativoPFPJ dados={comparativoPFPJ} />
-        </div>
-      )}
-
-      <div className="card">
-        <p className="card-title" style={{ marginBottom: 12 }}>Resumo do mês — {NOMES_MESES[dataAtual.mes]}</p>
-        <div className="row row-main"><span className="row-title">Receitas</span><span className="amount amount-positive">{formatarMoeda(totalEntradasMes)}</span></div>
-        <div className="row row-main"><span className="row-title">Despesas</span><span className="amount">{formatarMoeda(totalSaidasMes)}</span></div>
-        <div className="row row-main">
-          <span className="row-title" style={{ fontWeight: 700 }}>Resultado</span>
-          <span className="amount" style={{ fontSize: 18, color: resultadoMes >= 0 ? 'var(--primary)' : 'var(--negative)' }}>{formatarMoeda(resultadoMes)}</span>
-        </div>
-        {totalEntradasMes > 0 && (
-          <p className="empty-hint" style={{ marginTop: 6, marginBottom: 12 }}>Margem: {margemMes.toFixed(1)}% da receita</p>
-        )}
-        <div style={{ borderTop: '1px solid var(--surface-alt)', paddingTop: 8, display: 'flex', flexWrap: 'wrap', gap: 16, fontSize: 13 }}>
-          <span>Despesas pagas: {despesasPagasMes.length} · <strong>{formatarMoeda(totalDespesasPagasMes)}</strong></span>
-          <span>Despesas em aberto: {despesasAbertoMes.length} · <strong>{formatarMoeda(totalDespesasAbertoMes)}</strong></span>
-          <span>Receitas recebidas: {receitasRecebidasMes.length} · <strong>{formatarMoeda(totalReceitasRecebidasMes)}</strong></span>
-          <span>Receitas a receber: {receitasAbertoMes.length} · <strong>{formatarMoeda(totalReceitasAbertoMes)}</strong></span>
-        </div>
-      </div>
-
-      {pendenciasVencidas.length > 0 && (
-        <div className="card card-despesas">
-          <p className="card-title" style={{ marginBottom: 4 }}>Atrasadas</p>
-          <p className="empty-hint" style={{ marginTop: 0, marginBottom: 10 }}>Contas fixas de meses anteriores que nunca foram confirmadas.</p>
-          {pendenciasVencidas.map((o) => (
-            <div key={o.id} className="row row-main">
-              <div>
-                <p className="row-title">{o.lancamentos_fixos?.nome}</p>
-                <p className="row-subtitle">referente a {o.mes_referencia.slice(0, 7)}</p>
-              </div>
-              <div className="row-actions">
-                <span className="amount">{formatarMoeda(o.valor)}</span>
-                <button
-                  onClick={() => confirmarOcorrencia({ id: o.lancamento_fixo_id, tipo: o.lancamentos_fixos?.tipo, nome: o.lancamentos_fixos?.nome }, o)}
-                  className="btn btn-primary"
-                  style={{ padding: '6px 10px', fontSize: 12 }}
-                >
-                  Confirmar
-                </button>
-              </div>
+      {dados && !carregando && (
+        <>
+          {/* ── KPIs ── */}
+          <div className="relatorio-kpis">
+            <div className="relatorio-kpi">
+              <p className="relatorio-kpi-label">Receitas</p>
+              <p className="relatorio-kpi-valor positivo">{formatarMoeda(dados.totalE)}</p>
+              {dados.variacaoE !== null && (
+                <p className={`relatorio-kpi-var ${dados.variacaoE >= 0 ? 'pos' : 'neg'}`}>
+                  {dados.variacaoE >= 0 ? '▲' : '▼'} {Math.abs(dados.variacaoE).toFixed(1)}% vs mês ant.
+                </p>
+              )}
             </div>
-          ))}
-        </div>
-      )}
-
-      <div className="card">
-        <p className="card-title" style={{ marginBottom: 4 }}>Entradas x saídas — {dataAtual.ano}</p>
-        <p className="empty-hint" style={{ marginTop: 0, marginBottom: 12 }}>Transferências entre contas não entram nesse total.</p>
-        <GraficoEntradasSaidas dados={dadosBarras} />
-        <button onClick={() => setMostrarTabelaAnual((v) => !v)} className="btn-link" style={{ marginTop: 10 }}>
-          {mostrarTabelaAnual ? 'ocultar detalhamento mês a mês' : 'ver detalhamento mês a mês'}
-        </button>
-        {mostrarTabelaAnual && (
-          indicesMesesVisiveis.length === 0 ? (
-            <p className="empty-hint" style={{ marginTop: 10 }}>Nenhuma movimentação registrada até {dataAtual.ano}.</p>
-          ) : (
-            <table className="report-table" style={{ marginTop: 10 }}>
-              <thead>
-                <tr><th>Mês</th><th>Entradas</th><th>Saídas</th><th>Saldo do mês</th></tr>
-              </thead>
-              <tbody>
-                {indicesMesesVisiveis.map((i) => {
-                  const m = resumoAnual[i];
-                  const saldoMes = m.entradas - m.saidas;
-                  return (
-                    <tr key={i}>
-                      <td>{NOMES_MESES[i]}</td>
-                      <td style={{ color: 'var(--primary)' }}>{formatarMoeda(m.entradas)}</td>
-                      <td>{formatarMoeda(m.saidas)}</td>
-                      <td style={{ fontWeight: 600, color: saldoMes >= 0 ? 'var(--primary)' : 'var(--negative)' }}>{formatarMoeda(saldoMes)}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          )
-        )}
-      </div>
-
-      {evolucaoPatrimonio.length > 1 && (
-        <div className="card">
-          <p className="card-title" style={{ marginBottom: 4 }}>Evolução do patrimônio — {dataAtual.ano}</p>
-          <p className="empty-hint" style={{ marginTop: 0, marginBottom: 12 }}>Soma do saldo de todas as contas ao fim de cada mês.</p>
-          <GraficoEvolucaoPatrimonio dados={evolucaoPatrimonio} />
-        </div>
-      )}
-
-      <div className="card">
-        <p className="card-title">Despesas por categoria — {NOMES_MESES[dataAtual.mes]}</p>
-        {despesasPorCategoria.length === 0 ? (
-          <p className="empty-hint">Nenhuma despesa neste mês ainda.</p>
-        ) : (
-          <GraficoDespesasPorCategoria dados={despesasPorCategoria} />
-        )}
-      </div>
-
-      <div className="card">
-        <p className="card-title" style={{ marginBottom: 12 }}>Perfil de gastos — {NOMES_MESES[dataAtual.mes]}</p>
-        {totalSaidasMes === 0 ? (
-          <p className="empty-hint">Nenhuma despesa neste mês ainda.</p>
-        ) : (
-          <>
-            <p className="row-subtitle" style={{ margin: '0 0 6px' }}>Fixas x variáveis</p>
-            <div style={{ height: 10, borderRadius: 999, background: 'var(--surface-alt)', overflow: 'hidden', display: 'flex' }}>
-              <div style={{ width: `${pctFixas}%`, background: 'var(--negative)' }} />
-              <div style={{ width: `${100 - pctFixas}%`, background: 'var(--accent)' }} />
+            <div className="relatorio-kpi">
+              <p className="relatorio-kpi-label">Despesas</p>
+              <p className="relatorio-kpi-valor">{formatarMoeda(dados.totalS)}</p>
+              {dados.variacaoS !== null && (
+                <p className={`relatorio-kpi-var ${dados.variacaoS <= 0 ? 'pos' : 'neg'}`}>
+                  {dados.variacaoS >= 0 ? '▲' : '▼'} {Math.abs(dados.variacaoS).toFixed(1)}% vs mês ant.
+                </p>
+              )}
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6, marginTop: 8, marginBottom: 18, fontSize: 13 }}>
-              <span>🔴 Fixas — {formatarMoeda(saidasFixasMes)} ({pctFixas.toFixed(0)}%)</span>
-              <span>🟡 Variáveis — {formatarMoeda(saidasVariaveisMes)} ({(100 - pctFixas).toFixed(0)}%)</span>
-            </div>
-
-            <p className="row-subtitle" style={{ margin: '0 0 6px' }}>Essencialidade</p>
-            {totalEntradasMes > 0 && (
-              <p style={{ fontSize: 13, margin: '0 0 8px', color: corComprometimento, fontWeight: 600 }}>
-                {pctRendaComprometida.toFixed(0)}% da renda comprometida com despesas essenciais
-                {pctRendaComprometida > 70 && ' — acima do recomendado (até ~50%)'}
+            <div className="relatorio-kpi destaque">
+              <p className="relatorio-kpi-label">Resultado</p>
+              <p className={`relatorio-kpi-valor ${dados.resultado >= 0 ? 'positivo' : 'negativo'}`}>
+                {formatarMoeda(dados.resultado)}
               </p>
-            )}
-            <div style={{ height: 10, borderRadius: 999, background: 'var(--surface-alt)', overflow: 'hidden', display: 'flex' }}>
-              <div style={{ width: `${(despesasEssenciais / totalSaidasMes) * 100}%`, background: 'var(--primary)' }} />
-              <div style={{ width: `${(despesasDesejaveis / totalSaidasMes) * 100}%`, background: 'var(--accent)' }} />
-              <div style={{ width: `${(despesasSuperfluas / totalSaidasMes) * 100}%`, background: 'var(--negative)' }} />
-              <div style={{ width: `${(despesasNaoClassificadas / totalSaidasMes) * 100}%`, background: 'var(--border)' }} />
+              {dados.totalE > 0 && (
+                <p className="relatorio-kpi-var">{dados.margem.toFixed(1)}% de margem</p>
+              )}
             </div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginTop: 8, fontSize: 12 }}>
-              <span>🟢 Essencial — {formatarMoeda(despesasEssenciais)}</span>
-              <span>🟡 Desejável — {formatarMoeda(despesasDesejaveis)}</span>
-              <span>🔴 Supérfluo — {formatarMoeda(despesasSuperfluas)}</span>
-              {despesasNaoClassificadas > 0 && <span style={{ color: 'var(--text-muted)' }}>⚪ Não classificado — {formatarMoeda(despesasNaoClassificadas)}</span>}
+            <div className="relatorio-kpi">
+              <p className="relatorio-kpi-label">Lançamentos</p>
+              <p className="relatorio-kpi-valor">{dados.lista.length}</p>
+              <p className="relatorio-kpi-var">{nDias} dias analisados</p>
             </div>
-          </>
-        )}
-      </div>
+          </div>
 
-      {compromissosFuturos.length > 0 && (
-        <div className="card">
-          <p className="card-title" style={{ marginBottom: 4 }}>Compromissos futuros em parcelas</p>
-          <p className="empty-hint" style={{ marginTop: 0, marginBottom: 10 }}>Quanto ainda falta pagar nas despesas parceladas em andamento, a partir de hoje.</p>
-          <p className="amount amount-hero" style={{ color: 'var(--negative)' }}>{formatarMoeda(totalCompromissosFuturos)}</p>
-          {compromissosFuturos.map((item) => (
-            <div key={item.fixo.id} className="row row-main">
-              <span className="row-title">{item.fixo.nome}</span>
-              <span className="row-subtitle">{item.restantes} parcela(s) restante(s) · {formatarMoeda(item.total)}</span>
+          {/* ── Abas internas ── */}
+          <div className="relatorio-abas">
+            {['resumo','categorias','lançamentos','essencialidade'].map((a) => (
+              <button key={a} onClick={() => setAbaAtiva(a)} className={`tab ${abaAtiva === a ? 'tab-active' : ''}`} style={{ textTransform: 'capitalize' }}>
+                {a}
+              </button>
+            ))}
+          </div>
+
+          {/* ── Aba Resumo ── */}
+          {abaAtiva === 'resumo' && (
+            <>
+              {dados.dadosMensais.length > 1 && (
+                <div className="card">
+                  <p className="card-title" style={{ marginBottom: 12 }}>Entradas x saídas por mês</p>
+                  <GraficoEntradasSaidas dados={dados.dadosMensais} />
+                </div>
+              )}
+
+              {pendenciasVencidas?.length > 0 && (
+                <div className="card card-despesas">
+                  <p className="card-title" style={{ marginBottom: 4 }}>Contas atrasadas</p>
+                  <p className="empty-hint" style={{ margin: '0 0 10px' }}>Despesas fixas de meses anteriores não confirmadas.</p>
+                  {pendenciasVencidas.map((o) => (
+                    <div key={o.id} className="row row-main">
+                      <div>
+                        <p className="row-title">{o.lancamentos_fixos?.nome}</p>
+                        <p className="row-subtitle">ref. {o.mes_referencia?.slice(0, 7)}</p>
+                      </div>
+                      <div className="row-actions">
+                        <span className="amount">{formatarMoeda(o.valor)}</span>
+                        <button onClick={() => confirmarOcorrencia({ id: o.lancamento_fixo_id, tipo: 'saida', nome: o.lancamentos_fixos?.nome }, o)} className="btn btn-primary" style={{ padding: '6px 10px', fontSize: 12 }}>
+                          Confirmar
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {comparativoPFPJ?.length > 1 && (
+                <div className="card">
+                  <p className="card-title" style={{ marginBottom: 12 }}>Comparativo PF x PJ</p>
+                  <GraficoComparativoPFPJ dados={comparativoPFPJ} />
+                </div>
+              )}
+
+              <div className="card">
+                <p className="card-title" style={{ marginBottom: 4 }}>Top 10 maiores lançamentos</p>
+                {dados.maiores.length === 0
+                  ? <p className="empty-hint">Nenhum lançamento no período.</p>
+                  : dados.maiores.map((t) => (
+                    <div key={t.id} className="row row-main" style={{ padding: '8px 0', borderBottom: '1px solid var(--surface-alt)' }}>
+                      <div style={{ minWidth: 0 }}>
+                        <p className="row-title" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.descricao || t.categoria || '—'}</p>
+                        <p className="row-subtitle">{t.categoria} · {t.data}</p>
+                      </div>
+                      <span className={`amount ${t.tipo === 'entrada' ? 'amount-positive' : ''}`} style={{ flexShrink: 0 }}>
+                        {t.tipo === 'entrada' ? '+' : '−'} {formatarMoeda(t.valor)}
+                      </span>
+                    </div>
+                  ))
+                }
+              </div>
+            </>
+          )}
+
+          {/* ── Aba Categorias ── */}
+          {abaAtiva === 'categorias' && (
+            <>
+              <div className="card">
+                <p className="card-title" style={{ marginBottom: 12 }}>Despesas por categoria</p>
+                {dados.despesasPorCategoria.length === 0
+                  ? <p className="empty-hint">Nenhuma despesa no período.</p>
+                  : (
+                    <>
+                      <GraficoDespesasPorCategoria dados={dados.despesasPorCategoria.slice(0, 8)} />
+                      <table className="report-table" style={{ marginTop: 16 }}>
+                        <thead><tr><th>Categoria</th><th>Valor</th><th>% do total</th></tr></thead>
+                        <tbody>
+                          {dados.despesasPorCategoria.map((c, i) => (
+                            <tr key={c.categoria}>
+                              <td><span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 2, background: CORES_CAT[i % CORES_CAT.length], marginRight: 8 }} />{c.categoria}</td>
+                              <td>{formatarMoeda(c.valor)}</td>
+                              <td>{dados.totalS > 0 ? ((c.valor / dados.totalS) * 100).toFixed(1) + '%' : '—'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </>
+                  )
+                }
+              </div>
+            </>
+          )}
+
+          {/* ── Aba Lançamentos ── */}
+          {abaAtiva === 'lançamentos' && (
+            <div className="card">
+              <p className="card-title" style={{ marginBottom: 12 }}>
+                Todos os lançamentos — {dados.lista.length} registros
+              </p>
+              {dados.lista.length === 0
+                ? <p className="empty-hint">Nenhum lançamento no período com os filtros aplicados.</p>
+                : (
+                  <div style={{ overflowX: 'auto' }}>
+                    <table className="report-table">
+                      <thead>
+                        <tr>
+                          <th>Data</th>
+                          <th>Descrição</th>
+                          <th>Categoria</th>
+                          <th>Tipo</th>
+                          <th>Valor</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {dados.lista.map((t) => (
+                          <tr key={t.id}>
+                            <td style={{ whiteSpace: 'nowrap' }}>{t.data}</td>
+                            <td>{t.descricao || '—'}</td>
+                            <td>{t.categoria || '—'}</td>
+                            <td>
+                              <span style={{ fontSize: 'var(--text-xs)', padding: '2px 6px', borderRadius: 999, background: t.tipo === 'entrada' ? 'var(--primary-tint)' : 'var(--negative-tint)', color: t.tipo === 'entrada' ? 'var(--primary-dark)' : 'var(--negative)' }}>
+                                {t.tipo === 'entrada' ? 'Entrada' : 'Saída'}
+                              </span>
+                            </td>
+                            <td style={{ fontWeight: 600, color: t.tipo === 'entrada' ? 'var(--primary)' : 'inherit', whiteSpace: 'nowrap' }}>
+                              {t.tipo === 'entrada' ? '+' : '−'} {formatarMoeda(t.valor)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )
+              }
             </div>
-          ))}
-        </div>
+          )}
+
+          {/* ── Aba Essencialidade ── */}
+          {abaAtiva === 'essencialidade' && (
+            <div className="card">
+              <p className="card-title" style={{ marginBottom: 16 }}>Perfil de gastos por essencialidade</p>
+              {dados.totalS === 0
+                ? <p className="empty-hint">Nenhuma despesa no período.</p>
+                : (
+                  <>
+                    {[
+                      { label: 'Essencial', valor: dados.ess.essencial, cor: 'var(--primary)' },
+                      { label: 'Desejável', valor: dados.ess.desejavel, cor: 'var(--accent)' },
+                      { label: 'Supérfluo', valor: dados.ess.superfluo, cor: 'var(--negative)' },
+                      { label: 'Não classificado', valor: dados.ess.outro, cor: 'var(--border)' },
+                    ].map(({ label, valor, cor }) => {
+                      const pct = ((valor / dados.totalS) * 100).toFixed(1);
+                      return (
+                        <div key={label} style={{ marginBottom: 14 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                            <span style={{ fontSize: 'var(--text-md)', fontWeight: 'var(--weight-medium)' }}>{label}</span>
+                            <span style={{ fontSize: 'var(--text-md)' }}>{formatarMoeda(valor)} <span style={{ color: 'var(--text-muted)' }}>({pct}%)</span></span>
+                          </div>
+                          <div style={{ height: 8, borderRadius: 999, background: 'var(--surface-alt)', overflow: 'hidden' }}>
+                            <div style={{ width: `${pct}%`, height: '100%', background: cor, transition: 'width 0.4s' }} />
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {dados.totalE > 0 && (
+                      <div style={{ marginTop: 20, padding: '12px 16px', background: 'var(--surface-alt)', borderRadius: 'var(--radius-sm)' }}>
+                        <p style={{ fontSize: 'var(--text-md)', margin: 0 }}>
+                          <strong>{((dados.ess.essencial / dados.totalE) * 100).toFixed(0)}%</strong> da receita comprometida com despesas essenciais
+                          {((dados.ess.essencial / dados.totalE) * 100) > 50 && (
+                            <span style={{ color: 'var(--negative)', marginLeft: 6 }}>— acima do recomendado (até ~50%)</span>
+                          )}
+                        </p>
+                      </div>
+                    )}
+                  </>
+                )
+              }
+            </div>
+          )}
+
+          {/* ── Exportar ── */}
+          <div className="card" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+            <span className="card-title" style={{ marginRight: 4 }}>Exportar</span>
+            <button onClick={exportarMesCSV} className="btn btn-ghost">CSV do mês</button>
+            <button onClick={exportarAnoCSV} className="btn btn-ghost">CSV do ano</button>
+            <button onClick={exportarPDF}    className="btn btn-ghost">PDF do mês</button>
+          </div>
+        </>
       )}
 
-      <div className="card">
-        <p className="card-title" style={{ marginBottom: 4 }}>Maiores lançamentos — {NOMES_MESES[dataAtual.mes]}</p>
-        {maioresLancamentos.length === 0 ? (
-          <p className="empty-hint">Nenhum lançamento neste mês ainda.</p>
-        ) : (
-          maioresLancamentos.map((t) => (
-            <div key={t.id} className="row row-main">
-              <div>
-                <p className="row-title">{t.descricao || t.categoria}</p>
-                <p className="row-subtitle">{t.categoria} · {t.data}</p>
-              </div>
-              <span className={`amount ${t.tipo === 'entrada' ? 'amount-positive' : ''}`}>{formatarMoeda(t.valor)}</span>
-            </div>
-          ))
-        )}
-      </div>
-    </>
+      {carregando && (
+        <div className="card" style={{ textAlign: 'center', padding: 32 }}>
+          <p className="empty-hint">Carregando dados...</p>
+        </div>
+      )}
+    </div>
   );
 }

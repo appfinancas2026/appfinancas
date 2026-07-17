@@ -1,7 +1,7 @@
 export async function POST(request) {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+  const apiKey = process.env.GOOGLE_API_KEY;
   if (!apiKey) {
-    return Response.json({ error: 'ANTHROPIC_API_KEY não configurada.' }, { status: 500 });
+    return Response.json({ error: 'GOOGLE_API_KEY não configurada.' }, { status: 500 });
   }
 
   const { historico, rendaMedia, mesesAnalisados } = await request.json();
@@ -30,15 +30,13 @@ Responda APENAS com JSON válido, sem markdown, sem crases, no formato exato:
   "sobra_sugerida": number (o que deveria sobrar por mês após o orçamento)
 }
 
-Regras para o orçamento:
-- Use a regra 50/30/20 como referência (50% necessidades, 30% desejos, 20% reserva/poupança), adaptada à realidade brasileira.
+Regras:
+- Use a regra 50/30/20 como referência (50% necessidades, 30% desejos, 20% reserva), adaptada à realidade brasileira.
 - Essenciais (moradia, alimentação, transporte, saúde): aceite até 60% da renda se necessário, mas alerte se passar de 50%.
-- Desejos (lazer, restaurante, vestuário): limite a 30%.
 - A "sugestao" deve ser REALISTA — não corte mais de 30% do que a pessoa gasta, a menos que seja crítico.
-- "status": saudável = dentro do limite saudável para a categoria; atenção = acima do recomendado mas controlável; crítico = muito acima ou comprometendo a saúde financeira.
-- Se uma categoria for claramente eventual (presente, viagem), estime um valor mensal proporcional.
-- Calcule a "sobra_sugerida" como: renda - soma das sugestões. Se negativa, avise no resumo.
-- Escreva em português do Brasil, tom consultivo mas direto. Sem jargões.`;
+- "status": saudável = dentro do recomendado; atenção = acima do recomendado mas controlável; crítico = muito acima ou comprometendo a saúde financeira.
+- Calcule a "sobra_sugerida" como: renda - soma das sugestões.
+- Escreva em português do Brasil, tom consultivo mas direto.`;
 
   const histFormatado = historico.map((h) =>
     `${h.categoria}: média R$ ${h.media.toFixed(2)}/mês (essencialidade: ${h.essencialidade || 'não classificada'})`
@@ -54,20 +52,18 @@ Gere o orçamento inteligente.`;
 
   let resposta;
   try {
-    resposta = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 2048,
-        system: sistema,
-        messages: [{ role: 'user', content: prompt }],
-      }),
-    });
+    resposta = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          systemInstruction: { parts: [{ text: sistema }] },
+          contents: [{ role: 'user', parts: [{ text: prompt }] }],
+          generationConfig: { maxOutputTokens: 2048, temperature: 0.2 },
+        }),
+      }
+    );
   } catch {
     return Response.json({ error: 'Falha ao contatar a API da IA.' }, { status: 502 });
   }
@@ -78,7 +74,7 @@ Gere o orçamento inteligente.`;
   }
 
   const dados = await resposta.json();
-  const texto = dados?.content?.find((b) => b.type === 'text')?.text || '{}';
+  const texto = dados?.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
 
   try {
     const limpo = texto.replace(/```json|```/g, '').trim();

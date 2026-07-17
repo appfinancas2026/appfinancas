@@ -70,7 +70,11 @@ body { transition: background-color 0.15s ease, color 0.15s ease; }
 
 * { box-sizing: border-box; }
 
-html, body { margin: 0; padding: 0; overflow-x: hidden; }
+/* 'clip' em vez de 'hidden': ambos cortam a rolagem horizontal acidental,
+ * mas 'hidden' cria um contexto de rolagem no body — e o position:sticky da
+ * sidebar passa a grudar nesse contexto (que não rola) em vez da janela,
+ * fazendo o menu rolar junto com a página. 'clip' corta sem criar contexto. */
+html, body { margin: 0; padding: 0; overflow-x: clip; }
 
 body {
   background: var(--bg);
@@ -601,6 +605,7 @@ button, input, select { font-family: var(--font-body); }
   top: 0;
   align-self: flex-start;
   height: 100vh;
+  height: 100dvh;
   overflow-y: auto;
   transition: width 0.15s ease;
   z-index: 40;

@@ -23,7 +23,8 @@ import AbaRelatorios from './AbaRelatorios';
 import Onboarding from './Onboarding';
 import CampoCategoria from './CampoCategoria';
 import CampoDescricao from './CampoDescricao';
-import AbaAssistente from './AbaAssistente';
+import dynamic from 'next/dynamic';
+const AbaAssistente = dynamic(() => import('./AbaAssistente'), { ssr: false });
 import CapturaRapida from './CapturaRapida';
 import CardContas from './CardContas';
 import CardCartoes from './CardCartoes';
@@ -1637,7 +1638,7 @@ export default function Dashboard() {
         <AbaAssistente
           entidadeAtual={entidadeAtual}
           contas={contas}
-          transacoesDoMes={transacoesDoMes}
+          transacoesDoMes={transacoes}
           lancamentosFixos={lancamentosFixos}
           ano={dataAtual.ano}
           mes={dataAtual.mes}

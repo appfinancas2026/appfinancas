@@ -7,6 +7,7 @@ import {
   calcularPeriodoFaturaAberta, subtrairMeses, mesReferenciaStr,
 } from '../../lib/financeiro';
 import { recalcularSaldoConta } from '../../lib/saldos';
+import CampoCategoria from './CampoCategoria';
 
 export default function CardCartoes({ entidadeAtual, contas, cartoes, onAtualizar, aberto, onAlternarAberto }) {
   const [faturasPorCartao, setFaturasPorCartao] = useState({});
@@ -417,7 +418,7 @@ export default function CardCartoes({ entidadeAtual, contas, cartoes, onAtualiza
                   edicaoCompraCartaoId === compra.id ? (
                     <form key={compra.id} onSubmit={(e) => salvarEdicaoCompraCartao(e, cartao)} className="form-row" style={{ padding: '8px 0' }}>
                       <input className="input" style={{ width: 100 }} type="number" step="0.01" value={formCompraCartao.valor} onChange={(e) => setFormCompraCartao({ ...formCompraCartao, valor: e.target.value })} required />
-                      <input className="input" style={{ width: 120 }} value={formCompraCartao.categoria} onChange={(e) => setFormCompraCartao({ ...formCompraCartao, categoria: e.target.value })} />
+                      <CampoCategoria entidadeAtual={entidadeAtual} tipo="saida" value={formCompraCartao.categoria} onChange={(e) => setFormCompraCartao({ ...formCompraCartao, categoria: e.target.value })} style={{ width: 120 }} />
                       <input className="input" style={{ flex: 1, minWidth: 120 }} value={formCompraCartao.descricao} onChange={(e) => setFormCompraCartao({ ...formCompraCartao, descricao: e.target.value })} />
                       <input className="input" style={{ width: 150 }} type="date" value={formCompraCartao.data} onChange={(e) => setFormCompraCartao({ ...formCompraCartao, data: e.target.value })} required />
                       <select className="input" value={formCompraCartao.essencialidade} onChange={(e) => setFormCompraCartao({ ...formCompraCartao, essencialidade: e.target.value })}>
@@ -475,7 +476,7 @@ export default function CardCartoes({ entidadeAtual, contas, cartoes, onAtualiza
                 )}
                 <form onSubmit={(e) => adicionarCompraCartao(e, cartao)} className="form-row" style={{ marginTop: sugestaoCompraCartao ? 0 : 10 }}>
                 <input className="input" style={{ width: 100 }} type="number" step="0.01" placeholder={parceladoCompraCartao ? 'Valor da parcela' : 'Valor'} value={valorCompraCartao} onChange={(e) => setValorCompraCartao(e.target.value)} required autoFocus />
-                <input className="input" style={{ width: 130 }} placeholder="Categoria" value={categoriaCompraCartao} onChange={(e) => setCategoriaCompraCartao(e.target.value)} />
+                <CampoCategoria entidadeAtual={entidadeAtual} tipo="saida" value={categoriaCompraCartao} onChange={(e) => setCategoriaCompraCartao(e.target.value)} style={{ width: 130 }} />
                 <input className="input" style={{ flex: 1, minWidth: 120 }} placeholder="Descrição" value={descricaoCompraCartao} onChange={(e) => setDescricaoCompraCartao(e.target.value)} />
                 <input className="input" style={{ width: 150 }} type="date" value={dataCompraCartao} onChange={(e) => setDataCompraCartao(e.target.value)} required />
                 <select className="input" value={essencialidadeCompraCartao} onChange={(e) => setEssencialidadeCompraCartao(e.target.value)}>

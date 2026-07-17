@@ -1,3 +1,25 @@
+
+// Extrai o primeiro bloco JSON válido do texto, mesmo que venha com
+// texto antes/depois ou entre crases. Mais robusto que replace simples.
+function extrairJSON(texto) {
+  // Tenta o texto limpo direto
+  const limpo = texto.replace(/```json|```/g, '').trim();
+  try { return JSON.parse(limpo); } catch {}
+
+  // Procura o primeiro { ou [ e tenta parsear a partir daí
+  const inicio = limpo.search(/[{[]/);
+  if (inicio === -1) throw new Error('Nenhum JSON encontrado');
+
+  // Tenta do primeiro { até o fim
+  try { return JSON.parse(limpo.slice(inicio)); } catch {}
+
+  // Procura o último } ou ] e tenta o bloco entre { e }
+  const fim = Math.max(limpo.lastIndexOf('}'), limpo.lastIndexOf(']'));
+  if (fim === -1) throw new Error('JSON incompleto');
+
+  return JSON.parse(limpo.slice(inicio, fim + 1));
+}
+
 export async function POST(request) {
   const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) {
@@ -65,9 +87,9 @@ Regras:
   const texto = dados?.choices?.[0]?.message?.content || '{}';
 
   try {
-    const limpo = texto.replace(/```json|```/g, '').trim();
-    return Response.json(JSON.parse(limpo));
+    const extraido = extrairJSON(textoResposta !== undefined ? textoResposta : texto);
+    return Response.json(extraido);
   } catch {
-    return Response.json({ error: 'Não foi possível interpretar a resposta da IA.' }, { status: 502 });
+    return Response.json({ error: `Não foi possível interpretar a resposta da IA. Resposta bruta: ${String(texto || textoResposta || '').slice(0, 300)}` }, { status: 502 });
   }
 }

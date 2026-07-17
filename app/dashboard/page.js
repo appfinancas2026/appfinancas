@@ -22,6 +22,7 @@ import CardAuditoria from './CardAuditoria';
 import AbaRelatorios from './AbaRelatorios';
 import Onboarding from './Onboarding';
 import CampoCategoria from './CampoCategoria';
+import CampoDescricao from './CampoDescricao';
 import CapturaRapida from './CapturaRapida';
 import CardContas from './CardContas';
 import CardCartoes from './CardCartoes';
@@ -711,7 +712,7 @@ export default function Dashboard() {
     const timeoutId = setTimeout(async () => {
       const { data } = await supabase
         .from('transacoes')
-        .select('categoria, conta_id, tipo, essencialidade')
+        .select('categoria, conta_id, tipo, essencialidade, valor, descricao')
         .eq('entidade_id', entidadeAtual)
         .is('transferencia_id', null)
         .ilike('descricao', `%${descricao.trim()}%`)
@@ -723,11 +724,22 @@ export default function Dashboard() {
       const contagem = {};
       data.forEach((t) => {
         const chave = `${t.categoria}|${t.conta_id}|${t.tipo}|${t.essencialidade}`;
-        contagem[chave] = (contagem[chave] || 0) + 1;
+        if (!contagem[chave]) contagem[chave] = { n: 0, valores: [] };
+        contagem[chave].n++;
+        if (t.valor) contagem[chave].valores.push(Number(t.valor));
       });
-      const [chaveMaisComum] = Object.entries(contagem).sort((a, b) => b[1] - a[1])[0];
+      const [chaveMaisComum, dados] = Object.entries(contagem).sort((a, b) => b[1].n - a[1].n)[0];
       const [categoriaSugerida, contaSugerida, tipoSugerido, essencialidadeSugerida] = chaveMaisComum.split('|');
       const contaValida = contas.find((c) => c.id === contaSugerida);
+
+      // Valor mais frequente no histórico (moda). Se todos diferentes, usa a média.
+      const valorSugerido = (() => {
+        if (!dados.valores.length) return null;
+        const freq = {};
+        dados.valores.forEach((v) => { freq[v] = (freq[v] || 0) + 1; });
+        const [moda] = Object.entries(freq).sort((a, b) => b[1] - a[1])[0];
+        return Number(moda);
+      })();
 
       setSugestao({
         categoria: categoriaSugerida,
@@ -735,6 +747,7 @@ export default function Dashboard() {
         conta_nome: contaValida ? contaValida.nome : null,
         tipo: tipoSugerido,
         essencialidade: essencialidadeSugerida !== 'null' ? essencialidadeSugerida : '',
+        valor: valorSugerido,
       });
     }, 500);
 
@@ -747,6 +760,7 @@ export default function Dashboard() {
     setTipo(sugestao.tipo === 'entrada' ? 'entrada' : 'saida');
     if (sugestao.conta_id) setContaLancamentoId(sugestao.conta_id);
     if (sugestao.essencialidade) setEssencialidade(sugestao.essencialidade);
+    if (sugestao.valor) setValor(String(sugestao.valor));
     setSugestao(null);
   }
 
@@ -1907,7 +1921,13 @@ export default function Dashboard() {
             )}
             {sugestao && (
               <div className="suggestion-banner">
-                <span>Sugestão baseada no histórico: <strong>{sugestao.categoria}</strong>{sugestao.conta_nome && ` · ${sugestao.conta_nome}`}{sugestao.essencialidade && ` · ${sugestao.essencialidade}`}</span>
+                <span>
+                  Histórico sugere: <strong>{sugestao.tipo === 'entrada' ? 'Entrada' : 'Saída'}</strong>
+                  {sugestao.valor && <> · <strong>{formatarMoeda(sugestao.valor)}</strong></>}
+                  {sugestao.categoria && <> · {sugestao.categoria}</>}
+                  {sugestao.conta_nome && <> · {sugestao.conta_nome}</>}
+                  {sugestao.essencialidade && <> · {sugestao.essencialidade}</>}
+                </span>
                 <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
                   <button type="button" onClick={aplicarSugestao} className="btn-link btn-link-accent">usar</button>
                   <button type="button" onClick={() => setSugestao(null)} className="btn-link">ignorar</button>
@@ -1921,7 +1941,7 @@ export default function Dashboard() {
               </select>
               <input className="input" style={{ width: 100 }} type="number" step="0.01" placeholder="Valor" value={valor} onChange={(e) => setValor(e.target.value)} required />
               <CampoCategoria entidadeAtual={entidadeAtual} tipo={tipo} value={categoria} onChange={(e) => setCategoria(e.target.value)} style={{ width: 140 }} />
-              <input className="input" style={{ flex: 1, minWidth: 140 }} placeholder="Descrição" value={descricao} onChange={(e) => setDescricao(e.target.value)} />
+              <CampoDescricao entidadeAtual={entidadeAtual} tipo={tipo} value={descricao} onChange={(e) => setDescricao(e.target.value)} style={{ flex: 1, minWidth: 140 }} />
               <input className="input" style={{ width: 150 }} type="date" value={dataLancamento} onChange={(e) => setDataLancamento(e.target.value)} required />
               {tipo === 'saida' && (
                 <select className="input" value={essencialidade} onChange={(e) => setEssencialidade(e.target.value)}>
@@ -1960,7 +1980,7 @@ export default function Dashboard() {
                           <form onSubmit={salvarEdicaoTransacao} className="form-row" style={{ padding: '10px 0' }}>
                             <input className="input" style={{ width: 100 }} type="number" step="0.01" value={formTransacao.valor} onChange={(e) => setFormTransacao({ ...formTransacao, valor: e.target.value })} required />
                             <CampoCategoria entidadeAtual={entidadeAtual} tipo={formTransacao.tipo} value={formTransacao.categoria} onChange={(e) => setFormTransacao({ ...formTransacao, categoria: e.target.value })} style={{ width: 120 }} />
-                            <input className="input" style={{ flex: 1, minWidth: 120 }} value={formTransacao.descricao} onChange={(e) => setFormTransacao({ ...formTransacao, descricao: e.target.value })} />
+                            <CampoDescricao entidadeAtual={entidadeAtual} tipo={formTransacao.tipo} value={formTransacao.descricao} onChange={(e) => setFormTransacao({ ...formTransacao, descricao: e.target.value })} style={{ flex: 1, minWidth: 120 }} />
                             <input className="input" style={{ width: 140 }} type="date" value={formTransacao.data} onChange={(e) => setFormTransacao({ ...formTransacao, data: e.target.value })} />
                             {t.tipo === 'saida' && (
                               <select className="input" value={formTransacao.essencialidade} onChange={(e) => setFormTransacao({ ...formTransacao, essencialidade: e.target.value })}>

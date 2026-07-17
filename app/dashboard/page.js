@@ -23,6 +23,7 @@ import AbaRelatorios from './AbaRelatorios';
 import Onboarding from './Onboarding';
 import CampoCategoria from './CampoCategoria';
 import CampoDescricao from './CampoDescricao';
+import AbaAssistente from './AbaAssistente';
 import CapturaRapida from './CapturaRapida';
 import CardContas from './CardContas';
 import CardCartoes from './CardCartoes';
@@ -1627,11 +1628,21 @@ export default function Dashboard() {
           <div className="tabs">
             <button onClick={() => setAba('painel')} className={`tab ${aba === 'painel' ? 'tab-active' : ''}`}>Painel</button>
             <button onClick={() => setAba('relatorios')} className={`tab ${aba === 'relatorios' ? 'tab-active' : ''}`}>Relatórios</button>
+            <button onClick={() => setAba('assistente')} className={`tab ${aba === 'assistente' ? 'tab-active' : ''}`}>✨ Assistente</button>
           </div>
         </div>
       </div>
 
-      {aba === 'relatorios' ? (
+      {aba === 'assistente' ? (
+        <AbaAssistente
+          entidadeAtual={entidadeAtual}
+          contas={contas}
+          transacoesDoMes={transacoesDoMes}
+          lancamentosFixos={lancamentosFixos}
+          ano={dataAtual.ano}
+          mes={dataAtual.mes}
+        />
+      ) : aba === 'relatorios' ? (
         <AbaRelatorios
           entidadeAtualObj={entidadeAtualObj}
           salvarMesInicioControle={salvarMesInicioControle}

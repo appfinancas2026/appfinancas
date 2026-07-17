@@ -206,6 +206,15 @@ button, input, select { font-family: var(--font-body); }
   font-weight: var(--weight-semibold);
 }
 
+.brand-text {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .brand-logo {
   width: 26px;
   height: 26px;
@@ -633,18 +642,30 @@ button, input, select { font-family: var(--font-body); }
 
 .sidebar.collapsed { width: 56px; padding: 14px 6px; }
 
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 14px;
+  padding: 0 2px;
+}
+
 .sidebar-toggle {
   background: none;
   border: none;
   cursor: pointer;
   font-size: var(--text-xl);
   color: var(--text);
-  padding: 8px;
-  align-self: flex-start;
-  margin-bottom: 10px;
+  padding: 6px;
+  flex-shrink: 0;
+  opacity: 0.7;
+  transition: opacity 0.15s;
 }
 
-.sidebar-brand { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; padding: 0 6px; }
+.sidebar-toggle:hover { opacity: 1; }
+
+.sidebar-brand { display: flex; align-items: center; gap: 8px; padding: 0 4px; min-width: 0; overflow: hidden; }
 
 .sidebar-link {
   display: flex;
@@ -671,6 +692,8 @@ button, input, select { font-family: var(--font-body); }
 
 .sidebar.collapsed .sidebar-label,
 .sidebar.collapsed .sidebar-brand span.brand-text { display: none; }
+
+.sidebar.collapsed .sidebar-header { justify-content: center; }
 
 .sidebar-divider { height: 1px; background: var(--surface-alt); margin: 8px 6px; }
 

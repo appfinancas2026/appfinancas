@@ -29,11 +29,12 @@ export default function Sidebar({
     <>
       <div className={`sidebar-backdrop ${sidebarMobileAberta ? 'mobile-open' : ''}`} onClick={() => setSidebarMobileAberta(false)} />
       <aside className={`sidebar ${sidebarAberta ? '' : 'collapsed'} ${sidebarMobileAberta ? 'mobile-open' : ''}`}>
-        <button onClick={alternarSidebar} className="sidebar-toggle" title="Recolher/expandir menu">☰</button>
-
-        <div className="sidebar-brand">
-          {perfil.logo_url ? <img src={perfil.logo_url} alt="Logo" className="brand-logo" /> : <span className="brand-mark">R$</span>}
-          <span className="brand-text" style={{ fontWeight: 700, fontSize: 14 }}>{perfil.nome_exibicao || 'Finanças'}</span>
+        <div className="sidebar-header">
+          <div className="sidebar-brand">
+            {perfil.logo_url ? <img src={perfil.logo_url} alt="Logo" className="brand-logo" /> : <span className="brand-mark">R$</span>}
+            <span className="brand-text">{perfil.nome_exibicao || 'Finanças'}</span>
+          </div>
+          <button onClick={alternarSidebar} className="sidebar-toggle" title="Recolher/expandir menu">☰</button>
         </div>
 
         <button onClick={() => { setAba('painel'); setSidebarMobileAberta(false); }} className={`sidebar-link ${aba === 'painel' ? 'active' : ''}`}>

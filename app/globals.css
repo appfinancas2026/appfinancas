@@ -874,6 +874,153 @@ button, input, select { font-family: var(--font-body); }
 
 /* ---------- Tela de login / cadastro ---------- */
 
+/* Layout dividido: hero à esquerda, formulário à direita.
+ * No mobile vira coluna: hero some, só o formulário aparece. */
+.login-root {
+  min-height: 100vh;
+  display: flex;
+}
+
+/* ── Painel esquerdo (hero) ── */
+.login-hero {
+  position: relative;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #0A0E14;
+  padding: 48px 40px;
+  overflow: hidden;
+}
+
+.login-hero-conteudo {
+  position: relative;
+  z-index: 1;
+  max-width: 400px;
+}
+
+.login-logo {
+  width: 100%;
+  max-width: 340px;
+  height: auto;
+  display: block;
+  margin-bottom: 28px;
+}
+
+.login-tagline {
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: var(--weight-medium);
+  color: #8A96A8;
+  line-height: 1.6;
+  margin: 0 0 32px;
+}
+
+.login-diferenciais {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.login-diferenciais li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: var(--text-md);
+  color: #BFC7CF;
+}
+
+.login-dif-icone {
+  font-size: 10px;
+  background: linear-gradient(135deg, #3BB8E8, #3FD47A);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  flex-shrink: 0;
+}
+
+/* Linha decorativa vertical no lado direito do hero */
+.login-hero-linha {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 1px;
+  height: 100%;
+  background: linear-gradient(to bottom, transparent, #3BB8E840, #3FD47A40, transparent);
+}
+
+/* ── Painel direito (formulário) ── */
+.login-form-panel {
+  width: 440px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 32px;
+  background: var(--bg);
+}
+
+.login-form-wrap {
+  width: 100%;
+  max-width: 360px;
+}
+
+.login-convite-aviso {
+  font-size: var(--text-sm);
+  padding: 10px 14px;
+  background: var(--primary-tint);
+  border-radius: var(--radius-sm);
+  color: var(--primary-dark);
+  margin-bottom: 20px;
+  line-height: 1.5;
+}
+
+.login-titulo {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: var(--weight-semibold);
+  margin: 0 0 4px;
+}
+
+.login-subtitulo {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  margin: 0 0 22px;
+}
+
+.login-btn-submit {
+  padding: 12px 16px;
+  margin-top: 4px;
+  font-size: var(--text-lg);
+}
+
+.login-mensagem {
+  margin-top: 12px;
+  font-size: var(--text-sm);
+  line-height: 1.5;
+}
+
+.login-mensagem.erro { color: var(--negative); }
+.login-mensagem.ok { color: var(--primary); }
+
+.login-rodape {
+  margin-top: 20px;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  text-align: center;
+  line-height: 1.6;
+}
+
+/* Mobile: oculta o hero, formulário ocupa tudo */
+@media (max-width: 720px) {
+  .login-hero { display: none; }
+  .login-form-panel { width: 100%; padding: 32px 20px; }
+}
+
+
 .onboarding-progresso {
   display: flex;
   gap: 6px;

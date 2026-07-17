@@ -16,9 +16,16 @@ const MENSAGENS_ERRO = {
   'Database error saving new user': 'Não foi possível criar a conta. Esse CPF pode já estar cadastrado.',
 };
 
-function traduzirErro(mensagem) {
-  return MENSAGENS_ERRO[mensagem] || 'Algo deu errado. Tente novamente em instantes.';
+function traduzirErro(m) {
+  return MENSAGENS_ERRO[m] || 'Algo deu errado. Tente novamente em instantes.';
 }
+
+const DIFERENCIAIS = [
+  { icone: '✦', texto: 'Controle PF e PJ no mesmo lugar' },
+  { icone: '✦', texto: 'Orçamento inteligente com IA' },
+  { icone: '✦', texto: 'Compartilhe com família ou sócios' },
+  { icone: '✦', texto: 'Importe extratos PDF de qualquer banco' },
+];
 
 export default function LoginPage() {
   const router = useRouter();
@@ -30,8 +37,6 @@ export default function LoginPage() {
   const [carregando, setCarregando] = useState(false);
   const [carregandoGoogle, setCarregandoGoogle] = useState(false);
   const [mensagem, setMensagem] = useState(null);
-
-  // Quem chega por um link de convite vê o contexto e já cai no cadastro.
   const [temConvitePendente, setTemConvitePendente] = useState(false);
 
   useEffect(() => {
@@ -71,7 +76,6 @@ export default function LoginPage() {
         return;
       }
 
-      // Com "Confirm email" desativado no Supabase, o cadastro já cria sessão.
       const { data: sessao } = await supabase.auth.getSession();
       if (sessao.session) {
         router.push('/dashboard');
@@ -106,107 +110,106 @@ export default function LoginPage() {
       setCarregandoGoogle(false);
       setMensagem({ tipo: 'erro', texto: 'Não foi possível conectar com o Google. Tente novamente.' });
     }
-    // Em caso de sucesso o navegador é redirecionado — nada mais a fazer aqui.
   }
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-      <div className="card" style={{ maxWidth: 380, width: '100%', padding: 28 }}>
-        <span className="brand" style={{ marginBottom: 4 }}>
-          <span className="brand-mark">R$</span>
-          <span>Controle Financeiro</span>
-        </span>
+    <div className="login-root">
+      {/* Painel esquerdo — identidade e diferenciais */}
+      <div className="login-hero">
+        <div className="login-hero-conteudo">
+          <img src="/logo.png" alt="AppFinançasBr" className="login-logo" />
 
-        {temConvitePendente && (
-          <p style={{ fontSize: 13, margin: '10px 0 0', padding: 10, background: 'var(--surface-alt)', borderRadius: 'var(--radius-sm)', color: 'var(--text)' }}>
-            🎉 Você foi convidado! Crie sua conta com o <strong>mesmo email</strong> que recebeu o convite.
+          <p className="login-tagline">
+            Controle financeiro completo para você e sua empresa, em um só lugar.
           </p>
-        )}
 
-        <div className="auth-tabs">
-          <button
-            type="button"
-            onClick={() => trocarModo('login')}
-            className={`auth-tab ${modo === 'login' ? 'auth-tab-active' : ''}`}
-          >
-            Entrar
-          </button>
-          <button
-            type="button"
-            onClick={() => trocarModo('cadastro')}
-            className={`auth-tab ${modo === 'cadastro' ? 'auth-tab-active' : ''}`}
-          >
-            Criar conta
-          </button>
+          <ul className="login-diferenciais">
+            {DIFERENCIAIS.map((d) => (
+              <li key={d.texto}>
+                <span className="login-dif-icone">{d.icone}</span>
+                {d.texto}
+              </li>
+            ))}
+          </ul>
         </div>
 
-        <button
-          type="button"
-          onClick={entrarComGoogle}
-          className="btn-google"
-          disabled={carregandoGoogle}
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
-            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
-            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
-          </svg>
-          {carregandoGoogle ? 'Conectando...' : 'Continuar com Google'}
-        </button>
+        {/* Detalhe decorativo — linha de gradiente */}
+        <div className="login-hero-linha" aria-hidden="true" />
+      </div>
 
-        <div className="auth-divisor"><span>ou</span></div>
+      {/* Painel direito — formulário */}
+      <div className="login-form-panel">
+        <div className="login-form-wrap">
 
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {modo === 'cadastro' && (
-            <>
-              <input
-                className="input"
-                placeholder="Seu nome"
-                value={nome}
-                onChange={(e) => setNome(e.target.value)}
-                required
-              />
-              <input
-                className="input"
-                inputMode="numeric"
-                placeholder="CPF"
-                value={cpf}
-                onChange={(e) => setCpf(formatarCPF(e.target.value))}
-                required
-              />
-            </>
+          {temConvitePendente && (
+            <div className="login-convite-aviso">
+              🎉 Você foi convidado! Crie sua conta com o <strong>mesmo email</strong> que recebeu o convite.
+            </div>
           )}
-          <input
-            className="input"
-            type="email"
-            placeholder="Email"
-            autoComplete="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
-          <input
-            className="input"
-            type="password"
-            placeholder={modo === 'cadastro' ? 'Senha (mínimo 6 caracteres)' : 'Senha'}
-            autoComplete={modo === 'cadastro' ? 'new-password' : 'current-password'}
-            value={senha}
-            onChange={(e) => setSenha(e.target.value)}
-            minLength={6}
-            required
-          />
 
-          <button type="submit" className="btn btn-primary" style={{ padding: '11px 16px', marginTop: 4 }} disabled={carregando}>
-            {carregando ? 'Aguarde...' : modo === 'cadastro' ? 'Criar conta' : 'Entrar'}
-          </button>
-        </form>
-
-        {mensagem && (
-          <p style={{ marginTop: 12, fontSize: 13, color: mensagem.tipo === 'erro' ? 'var(--negative)' : 'var(--primary)' }}>
-            {mensagem.texto}
+          <h1 className="login-titulo">
+            {modo === 'login' ? 'Bem-vindo de volta' : 'Criar sua conta'}
+          </h1>
+          <p className="login-subtitulo">
+            {modo === 'login'
+              ? 'Entre para acessar seu painel financeiro.'
+              : 'Grátis, sem cartão de crédito.'}
           </p>
-        )}
+
+          {/* Google */}
+          <button
+            type="button"
+            onClick={entrarComGoogle}
+            className="btn-google"
+            disabled={carregandoGoogle}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+              <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+              <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+              <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+              <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+            </svg>
+            {carregandoGoogle ? 'Conectando...' : 'Continuar com Google'}
+          </button>
+
+          <div className="auth-divisor"><span>ou entre com email</span></div>
+
+          {/* Abas */}
+          <div className="auth-tabs">
+            <button type="button" onClick={() => trocarModo('login')} className={`auth-tab ${modo === 'login' ? 'auth-tab-active' : ''}`}>
+              Entrar
+            </button>
+            <button type="button" onClick={() => trocarModo('cadastro')} className={`auth-tab ${modo === 'cadastro' ? 'auth-tab-active' : ''}`}>
+              Criar conta
+            </button>
+          </div>
+
+          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {modo === 'cadastro' && (
+              <>
+                <input className="input" placeholder="Seu nome completo" value={nome} onChange={(e) => setNome(e.target.value)} required autoFocus />
+                <input className="input" inputMode="numeric" placeholder="CPF" value={cpf} onChange={(e) => setCpf(formatarCPF(e.target.value))} required />
+              </>
+            )}
+            <input className="input" type="email" placeholder="Email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoFocus={modo === 'login'} />
+            <input className="input" type="password" placeholder={modo === 'cadastro' ? 'Senha (mínimo 6 caracteres)' : 'Senha'} autoComplete={modo === 'cadastro' ? 'new-password' : 'current-password'} value={senha} onChange={(e) => setSenha(e.target.value)} minLength={6} required />
+
+            <button type="submit" className="btn btn-primary login-btn-submit" disabled={carregando}>
+              {carregando ? 'Aguarde...' : modo === 'cadastro' ? 'Criar conta grátis' : 'Entrar'}
+            </button>
+          </form>
+
+          {mensagem && (
+            <p className={`login-mensagem ${mensagem.tipo}`}>{mensagem.texto}</p>
+          )}
+
+          <p className="login-rodape">
+            Ao continuar, você concorda com os{' '}
+            <a href="#" className="btn-link">Termos de uso</a>{' '}
+            e a{' '}
+            <a href="#" className="btn-link">Política de privacidade</a>.
+          </p>
+        </div>
       </div>
     </div>
   );

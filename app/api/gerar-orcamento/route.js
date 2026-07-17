@@ -1,7 +1,7 @@
 export async function POST(request) {
-  const apiKey = process.env.GOOGLE_API_KEY;
+  const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) {
-    return Response.json({ error: 'GOOGLE_API_KEY não configurada.' }, { status: 500 });
+    return Response.json({ error: 'GROQ_API_KEY não configurada.' }, { status: 500 });
   }
 
   const { historico, rendaMedia, mesesAnalisados } = await request.json();
@@ -11,31 +11,31 @@ export async function POST(request) {
   }
 
   const sistema = `Você é um consultor financeiro pessoal especializado em finanças brasileiras.
-Analise o histórico de gastos e receitas de um usuário e gere um orçamento mensal saudável e realista.
+Analise o histórico de gastos e gere um orçamento mensal saudável e realista.
 
-Responda APENAS com JSON válido, sem markdown, sem crases, no formato exato:
+Responda APENAS com JSON válido, sem markdown, sem crases:
 {
   "resumo": string (2-3 frases sobre a situação financeira atual),
-  "alertas": [ string ] (até 3 alertas mais importantes — seja direto e específico),
-  "recomendacoes": [ string ] (até 3 ações práticas para melhorar — comece com verbo),
+  "alertas": [ string ] (até 3 alertas importantes — direto e específico),
+  "recomendacoes": [ string ] (até 3 ações práticas — comece com verbo),
   "categorias": [
     {
       "categoria": string,
       "media_gasta": number,
       "sugestao": number,
       "status": "saudável" | "atenção" | "crítico",
-      "justificativa": string (1 frase curta explicando o limite sugerido)
+      "justificativa": string (1 frase curta)
     }
   ],
-  "sobra_sugerida": number (o que deveria sobrar por mês após o orçamento)
+  "sobra_sugerida": number
 }
 
 Regras:
-- Use a regra 50/30/20 como referência (50% necessidades, 30% desejos, 20% reserva), adaptada à realidade brasileira.
-- Essenciais (moradia, alimentação, transporte, saúde): aceite até 60% da renda se necessário, mas alerte se passar de 50%.
-- A "sugestao" deve ser REALISTA — não corte mais de 30% do que a pessoa gasta, a menos que seja crítico.
-- "status": saudável = dentro do recomendado; atenção = acima do recomendado mas controlável; crítico = muito acima ou comprometendo a saúde financeira.
-- Calcule a "sobra_sugerida" como: renda - soma das sugestões.
+- Use a regra 50/30/20 como referência, adaptada à realidade brasileira.
+- Essenciais (moradia, alimentação, transporte, saúde): aceite até 60% da renda, alerte se passar de 50%.
+- A "sugestao" deve ser realista — não corte mais de 30% do que a pessoa gasta, salvo caso crítico.
+- "status": saudável = dentro do recomendado; atenção = acima mas controlável; crítico = muito acima.
+- "sobra_sugerida" = renda - soma das sugestões.
 - Escreva em português do Brasil, tom consultivo mas direto.`;
 
   const histFormatado = historico.map((h) =>
@@ -52,18 +52,22 @@ Gere o orçamento inteligente.`;
 
   let resposta;
   try {
-    resposta = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          systemInstruction: { parts: [{ text: sistema }] },
-          contents: [{ role: 'user', parts: [{ text: prompt }] }],
-          generationConfig: { maxOutputTokens: 2048, temperature: 0.2 },
-        }),
-      }
-    );
+    resposta = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: 'llama-3.3-70b-versatile',
+        messages: [
+          { role: 'system', content: sistema },
+          { role: 'user', content: prompt },
+        ],
+        max_tokens: 2048,
+        temperature: 0.2,
+      }),
+    });
   } catch {
     return Response.json({ error: 'Falha ao contatar a API da IA.' }, { status: 502 });
   }
@@ -74,7 +78,7 @@ Gere o orçamento inteligente.`;
   }
 
   const dados = await resposta.json();
-  const texto = dados?.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
+  const texto = dados?.choices?.[0]?.message?.content || '{}';
 
   try {
     const limpo = texto.replace(/```json|```/g, '').trim();

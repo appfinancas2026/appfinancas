@@ -1,7 +1,7 @@
 export async function POST(request) {
-  const apiKey = process.env.GOOGLE_API_KEY;
+  const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) {
-    return Response.json({ error: 'GOOGLE_API_KEY não configurada no servidor.' }, { status: 500 });
+    return Response.json({ error: 'GROQ_API_KEY não configurada no servidor.' }, { status: 500 });
   }
 
   const body = await request.json();
@@ -11,37 +11,47 @@ export async function POST(request) {
 Responda APENAS com um JSON válido, sem markdown, sem crases, sem texto antes ou depois, no formato exato:
 {"valor": number ou null, "data": "AAAA-MM-DD", "categoria": string, "descricao": string, "tipo": "entrada" ou "saida"}
 Regras:
-- Se a data não for mencionada ou não estiver visível, use "${hoje}".
-- "tipo" é "saida" na grande maioria dos casos (compra, conta, gasto). Só use "entrada" se for claramente um recebimento (salário, venda, pagamento recebido).
-- "categoria" deve ser uma palavra ou expressão curta (ex: "Alimentação", "Transporte", "Mercado", "Farmácia").
+- Se a data não for mencionada, use "${hoje}".
+- "tipo" é "saida" na grande maioria dos casos. Só use "entrada" se for claramente um recebimento.
+- "categoria" deve ser curta (ex: "Alimentação", "Transporte", "Mercado", "Farmácia").
 - "descricao" deve ser curta, com o nome do estabelecimento ou do gasto.
 - Se não conseguir identificar o valor com confiança, retorne "valor": null.`;
 
-  const parts = [];
+  const messages = [];
 
   if (body.imagemBase64) {
-    parts.push({ inlineData: { mimeType: body.tipoMime || 'image/jpeg', data: body.imagemBase64 } });
-    parts.push({ text: 'Extraia os dados do gasto mostrado nesta imagem de comprovante ou nota fiscal.' });
+    // Groq suporta visão via llama-3.2-11b-vision-preview
+    messages.push({
+      role: 'user',
+      content: [
+        { type: 'image_url', image_url: { url: `data:${body.tipoMime || 'image/jpeg'};base64,${body.imagemBase64}` } },
+        { type: 'text', text: 'Extraia os dados do gasto mostrado nesta imagem de comprovante ou nota fiscal.' },
+      ],
+    });
   } else if (body.texto) {
-    parts.push({ text: `Extraia os dados do seguinte gasto ou receita descrito em texto: "${body.texto}"` });
+    messages.push({ role: 'user', content: `Extraia os dados do seguinte gasto ou receita: "${body.texto}"` });
   } else {
     return Response.json({ error: 'Nenhuma imagem ou texto foi enviado.' }, { status: 400 });
   }
 
+  // Usa modelo com visão se tiver imagem, texto se não
+  const modelo = body.imagemBase64 ? 'llama-3.2-11b-vision-preview' : 'llama-3.3-70b-versatile';
+
   let resposta;
   try {
-    resposta = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          systemInstruction: { parts: [{ text: promptSistema }] },
-          contents: [{ role: 'user', parts }],
-          generationConfig: { maxOutputTokens: 500, temperature: 0.1 },
-        }),
-      }
-    );
+    resposta = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: modelo,
+        messages: [{ role: 'system', content: promptSistema }, ...messages],
+        max_tokens: 500,
+        temperature: 0.1,
+      }),
+    });
   } catch {
     return Response.json({ error: 'Falha ao contatar a API da IA.' }, { status: 502 });
   }
@@ -52,7 +62,7 @@ Regras:
   }
 
   const dados = await resposta.json();
-  const texto = dados?.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
+  const texto = dados?.choices?.[0]?.message?.content || '{}';
 
   try {
     const limpo = texto.replace(/```json|```/g, '').trim();

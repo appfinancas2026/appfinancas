@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '../../lib/supabase';
 import { TEMAS_CORES } from '../../lib/temas';
@@ -47,6 +47,35 @@ export default function Dashboard() {
   const [tema, setTema] = useState('light');
   const [valoresOcultos, setValoresOcultos] = useState(false);
   const [mostrarConfiguracoes, setMostrarConfiguracoes] = useState(false);
+  const refConfiguracoes = useRef(null);
+
+  // Fecha o menu de configurações ao clicar fora dele ou apertar Esc —
+  // comportamento esperado de qualquer menu suspenso.
+  useEffect(() => {
+    if (!mostrarConfiguracoes) return;
+
+    function aoClicarFora(e) {
+      if (refConfiguracoes.current && !refConfiguracoes.current.contains(e.target)) {
+        setMostrarConfiguracoes(false);
+      }
+    }
+
+    function aoTeclar(e) {
+      if (e.key === 'Escape') setMostrarConfiguracoes(false);
+    }
+
+    // 'mousedown' em vez de 'click': fecha assim que o clique começa, sem
+    // esperar o botão soltar, o que evita um piscar se o alvo sumir no meio.
+    document.addEventListener('mousedown', aoClicarFora);
+    document.addEventListener('touchstart', aoClicarFora);
+    document.addEventListener('keydown', aoTeclar);
+
+    return () => {
+      document.removeEventListener('mousedown', aoClicarFora);
+      document.removeEventListener('touchstart', aoClicarFora);
+      document.removeEventListener('keydown', aoTeclar);
+    };
+  }, [mostrarConfiguracoes]);
   const [sidebarAberta, setSidebarAberta] = useState(true);
   const [sidebarMobileAberta, setSidebarMobileAberta] = useState(false);
 
@@ -790,7 +819,7 @@ export default function Dashboard() {
         <td>${t.categoria || ''}</td>
         <td>${t.descricao || ''}</td>
         <td>${conta ? conta.nome : ''}</td>
-        <td style="text-align:right">${t.tipo === 'entrada' ? '+' : '−'} R$ ${Number(t.valor).toFixed(2)}</td>
+        <td style="text-align:right">${t.tipo === 'entrada' ? '+' : '−'} ${formatarMoeda(t.valor)}</td>
       </tr>`;
     }).join('');
 
@@ -822,8 +851,8 @@ export default function Dashboard() {
           <thead><tr><th>Data</th><th>Tipo</th><th>Categoria</th><th>Descrição</th><th>Conta</th><th style="text-align:right">Valor</th></tr></thead>
           <tbody>${linhasHtml}</tbody>
           <tfoot>
-            <tr><td colspan="5">Total entradas</td><td style="text-align:right">R$ ${totalEntradasPdf.toFixed(2)}</td></tr>
-            <tr><td colspan="5">Total saídas</td><td style="text-align:right">R$ ${totalSaidasPdf.toFixed(2)}</td></tr>
+            <tr><td colspan="5">Total entradas</td><td style="text-align:right">${formatarMoeda(totalEntradasPdf)}</td></tr>
+            <tr><td colspan="5">Total saídas</td><td style="text-align:right">${formatarMoeda(totalSaidasPdf)}</td></tr>
           </tfoot>
         </table>
         <script>window.onload = function () { window.print(); };</script>
@@ -1526,7 +1555,7 @@ export default function Dashboard() {
               <span className="brand-text">{perfil.nome_exibicao || 'Controle Financeiro'}</span>
             </span>
           </div>
-          <div className="settings-wrap">
+          <div className="settings-wrap" ref={refConfiguracoes}>
             <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
               <button onClick={() => setMostrarConfiguracoes((v) => !v)} className="btn-icon" title="Configurações">⚙</button>
               <button onClick={sair} className="btn-link">Sair</button>

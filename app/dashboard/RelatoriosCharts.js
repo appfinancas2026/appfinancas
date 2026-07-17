@@ -4,12 +4,9 @@ import {
   ResponsiveContainer, PieChart, Pie, Cell, Tooltip,
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend,
 } from 'recharts';
+import { formatarMoeda } from '../../lib/financeiro';
 
 const CORES_GRAFICO = ['#0F6E56', '#C68A2E', '#B4472F', '#3B6E8F', '#7A5C9E', '#5C8A3A', '#A6763F', '#4A5A6B'];
-
-function formatarMoeda(v) {
-  return `R$ ${Number(v).toFixed(2)}`;
-}
 
 const tooltipStyle = { borderRadius: 8, border: '1px solid var(--border)', fontSize: 13 };
 

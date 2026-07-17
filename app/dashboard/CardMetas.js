@@ -2,12 +2,9 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../lib/supabase';
+import { formatarMoeda } from '../../lib/financeiro';
 
 const LIMITE_LISTA = 6;
-
-function formatarMoeda(v) {
-  return `R$ ${Number(v).toFixed(2)}`;
-}
 
 export default function CardMetas({ entidadeAtual, contas, aberto, onAlternarAberto }) {
   const [metas, setMetas] = useState([]);

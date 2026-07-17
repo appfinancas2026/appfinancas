@@ -175,22 +175,40 @@ describe('calcularMesFaturaCompra', () => {
 });
 
 describe('formatarMoeda', () => {
-  test('duas casas decimais', () => {
-    assert.equal(formatarMoeda(10), 'R$ 10.00');
-    assert.equal(formatarMoeda(10.5), 'R$ 10.50');
+  // Espaço não-quebrável (U+00A0) é o que o Intl usa entre "R$" e o número.
+  const ESP = '\u00A0';
+
+  test('padrão brasileiro: vírgula decimal', () => {
+    assert.equal(formatarMoeda(10), `R$${ESP}10,00`);
+    assert.equal(formatarMoeda(10.5), `R$${ESP}10,50`);
   });
 
-  test('arredonda', () => {
-    assert.equal(formatarMoeda(10.567), 'R$ 10.57');
+  test('separador de milhar', () => {
+    assert.equal(formatarMoeda(1000), `R$${ESP}1.000,00`);
+    assert.equal(formatarMoeda(1234.56), `R$${ESP}1.234,56`);
+    assert.equal(formatarMoeda(1234567.89), `R$${ESP}1.234.567,89`);
+  });
+
+  test('arredonda para dois decimais', () => {
+    assert.equal(formatarMoeda(10.567), `R$${ESP}10,57`);
+    assert.equal(formatarMoeda(0.005), `R$${ESP}0,01`);
   });
 
   test('zero e negativo', () => {
-    assert.equal(formatarMoeda(0), 'R$ 0.00');
-    assert.equal(formatarMoeda(-50.5), 'R$ -50.50');
+    assert.equal(formatarMoeda(0), `R$${ESP}0,00`);
+    assert.equal(formatarMoeda(-50.5), `-R$${ESP}50,50`);
+    assert.equal(formatarMoeda(-1234.56), `-R$${ESP}1.234,56`);
   });
 
-  test('aceita string numérica', () => {
-    assert.equal(formatarMoeda('123.456'), 'R$ 123.46');
+  test('aceita string numérica (como vem do banco)', () => {
+    assert.equal(formatarMoeda('123.456'), `R$${ESP}123,46`);
+    assert.equal(formatarMoeda('1000'), `R$${ESP}1.000,00`);
+  });
+
+  test('valor inválido não quebra a tela', () => {
+    assert.equal(formatarMoeda(null), `R$${ESP}0,00`);
+    assert.equal(formatarMoeda(undefined), 'R$ 0,00');
+    assert.equal(formatarMoeda('abc'), 'R$ 0,00');
   });
 });
 

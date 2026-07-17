@@ -108,12 +108,21 @@ export default function CardContas({ entidadeAtual, contas, cartoes, aberto, onA
     onContasAlteradas();
   }
 
+  const [processandoPDF, setProcessandoPDF] = useState(false);
+  const [erroPDF, setErroPDF] = useState('');
+
   function handleArquivoExtrato(e) {
     const arquivo = e.target.files[0];
     if (!arquivo) return;
 
     setNomeArquivoImportado(arquivo.name);
+    setErroPDF('');
     const extensao = arquivo.name.split('.').pop().toLowerCase();
+
+    if (extensao === 'pdf') {
+      extrairPDF(arquivo);
+      return;
+    }
 
     const leitor = new FileReader();
     leitor.onload = (evento) => {
@@ -122,6 +131,60 @@ export default function CardContas({ entidadeAtual, contas, cartoes, aberto, onA
       setPreviewImportacao(resultado);
     };
     leitor.readAsText(arquivo, 'ISO-8859-1');
+  }
+
+  async function extrairPDF(arquivo) {
+    setProcessandoPDF(true);
+    setPreviewImportacao([]);
+
+    try {
+      // Extrai o texto do PDF no browser usando PDF.js (carregado via CDN no html).
+      // O texto extraído vai pra IA que identifica as transações independente do
+      // layout — funciona com Mercado Pago, C6 e qualquer outro banco.
+      const arrayBuffer = await arquivo.arrayBuffer();
+      const pdfjsLib = await import('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.min.mjs');
+      pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.worker.min.mjs';
+
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      const paginas = [];
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const pagina = await pdf.getPage(i);
+        const conteudo = await pagina.getTextContent();
+        const textoPagina = conteudo.items.map((item) => item.str).join(' ');
+        paginas.push(textoPagina);
+      }
+      const textoCompleto = paginas.join('\n');
+
+      if (textoCompleto.trim().length < 20) {
+        setErroPDF('Não foi possível extrair texto deste PDF. Ele pode ser uma imagem escaneada.');
+        return;
+      }
+
+      const resposta = await fetch('/api/extrair-extrato', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ texto: textoCompleto }),
+      });
+
+      const json = await resposta.json();
+
+      if (json.error) {
+        setErroPDF(json.error);
+        return;
+      }
+
+      if (!json.transacoes || json.transacoes.length === 0) {
+        setErroPDF('Nenhuma transação encontrada no extrato. Verifique se o arquivo está correto.');
+        return;
+      }
+
+      setPreviewImportacao(json.transacoes);
+    } catch (e) {
+      setErroPDF('Erro ao processar o PDF. Tente novamente.');
+      console.error(e);
+    } finally {
+      setProcessandoPDF(false);
+    }
   }
 
   function alternarInclusaoPreview(index) {
@@ -242,11 +305,21 @@ export default function CardContas({ entidadeAtual, contas, cartoes, aberto, onA
                     </optgroup>
                   )}
                 </select>
-                <label className="btn btn-ghost" style={{ cursor: 'pointer' }}>
-                  {nomeArquivoImportado || 'Escolher arquivo .ofx ou .csv'}
-                  <input type="file" accept=".ofx,.csv" onChange={handleArquivoExtrato} style={{ display: 'none' }} />
+                <label className={`btn btn-ghost ${processandoPDF ? 'disabled' : ''}`} style={{ cursor: processandoPDF ? 'default' : 'pointer' }}>
+                  {processandoPDF ? '⏳ Lendo extrato...' : (nomeArquivoImportado || 'Escolher arquivo .ofx, .csv ou .pdf')}
+                  <input type="file" accept=".ofx,.csv,.pdf" onChange={handleArquivoExtrato} style={{ display: 'none' }} disabled={processandoPDF} />
                 </label>
               </div>
+
+              {processandoPDF && (
+                <p className="empty-hint" style={{ margin: '8px 0 0' }}>
+                  ✨ A IA está lendo o extrato... pode levar alguns segundos.
+                </p>
+              )}
+
+              {erroPDF && (
+                <p style={{ margin: '8px 0 0', fontSize: 13, color: 'var(--negative)' }}>{erroPDF}</p>
+              )}
 
               {destinoImportacaoId.startsWith('cartao:') && previewImportacao.length > 0 && (
                 <p className="empty-hint" style={{ margin: '0 0 8px' }}>
@@ -280,7 +353,7 @@ export default function CardContas({ entidadeAtual, contas, cartoes, aberto, onA
                     <button onClick={confirmarImportacao} className="btn btn-primary" disabled={!destinoImportacaoId || importando}>
                       {importando ? 'Importando...' : `Importar ${previewImportacao.filter((t) => t.incluir).length} selecionado(s)`}
                     </button>
-                    <button onClick={() => { setPreviewImportacao([]); setNomeArquivoImportado(''); }} className="btn-link">Cancelar</button>
+                    <button onClick={() => { setPreviewImportacao([]); setNomeArquivoImportado(''); setErroPDF(''); }} className="btn-link">Cancelar</button>
                   </div>
                 </>
               )}

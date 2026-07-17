@@ -216,11 +216,21 @@ button, input, select { font-family: var(--font-body); }
 }
 
 .brand-logo {
-  width: 26px;
-  height: 26px;
-  border-radius: 8px;
-  object-fit: cover;
+  height: 28px;
+  width: auto;
+  max-width: 120px;
+  border-radius: 4px;
+  object-fit: contain;
   flex-shrink: 0;
+}
+
+/* Quando a sidebar está recolhida, mostra só o ícone quadrado da logo */
+.sidebar.collapsed .brand-logo {
+  width: 28px;
+  height: 28px;
+  max-width: 28px;
+  object-fit: cover;
+  object-position: center;
 }
 
 .entity-row {

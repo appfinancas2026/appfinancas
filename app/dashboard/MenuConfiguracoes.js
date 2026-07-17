@@ -62,7 +62,10 @@ export default function MenuConfiguracoes({
       <div className="settings-item" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 6 }}>
         <span>Logo</span>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          {perfil.logo_url ? <img src={perfil.logo_url} alt="Logo" className="brand-logo" /> : <span className="brand-mark">R$</span>}
+          {perfil.logo_url
+            ? <img src={perfil.logo_url} alt="Logo" className="brand-logo" />
+            : <img src="/logo.png" alt="AppFinançasBr" className="brand-logo" />
+          }
           <label className="btn-link" style={{ cursor: 'pointer' }}>
             alterar
             <input type="file" accept="image/*" onChange={handleUploadLogo} style={{ display: 'none' }} />

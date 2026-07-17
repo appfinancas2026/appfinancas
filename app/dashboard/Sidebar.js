@@ -31,8 +31,11 @@ export default function Sidebar({
       <aside className={`sidebar ${sidebarAberta ? '' : 'collapsed'} ${sidebarMobileAberta ? 'mobile-open' : ''}`}>
         <div className="sidebar-header">
           <div className="sidebar-brand">
-            {perfil.logo_url ? <img src={perfil.logo_url} alt="Logo" className="brand-logo" /> : <span className="brand-mark">R$</span>}
-            <span className="brand-text">{perfil.nome_exibicao || 'Finanças'}</span>
+            {perfil.logo_url
+              ? <img src={perfil.logo_url} alt="Logo" className="brand-logo" />
+              : <img src="/logo.png" alt="AppFinançasBr" className="brand-logo" />
+            }
+            <span className="brand-text">{perfil.nome_exibicao || 'AppFinançasBr'}</span>
           </div>
           <button onClick={alternarSidebar} className="sidebar-toggle" title="Recolher/expandir menu">☰</button>
         </div>

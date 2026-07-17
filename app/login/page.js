@@ -40,6 +40,19 @@ export default function LoginPage() {
   const [temConvitePendente, setTemConvitePendente] = useState(false);
 
   useEffect(() => {
+    // Força tema escuro na tela de login — o fundo é sempre escuro
+    // independente da preferência do usuário no dashboard.
+    document.documentElement.setAttribute('data-theme', 'dark');
+    return () => {
+      // Restaura ao sair (o dashboard reaplica a preferência do usuário)
+      try {
+        const t = localStorage.getItem('financas-tema');
+        if (t !== 'dark') document.documentElement.removeAttribute('data-theme');
+      } catch {}
+    };
+  }, []);
+
+  useEffect(() => {
     if (window.localStorage.getItem('convite_pendente')) {
       setTemConvitePendente(true);
       setModo('cadastro');

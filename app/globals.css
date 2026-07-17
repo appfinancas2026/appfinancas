@@ -879,6 +879,7 @@ button, input, select { font-family: var(--font-body); }
 .login-root {
   min-height: 100vh;
   display: flex;
+  background: #0A0E14;
 }
 
 /* ── Painel esquerdo (hero) ── */
@@ -960,7 +961,7 @@ button, input, select { font-family: var(--font-body); }
   align-items: center;
   justify-content: center;
   padding: 40px 32px;
-  background: var(--bg);
+  background: #0A0E14;
 }
 
 .login-form-wrap {
@@ -983,11 +984,12 @@ button, input, select { font-family: var(--font-body); }
   font-size: 22px;
   font-weight: var(--weight-semibold);
   margin: 0 0 4px;
+  color: #BFC7CF;
 }
 
 .login-subtitulo {
   font-size: var(--text-sm);
-  color: var(--text-muted);
+  color: #6B7789;
   margin: 0 0 22px;
 }
 

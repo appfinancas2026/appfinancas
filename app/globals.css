@@ -1512,3 +1512,47 @@ table.report-table td { padding: 8px 0; border-top: 1px solid var(--surface-alt)
   gap: 4px;
   flex-wrap: wrap;
 }
+
+/* ---------- DRE ---------- */
+
+.dre-tabela {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-md);
+}
+
+.dre-tabela th {
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  border-bottom: 2px solid var(--border);
+}
+
+.dre-linha td { padding: 7px 4px; border-bottom: 1px solid var(--surface-alt); }
+.dre-linha.nivel-1 td { font-size: var(--text-sm); color: var(--text-muted); }
+.dre-linha.dre-destaque td { font-weight: var(--weight-semibold); background: var(--surface-alt); }
+.dre-linha.dre-expandivel { cursor: pointer; }
+.dre-linha.dre-expandivel:hover td { background: var(--surface-alt); }
+
+.dre-separador td {
+  padding: 14px 4px 4px;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  border-bottom: none;
+}
+
+.dre-label { width: 55%; }
+.dre-valor { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; padding-left: 16px !important; }
+.dre-variacao { text-align: right; font-size: var(--text-xs); white-space: nowrap; padding-left: 12px !important; }
+.dre-chevron { margin-right: 6px; font-size: var(--text-xs); color: var(--text-muted); }
+
+.dre-resultado-final td {
+  padding: 14px 4px 6px;
+  border-top: 2px solid var(--border);
+  border-bottom: none;
+}

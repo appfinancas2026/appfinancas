@@ -2047,6 +2047,17 @@ export default function Dashboard() {
     </div>
       </div>
       <BottomNav aba={aba} setAba={setAba} irParaSecao={irParaSecao} onAbrirMenu={() => setSidebarMobileAberta(true)} />
+
+      {/* Botão flutuante do Assistente — fixo no canto inferior direito */}
+      {aba !== 'assistente' && (
+        <button
+          onClick={() => setAba('assistente')}
+          className="assistente-fab"
+          title="Assistente IA"
+        >
+          ✨
+        </button>
+      )}
     </div>
   );
 }

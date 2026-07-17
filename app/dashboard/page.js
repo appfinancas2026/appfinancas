@@ -116,7 +116,21 @@ export default function Dashboard() {
 
   const [alertas, setAlertas] = useState([]);
 
-  const [secaoAberta, setSecaoAberta] = useState({ contas: true, receitas: true, despesas: true, lancamentos: true, metas: true, orcamento: true, membros: true, atividade: false });
+  // Quais cards começam abertos. Os essenciais (contas, receitas, despesas,
+  // lançamentos) abrem; os de consulta ocasional (cartões, orçamento, metas,
+  // acesso, atividade) começam recolhidos para não competir com o que importa.
+  // Ficam a um clique, e o app lembra da escolha durante a sessão.
+  const [secaoAberta, setSecaoAberta] = useState({
+    contas: true,
+    receitas: true,
+    despesas: true,
+    lancamentos: true,
+    cartoes: false,
+    metas: false,
+    orcamento: false,
+    membros: false,
+    atividade: false,
+  });
   const [usuarioId, setUsuarioId] = useState(null);
   const [cadastroIncompleto, setCadastroIncompleto] = useState(false);
   const [onboardingDispensado, setOnboardingDispensado] = useState(false);
@@ -1675,6 +1689,25 @@ export default function Dashboard() {
             </p>
           </div>
 
+          <div className="acoes-rapidas">
+            <button onClick={() => irParaSecao('secao-lancamentos')} className="acao-rapida acao-rapida-principal">
+              <span className="acao-rapida-icone">+</span>
+              Novo lançamento
+            </button>
+            <button onClick={() => { setMostrarCapturaRapida(true); irParaSecao('secao-lancamentos'); }} className="acao-rapida">
+              <span className="acao-rapida-icone">✨</span>
+              Capturar com IA
+            </button>
+            <button onClick={() => irParaSecao('secao-contas')} className="acao-rapida">
+              <span className="acao-rapida-icone">🏦</span>
+              Contas
+            </button>
+            <button onClick={() => setAba('relatorios')} className="acao-rapida">
+              <span className="acao-rapida-icone">📊</span>
+              Relatórios
+            </button>
+          </div>
+
           <div className="cards-grid">
           <CardContas
             entidadeAtual={entidadeAtual}
@@ -1693,6 +1726,8 @@ export default function Dashboard() {
               entidadeAtual={entidadeAtual}
               contas={contas}
               cartoes={cartoes}
+              aberto={secaoAberta.cartoes}
+              onAlternarAberto={() => setSecaoAberta({ ...secaoAberta, cartoes: !secaoAberta.cartoes })}
               onAtualizar={() => {
                 carregarCartoes(entidadeAtual);
                 carregarContas(entidadeAtual);

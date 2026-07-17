@@ -8,7 +8,7 @@ import {
 } from '../../lib/financeiro';
 import { recalcularSaldoConta } from '../../lib/saldos';
 
-export default function CardCartoes({ entidadeAtual, contas, cartoes, onAtualizar }) {
+export default function CardCartoes({ entidadeAtual, contas, cartoes, onAtualizar, aberto, onAlternarAberto }) {
   const [faturasPorCartao, setFaturasPorCartao] = useState({});
   const [mostrarNovoCartao, setMostrarNovoCartao] = useState(false);
   const [nomeCartao, setNomeCartao] = useState('');
@@ -332,9 +332,14 @@ export default function CardCartoes({ entidadeAtual, contas, cartoes, onAtualiza
     <div className="card" id="secao-cartoes">
       <div className="card-header">
         <span className="card-title-group"><span className="card-icon">💳</span><p className="card-title">Cartões de crédito</p></span>
-        <button onClick={() => setMostrarNovoCartao((v) => !v)} className="btn btn-ghost">+ Novo cartão</button>
+        <div className="card-header-actions">
+          {aberto && <button onClick={() => setMostrarNovoCartao((v) => !v)} className="btn btn-ghost">+ Novo cartão</button>}
+          <button onClick={onAlternarAberto} className="collapse-btn">{aberto ? '▾' : '▸'}</button>
+        </div>
       </div>
 
+      {aberto && (
+      <>
       <div className={`card-limitada ${(alturaCheiaCartoes || mostrarNovoCartao || comprasCartaoVisivelId || mostrarCompraCartaoId) ? 'expandida' : ''}`}>
       {mostrarNovoCartao && (
         <form onSubmit={adicionarCartao} className="form-row" style={{ marginBottom: 12 }}>
@@ -500,6 +505,8 @@ export default function CardCartoes({ entidadeAtual, contas, cartoes, onAtualiza
       <button onClick={() => setAlturaCheiaCartoes((v) => !v)} className="ver-card-completo">
         {alturaCheiaCartoes ? 'Recolher' : 'Ver cartões completo'}
       </button>
+      </>
+      )}
     </div>
   );
 }

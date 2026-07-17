@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../lib/supabase';
 import { formatarMoeda } from '../../lib/financeiro';
+import CampoCategoria from './CampoCategoria';
 
 const LIMITE_LISTA = 6;
 
@@ -11,6 +12,20 @@ function diasRestantesNoMes(ano, mes) {
   if (ano !== hoje.getFullYear() || mes !== hoje.getMonth()) return null;
   const ultimoDia = new Date(ano, mes + 1, 0).getDate();
   return ultimoDia - hoje.getDate() + 1;
+}
+
+function BadgeStatus({ status }) {
+  const cores = {
+    'saudável': { bg: 'var(--primary-tint)', color: 'var(--primary-dark)' },
+    'atenção':  { bg: 'var(--accent-tint)',  color: 'var(--accent-text)' },
+    'crítico':  { bg: 'var(--negative-tint)', color: 'var(--negative)' },
+  };
+  const { bg, color } = cores[status] || cores['saudável'];
+  return (
+    <span style={{ fontSize: 'var(--text-xs)', fontWeight: 'var(--weight-semibold)', padding: '2px 8px', borderRadius: 999, background: bg, color }}>
+      {status}
+    </span>
+  );
 }
 
 export default function CardOrcamento({ entidadeAtual, transacoesDoMes, ano, mes, aberto, onAlternarAberto }) {
@@ -23,6 +38,13 @@ export default function CardOrcamento({ entidadeAtual, transacoesDoMes, ano, mes
   const [expandir, setExpandir] = useState(false);
   const [alturaCheia, setAlturaCheia] = useState(false);
 
+  // Estado do orçamento inteligente
+  const [analisando, setAnalisando] = useState(false);
+  const [analise, setAnalise] = useState(null); // resultado da IA
+  const [erroAnalise, setErroAnalise] = useState('');
+  const [sugestoesEditaveis, setSugestoesEditaveis] = useState([]);
+  const [modoAplicar, setModoAplicar] = useState(null); // 'substituir' | 'complementar' | null
+
   const carregarOrcamentos = useCallback(async (entidadeId) => {
     if (!entidadeId) return;
     const { data } = await supabase
@@ -30,7 +52,6 @@ export default function CardOrcamento({ entidadeAtual, transacoesDoMes, ano, mes
       .select('*')
       .eq('entidade_id', entidadeId)
       .order('created_at', { ascending: true });
-
     setOrcamentos(data || []);
   }, []);
 
@@ -41,13 +62,11 @@ export default function CardOrcamento({ entidadeAtual, transacoesDoMes, ano, mes
   async function adicionarOrcamento(e) {
     e.preventDefault();
     if (!entidadeAtual || !categoriaOrcamento || !valorLimiteOrcamento) return;
-
     const { error } = await supabase.from('orcamentos').insert({
       entidade_id: entidadeAtual,
       categoria: categoriaOrcamento,
       valor_limite: parseFloat(valorLimiteOrcamento),
     });
-
     if (!error) {
       setCategoriaOrcamento('');
       setValorLimiteOrcamento('');
@@ -67,7 +86,6 @@ export default function CardOrcamento({ entidadeAtual, transacoesDoMes, ano, mes
       .from('orcamentos')
       .update({ categoria: formOrcamento.categoria, valor_limite: parseFloat(formOrcamento.valor_limite) })
       .eq('id', edicaoOrcamentoId);
-
     if (!error) {
       setEdicaoOrcamentoId(null);
       carregarOrcamentos(entidadeAtual);
@@ -79,6 +97,114 @@ export default function CardOrcamento({ entidadeAtual, transacoesDoMes, ano, mes
     const { error } = await supabase.from('orcamentos').delete().eq('id', id);
     if (!error) carregarOrcamentos(entidadeAtual);
   }
+
+  // ── Orçamento inteligente ──────────────────────────────────────────────────
+
+  async function gerarOrcamento() {
+    setAnalisando(true);
+    setErroAnalise('');
+    setAnalise(null);
+    setModoAplicar(null);
+
+    try {
+      // Busca os últimos 3 meses de transações
+      const hoje = new Date();
+      const tresMesesAtras = new Date(hoje.getFullYear(), hoje.getMonth() - 3, 1).toISOString().slice(0, 10);
+
+      const { data: txs } = await supabase
+        .from('transacoes')
+        .select('tipo, valor, categoria, essencialidade, data')
+        .eq('entidade_id', entidadeAtual)
+        .is('transferencia_id', null)
+        .gte('data', tresMesesAtras)
+        .order('data', { ascending: false });
+
+      if (!txs || txs.length === 0) {
+        setErroAnalise('Sem histórico suficiente. Registre pelo menos alguns lançamentos primeiro.');
+        return;
+      }
+
+      // Descobre quantos meses distintos existem no histórico
+      const mesesDistintos = new Set(txs.map((t) => t.data.slice(0, 7))).size;
+      const mesesRef = Math.max(1, mesesDistintos);
+
+      // Renda média
+      const totalReceitas = txs.filter((t) => t.tipo === 'entrada').reduce((s, t) => s + Number(t.valor), 0);
+      const rendaMedia = totalReceitas / mesesRef;
+
+      // Gasto médio por categoria
+      const gastosPorCat = {};
+      const essencialidadePorCat = {};
+      txs.filter((t) => t.tipo === 'saida').forEach((t) => {
+        const cat = (t.categoria || 'Outros').trim();
+        gastosPorCat[cat] = (gastosPorCat[cat] || 0) + Number(t.valor);
+        if (t.essencialidade && !essencialidadePorCat[cat]) {
+          essencialidadePorCat[cat] = t.essencialidade;
+        }
+      });
+
+      const historico = Object.entries(gastosPorCat).map(([categoria, total]) => ({
+        categoria,
+        media: total / mesesRef,
+        essencialidade: essencialidadePorCat[categoria] || null,
+      })).sort((a, b) => b.media - a.media);
+
+      const resposta = await fetch('/api/gerar-orcamento', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ historico, rendaMedia, mesesAnalisados: mesesRef }),
+      });
+
+      const json = await resposta.json();
+      if (json.error) { setErroAnalise(json.error); return; }
+
+      setAnalise({ ...json, rendaMedia, mesesAnalisados: mesesRef });
+      setSugestoesEditaveis(json.categorias.map((c) => ({ ...c, incluir: true, valorEditado: c.sugestao })));
+
+    } catch {
+      setErroAnalise('Erro ao gerar o orçamento. Tente novamente.');
+    } finally {
+      setAnalisando(false);
+    }
+  }
+
+  async function aplicarSugestoes() {
+    const selecionadas = sugestoesEditaveis.filter((s) => s.incluir);
+    if (selecionadas.length === 0) return;
+
+    const categoriasExistentes = new Set(orcamentos.map((o) => o.categoria.toLowerCase()));
+
+    if (modoAplicar === 'substituir') {
+      // Apaga todos e recria com as selecionadas
+      await supabase.from('orcamentos').delete().eq('entidade_id', entidadeAtual);
+      await supabase.from('orcamentos').insert(
+        selecionadas.map((s) => ({
+          entidade_id: entidadeAtual,
+          categoria: s.categoria,
+          valor_limite: s.valorEditado,
+        }))
+      );
+    } else {
+      // Só insere categorias que ainda não existem
+      const novas = selecionadas.filter((s) => !categoriasExistentes.has(s.categoria.toLowerCase()));
+      if (novas.length > 0) {
+        await supabase.from('orcamentos').insert(
+          novas.map((s) => ({
+            entidade_id: entidadeAtual,
+            categoria: s.categoria,
+            valor_limite: s.valorEditado,
+          }))
+        );
+      }
+    }
+
+    setAnalise(null);
+    setSugestoesEditaveis([]);
+    setModoAplicar(null);
+    carregarOrcamentos(entidadeAtual);
+  }
+
+  // ── Cálculos do mês atual ─────────────────────────────────────────────────
 
   const despesasDoMes = transacoesDoMes.filter((t) => t.tipo === 'saida' && !t.transferencia_id);
 
@@ -97,84 +223,222 @@ export default function CardOrcamento({ entidadeAtual, transacoesDoMes, ano, mes
       <div className="card-header">
         <span className="card-title-group"><span className="card-icon">📋</span><p className="card-title">Orçamento por categoria</p></span>
         <div className="card-header-actions">
-          <button onClick={() => setMostrarNovoOrcamento((v) => !v)} className="btn btn-ghost">+ Novo orçamento</button>
+          {aberto && !analise && (
+            <>
+              <button onClick={gerarOrcamento} disabled={analisando} className="btn btn-ghost" style={{ gap: 6 }}>
+                {analisando ? '⏳ Analisando...' : '✨ Gerar inteligente'}
+              </button>
+              <button onClick={() => setMostrarNovoOrcamento((v) => !v)} className="btn btn-ghost">+ Novo</button>
+            </>
+          )}
+          {analise && (
+            <button onClick={() => { setAnalise(null); setSugestoesEditaveis([]); setModoAplicar(null); }} className="btn btn-ghost">
+              ✕ Fechar análise
+            </button>
+          )}
           <button onClick={onAlternarAberto} className="collapse-btn">{aberto ? '▾' : '▸'}</button>
         </div>
       </div>
 
       {aberto && (
         <>
-          {orcamentos.length > 0 && (
-            <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginBottom: 12, fontSize: 13 }}>
-              <span>Orçado: <strong>{formatarMoeda(totalOrcado)}</strong></span>
-              <span>Gasto: <strong>{formatarMoeda(totalGastoOrcado)}</strong></span>
-              <span style={{ color: disponivel >= 0 ? 'var(--primary)' : 'var(--negative)' }}>
-                {disponivel >= 0 ? 'Disponível' : 'Excedeu'}: <strong>{formatarMoeda(Math.abs(disponivel))}</strong>
-              </span>
-              {disponivelPorDia !== null && (
-                <span>Por dia até o fim do mês: <strong>{formatarMoeda(Math.max(0, disponivelPorDia))}</strong></span>
+          {/* ── Painel de análise da IA ── */}
+          {analise && (
+            <div style={{ marginBottom: 20 }}>
+
+              {/* Resumo */}
+              <div style={{ background: 'var(--surface-alt)', borderRadius: 'var(--radius-sm)', padding: '12px 16px', marginBottom: 16 }}>
+                <p style={{ fontSize: 'var(--text-md)', margin: '0 0 4px', fontWeight: 'var(--weight-semibold)' }}>
+                  📊 Análise dos últimos {analise.mesesAnalisados} meses
+                </p>
+                <p style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)', margin: 0 }}>
+                  Renda média: <strong>{formatarMoeda(analise.rendaMedia)}/mês</strong>
+                </p>
+                <p style={{ fontSize: 'var(--text-md)', margin: '10px 0 0', lineHeight: 1.6 }}>{analise.resumo}</p>
+              </div>
+
+              {/* Alertas */}
+              {analise.alertas?.length > 0 && (
+                <div style={{ marginBottom: 16 }}>
+                  {analise.alertas.map((a, i) => (
+                    <p key={i} style={{ fontSize: 'var(--text-md)', margin: '0 0 6px', paddingLeft: 12, borderLeft: '3px solid var(--negative)', color: 'var(--text)' }}>
+                      ⚠️ {a}
+                    </p>
+                  ))}
+                </div>
+              )}
+
+              {/* Recomendações */}
+              {analise.recomendacoes?.length > 0 && (
+                <div style={{ background: 'var(--primary-tint)', borderRadius: 'var(--radius-sm)', padding: '10px 16px', marginBottom: 16 }}>
+                  <p style={{ fontSize: 'var(--text-sm)', fontWeight: 'var(--weight-semibold)', margin: '0 0 6px', color: 'var(--primary-dark)' }}>
+                    Recomendações
+                  </p>
+                  {analise.recomendacoes.map((r, i) => (
+                    <p key={i} style={{ fontSize: 'var(--text-md)', margin: '0 0 4px', color: 'var(--primary-dark)' }}>→ {r}</p>
+                  ))}
+                </div>
+              )}
+
+              {/* Sugestões editáveis por categoria */}
+              <p style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)', margin: '0 0 8px' }}>
+                Revise as sugestões — ajuste os valores ou desmarque categorias que não quiser aplicar:
+              </p>
+
+              <div style={{ maxHeight: 320, overflowY: 'auto', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)' }}>
+                {sugestoesEditaveis.map((s, i) => (
+                  <div key={s.categoria} style={{ padding: '10px 14px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', opacity: s.incluir ? 1 : 0.45 }}>
+                    <input type="checkbox" checked={s.incluir} onChange={() => setSugestoesEditaveis((prev) => prev.map((x, j) => j === i ? { ...x, incluir: !x.incluir } : x))} />
+                    <div style={{ flex: 1, minWidth: 140 }}>
+                      <span style={{ fontSize: 'var(--text-md)', fontWeight: 'var(--weight-medium)' }}>{s.categoria}</span>
+                      <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)', marginLeft: 8 }}>
+                        média: {formatarMoeda(s.media_gasta)}/mês
+                      </span>
+                    </div>
+                    <BadgeStatus status={s.status} />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>Limite:</span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={s.valorEditado}
+                        onChange={(e) => setSugestoesEditaveis((prev) => prev.map((x, j) => j === i ? { ...x, valorEditado: parseFloat(e.target.value) || 0 } : x))}
+                        className="input"
+                        style={{ width: 100 }}
+                        disabled={!s.incluir}
+                      />
+                    </div>
+                    {s.justificativa && (
+                      <p style={{ width: '100%', fontSize: 'var(--text-xs)', color: 'var(--text-muted)', margin: 0 }}>
+                        {s.justificativa}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {analise.sobra_sugerida !== undefined && (
+                <p style={{ fontSize: 'var(--text-sm)', margin: '10px 0 0', color: analise.sobra_sugerida >= 0 ? 'var(--primary)' : 'var(--negative)' }}>
+                  {analise.sobra_sugerida >= 0
+                    ? `✅ Com esse orçamento, sobraria ${formatarMoeda(analise.sobra_sugerida)}/mês para reserva ou investimento.`
+                    : `⚠️ Mesmo com esse orçamento, os gastos superam a renda em ${formatarMoeda(Math.abs(analise.sobra_sugerida))}/mês.`}
+                </p>
+              )}
+
+              {/* Pergunta: substituir ou complementar */}
+              {modoAplicar === null ? (
+                <div style={{ marginTop: 16, padding: '14px 16px', background: 'var(--surface-alt)', borderRadius: 'var(--radius-sm)' }}>
+                  <p style={{ fontSize: 'var(--text-md)', fontWeight: 'var(--weight-semibold)', margin: '0 0 10px' }}>
+                    Como aplicar as sugestões selecionadas?
+                  </p>
+                  <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                    <button onClick={() => setModoAplicar('substituir')} className="btn btn-primary">
+                      Substituir tudo
+                    </button>
+                    <button onClick={() => setModoAplicar('complementar')} className="btn btn-ghost">
+                      Só as categorias que ainda não tenho
+                    </button>
+                  </div>
+                  <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', margin: '8px 0 0' }}>
+                    "Substituir tudo" apaga os orçamentos atuais e cria os sugeridos. "Só as que não tenho" mantém o que você já configurou.
+                  </p>
+                </div>
+              ) : (
+                <div style={{ marginTop: 14, display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+                  <button onClick={aplicarSugestoes} className="btn btn-primary">
+                    Confirmar e aplicar ({sugestoesEditaveis.filter((s) => s.incluir).length} categorias)
+                  </button>
+                  <button onClick={() => setModoAplicar(null)} className="btn-link">Voltar</button>
+                </div>
               )}
             </div>
           )}
 
-          <div className={`card-limitada ${(alturaCheia || mostrarNovoOrcamento) ? 'expandida' : ''}`}>
-          {mostrarNovoOrcamento && (
-            <form onSubmit={adicionarOrcamento} className="form-row" style={{ marginBottom: 12 }}>
-              <input className="input" placeholder="Categoria (ex: Alimentação)" value={categoriaOrcamento} onChange={(e) => setCategoriaOrcamento(e.target.value)} required autoFocus />
-              <input className="input" style={{ width: 130 }} type="number" step="0.01" placeholder="Limite mensal" value={valorLimiteOrcamento} onChange={(e) => setValorLimiteOrcamento(e.target.value)} required />
-              <button type="submit" className="btn btn-primary">Salvar</button>
-            </form>
+          {erroAnalise && (
+            <p style={{ color: 'var(--negative)', fontSize: 'var(--text-sm)', margin: '0 0 12px' }}>{erroAnalise}</p>
           )}
 
-          {orcamentos.length === 0 && <p className="empty-hint">Nenhum orçamento cadastrado ainda.</p>}
-          {(expandir ? orcamentos : orcamentos.slice(0, LIMITE_LISTA)).map((o) => {
-            if (edicaoOrcamentoId === o.id) {
-              return (
-                <form key={o.id} onSubmit={salvarEdicaoOrcamento} className="form-row" style={{ padding: '8px 0' }}>
-                  <input className="input" value={formOrcamento.categoria} onChange={(e) => setFormOrcamento({ ...formOrcamento, categoria: e.target.value })} required />
-                  <input className="input" style={{ width: 130 }} type="number" step="0.01" value={formOrcamento.valor_limite} onChange={(e) => setFormOrcamento({ ...formOrcamento, valor_limite: e.target.value })} required />
-                  <button type="submit" className="btn btn-primary">Salvar</button>
-                  <button type="button" onClick={() => setEdicaoOrcamentoId(null)} className="btn-link">Cancelar</button>
-                </form>
-              );
-            }
-
-            const gasto = gastoDaCategoria(o.categoria);
-            const percentual = Math.max(0, Math.min(100, (gasto / Number(o.valor_limite)) * 100));
-            const excedeu = gasto > Number(o.valor_limite);
-
-            return (
-              <div key={o.id} style={{ padding: '10px 0', borderBottom: '1px solid var(--surface-alt)' }}>
-                <div className="row-main" style={{ marginBottom: 6 }}>
-                  <span className="row-title">{o.categoria}</span>
-                  <span style={{ fontSize: 13 }}>{formatarMoeda(gasto)} / {formatarMoeda(o.valor_limite)}</span>
-                </div>
-                <div style={{ height: 8, borderRadius: 999, background: 'var(--surface-alt)', overflow: 'hidden' }}>
-                  <div style={{ width: `${percentual}%`, height: '100%', background: excedeu ? 'var(--negative)' : 'var(--primary)' }} />
-                </div>
-                <div className="row-main" style={{ marginTop: 6 }}>
-                  <span className="row-subtitle" style={{ color: excedeu ? 'var(--negative)' : 'var(--text-muted)' }}>
-                    {excedeu ? `excedeu ${formatarMoeda(gasto - o.valor_limite)}` : `restam ${formatarMoeda(o.valor_limite - gasto)}`}
+          {/* ── Orçamentos existentes ── */}
+          {!analise && (
+            <>
+              {orcamentos.length > 0 && (
+                <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginBottom: 12, fontSize: 'var(--text-md)' }}>
+                  <span>Orçado: <strong>{formatarMoeda(totalOrcado)}</strong></span>
+                  <span>Gasto: <strong>{formatarMoeda(totalGastoOrcado)}</strong></span>
+                  <span style={{ color: disponivel >= 0 ? 'var(--primary)' : 'var(--negative)' }}>
+                    {disponivel >= 0 ? 'Disponível' : 'Excedeu'}: <strong>{formatarMoeda(Math.abs(disponivel))}</strong>
                   </span>
-                  <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                    <button onClick={() => iniciarEdicaoOrcamento(o)} className="btn-link">editar</button>
-                    <button onClick={() => excluirOrcamento(o.id)} className="btn-link">excluir</button>
-                  </div>
+                  {disponivelPorDia !== null && (
+                    <span>Por dia até o fim do mês: <strong>{formatarMoeda(Math.max(0, disponivelPorDia))}</strong></span>
+                  )}
                 </div>
+              )}
+
+              <div className={`card-limitada ${(alturaCheia || mostrarNovoOrcamento) ? 'expandida' : ''}`}>
+                {mostrarNovoOrcamento && (
+                  <form onSubmit={adicionarOrcamento} className="form-row" style={{ marginBottom: 12 }}>
+                    <CampoCategoria entidadeAtual={entidadeAtual} tipo="saida" value={categoriaOrcamento} onChange={(e) => setCategoriaOrcamento(e.target.value)} placeholder="Categoria (ex: Alimentação)" style={{ flex: 1 }} />
+                    <input className="input" style={{ width: 130 }} type="number" step="0.01" placeholder="Limite mensal" value={valorLimiteOrcamento} onChange={(e) => setValorLimiteOrcamento(e.target.value)} required autoFocus />
+                    <button type="submit" className="btn btn-primary">Salvar</button>
+                  </form>
+                )}
+
+                {orcamentos.length === 0 && !mostrarNovoOrcamento && (
+                  <p className="empty-hint">Nenhum orçamento cadastrado. Clique em "✨ Gerar inteligente" para o sistema analisar seu histórico e sugerir limites por categoria.</p>
+                )}
+
+                {(expandir ? orcamentos : orcamentos.slice(0, LIMITE_LISTA)).map((o) => {
+                  if (edicaoOrcamentoId === o.id) {
+                    return (
+                      <form key={o.id} onSubmit={salvarEdicaoOrcamento} className="form-row" style={{ padding: '8px 0' }}>
+                        <input className="input" value={formOrcamento.categoria} onChange={(e) => setFormOrcamento({ ...formOrcamento, categoria: e.target.value })} required />
+                        <input className="input" style={{ width: 130 }} type="number" step="0.01" value={formOrcamento.valor_limite} onChange={(e) => setFormOrcamento({ ...formOrcamento, valor_limite: e.target.value })} required />
+                        <button type="submit" className="btn btn-primary">Salvar</button>
+                        <button type="button" onClick={() => setEdicaoOrcamentoId(null)} className="btn-link">Cancelar</button>
+                      </form>
+                    );
+                  }
+
+                  const gasto = gastoDaCategoria(o.categoria);
+                  const percentual = Math.max(0, Math.min(100, (gasto / Number(o.valor_limite)) * 100));
+                  const excedeu = gasto > Number(o.valor_limite);
+
+                  return (
+                    <div key={o.id} style={{ padding: '10px 0', borderBottom: '1px solid var(--surface-alt)' }}>
+                      <div className="row-main" style={{ marginBottom: 6 }}>
+                        <span className="row-title">{o.categoria}</span>
+                        <span style={{ fontSize: 'var(--text-md)' }}>{formatarMoeda(gasto)} / {formatarMoeda(o.valor_limite)}</span>
+                      </div>
+                      <div style={{ height: 8, borderRadius: 999, background: 'var(--surface-alt)', overflow: 'hidden' }}>
+                        <div style={{ width: `${percentual}%`, height: '100%', background: excedeu ? 'var(--negative)' : 'var(--primary)', transition: 'width 0.3s' }} />
+                      </div>
+                      <div className="row-main" style={{ marginTop: 6 }}>
+                        <span className="row-subtitle" style={{ color: excedeu ? 'var(--negative)' : 'var(--text-muted)' }}>
+                          {excedeu ? `excedeu ${formatarMoeda(gasto - o.valor_limite)}` : `restam ${formatarMoeda(o.valor_limite - gasto)}`}
+                        </span>
+                        <div style={{ display: 'flex', gap: 10 }}>
+                          <button onClick={() => iniciarEdicaoOrcamento(o)} className="btn-link">editar</button>
+                          <button onClick={() => excluirOrcamento(o.id)} className="btn-link">excluir</button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {orcamentos.length > LIMITE_LISTA && (
+                  <div className="show-more-row">
+                    <button onClick={() => setExpandir((v) => !v)} className="btn-link">
+                      {expandir ? 'ver menos' : `ver mais (${orcamentos.length - LIMITE_LISTA})`}
+                    </button>
+                  </div>
+                )}
               </div>
-            );
-          })}
-          {orcamentos.length > LIMITE_LISTA && (
-            <div className="show-more-row">
-              <button onClick={() => setExpandir((v) => !v)} className="btn-link">
-                {expandir ? 'ver menos' : `ver mais (${orcamentos.length - LIMITE_LISTA})`}
+
+              <button onClick={() => setAlturaCheia((v) => !v)} className="ver-card-completo">
+                {alturaCheia ? 'Recolher' : 'Ver orçamento completo'}
               </button>
-            </div>
+            </>
           )}
-          </div>
-          <button onClick={() => setAlturaCheia((v) => !v)} className="ver-card-completo">
-            {alturaCheia ? 'Recolher' : 'Ver orçamento completo'}
-          </button>
         </>
       )}
     </div>

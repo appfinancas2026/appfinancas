@@ -2,7 +2,7 @@
 // Estratégia: cache do shell (HTML, CSS, JS, ícones) para funcionar offline.
 // Dados do Supabase não são cacheados — precisam de rede para serem confiáveis.
 
-const CACHE = 'appfinancas-v2';
+const CACHE = 'appfinancas-v3';
 
 const SHELL = [
   '/',

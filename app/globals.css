@@ -1026,10 +1026,23 @@ button, input, select { font-family: var(--font-body); }
   line-height: 1.6;
 }
 
-/* Mobile: oculta o hero, formulário ocupa tudo */
+/* Mobile: oculta o hero completo, formulário ocupa tudo */
 @media (max-width: 720px) {
+  .login-root { flex-direction: column; }
   .login-hero { display: none; }
-  .login-form-panel { width: 100%; padding: 32px 20px; }
+  .login-form-panel {
+    width: 100%;
+    padding: 32px 20px 48px;
+    min-height: 100vh;
+    justify-content: flex-start;
+    align-items: stretch;
+  }
+  .login-form-wrap { max-width: 100%; }
+  .login-logo-mobile { display: block; }
+}
+
+@media (min-width: 721px) {
+  .login-logo-mobile { display: none; }
 }
 
 

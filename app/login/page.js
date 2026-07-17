@@ -153,6 +153,8 @@ export default function LoginPage() {
       {/* Painel direito — formulário */}
       <div className="login-form-panel">
         <div className="login-form-wrap">
+          {/* Logo visível só no mobile — no desktop aparece no painel esquerdo */}
+          <img src="/logo.png" alt="AppFinançasBr" className="login-logo-mobile" style={{ width: 200, height: 'auto', display: 'block', margin: '0 auto 24px' }} />
 
           {temConvitePendente && (
             <div className="login-convite-aviso">

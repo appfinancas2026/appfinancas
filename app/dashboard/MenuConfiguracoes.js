@@ -1,6 +1,7 @@
 'use client';
 
 import { TEMAS_CORES } from '../../lib/temas';
+import NotificacoesPush from './NotificacoesPush';
 
 export default function MenuConfiguracoes({
   tema,
@@ -17,6 +18,7 @@ export default function MenuConfiguracoes({
   selecionarTema,
   secoesOcultas,
   alternarSecaoOculta,
+  entidadeAtual,
 }) {
   const SECOES_OPCIONAIS = [
     { chave: 'cartoes', label: 'Cartões de crédito' },
@@ -39,6 +41,13 @@ export default function MenuConfiguracoes({
       <div className="settings-item">
         <span>Bloqueio por PIN</span>
         <button onClick={alternarBloqueioPin} className={`toggle-switch ${pinConfigurado ? 'on' : ''}`} />
+      </div>
+
+      <div className="settings-divider" />
+
+      <div className="settings-item" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 6 }}>
+        <span style={{ fontWeight: 'var(--weight-medium)' }}>🔔 Notificações</span>
+        <NotificacoesPush entidadeAtual={entidadeAtual} />
       </div>
 
       <div className="settings-divider" />

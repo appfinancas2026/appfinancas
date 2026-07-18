@@ -1608,6 +1608,7 @@ export default function Dashboard() {
                 selecionarTema={selecionarTema}
                 secoesOcultas={entidadeAtualObj?.secoes_ocultas || []}
                 alternarSecaoOculta={alternarSecaoOculta}
+                entidadeAtual={entidadeAtual}
               />
             )}
           </div>

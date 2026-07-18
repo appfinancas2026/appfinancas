@@ -49,6 +49,9 @@ export default function Sidebar({
         <button onClick={() => { setAba('dre'); setSidebarMobileAberta(false); }} className={`sidebar-link ${aba === 'dre' ? 'active' : ''}`}>
           <span className="sidebar-icon">📑</span><span className="sidebar-label">DRE</span>
         </button>
+        <button onClick={() => { setAba('fluxo'); setSidebarMobileAberta(false); }} className={`sidebar-link ${aba === 'fluxo' ? 'active' : ''}`}>
+          <span className="sidebar-icon">💹</span><span className="sidebar-label">Fluxo de Caixa</span>
+        </button>
         <button onClick={() => { setAba('assistente'); setSidebarMobileAberta(false); }} className={`sidebar-link ${aba === 'assistente' ? 'active' : ''}`}>
           <span className="sidebar-icon">✨</span><span className="sidebar-label">Assistente IA</span>
         </button>

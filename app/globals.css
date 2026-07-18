@@ -1556,3 +1556,23 @@ table.report-table td { padding: 8px 0; border-top: 1px solid var(--surface-alt)
   border-top: 2px solid var(--border);
   border-bottom: none;
 }
+
+/* ---------- Fluxo de Caixa ---------- */
+
+.fluxo-linha {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 9px 4px;
+  transition: background 0.1s;
+}
+
+.fluxo-linha:hover { background: var(--surface-alt); }
+
+.fluxo-hoje { background: var(--primary-tint); border-radius: var(--radius-sm); }
+.fluxo-hoje:hover { background: var(--primary-tint); }
+
+.fluxo-projecao { opacity: 0.8; }
+.fluxo-projecao .relatorio-kpi-valor { color: var(--info); }

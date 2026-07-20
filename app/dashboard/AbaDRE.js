@@ -132,8 +132,8 @@ export default function AbaDRE({ entidadeAtual, entidades }) {
     };
 
     const essencial   = mkGrupo((t) => t.tipo==='saida' && t.essencialidade==='essencial');
-    const desejavel   = mkGrupo((t) => t.tipo==='saida' && t.essencialidade==='desejável');
-    const superfluo   = mkGrupo((t) => t.tipo==='saida' && t.essencialidade==='supérfluo');
+    const desejavel   = mkGrupo((t) => t.tipo==='saida' && t.essencialidade==='desejavel');
+    const superfluo   = mkGrupo((t) => t.tipo==='saida' && t.essencialidade==='superfluo');
     const naoClassif  = mkGrupo((t) => t.tipo==='saida' && !t.essencialidade);
     const totalDespesas = essencial.total + desejavel.total + superfluo.total + naoClassif.total;
     const resultado   = receitasBruta - totalDespesas;

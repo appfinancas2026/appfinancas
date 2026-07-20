@@ -133,8 +133,8 @@ export default function AbaRelatorios({
     saidas.forEach((t) => {
       const e = t.essencialidade;
       if (e === 'essencial') ess.essencial += Number(t.valor);
-      else if (e === 'desejável') ess.desejavel += Number(t.valor);
-      else if (e === 'supérfluo') ess.superfluo += Number(t.valor);
+      else if (e === 'desejavel') ess.desejavel += Number(t.valor);
+      else if (e === 'superfluo') ess.superfluo += Number(t.valor);
       else ess.outro += Number(t.valor);
     });
 
@@ -197,8 +197,8 @@ export default function AbaRelatorios({
           <select className="input" value={filtroEssencialidade} onChange={(e) => setFiltroEssencialidade(e.target.value)} style={{ width: 180 }}>
             <option value="">Toda essencialidade</option>
             <option value="essencial">Essencial</option>
-            <option value="desejável">Desejável</option>
-            <option value="supérfluo">Supérfluo</option>
+            <option value="desejavel">Desejável</option>
+            <option value="superfluo">Supérfluo</option>
           </select>
           {(filtroTipo !== 'todos' || filtroCategoria || filtroEssencialidade) && (
             <button onClick={() => { setFiltroTipo('todos'); setFiltroCategoria(''); setFiltroEssencialidade(''); }} className="btn-link">

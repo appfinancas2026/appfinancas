@@ -1,5 +1,11 @@
 'use client';
 
+import {
+  mesReferenciaStr, primeiroDiaDoMes, ultimoDiaDoMes, subtrairMeses,
+  calcularPeriodoFaturaAberta, calcularMesFaturaCompra, avancarMeses,
+  parseOFX, parseCSVExtrato, calcularParcela, formatarMoeda,
+  vencimentoOcorrencia, diasAteVencimento,   // ← adicionar estes dois
+} from '../../lib/financeiro';
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '../../lib/supabase';
@@ -461,9 +467,13 @@ export default function Dashboard() {
 
     const lista = despesas
       .map((f) => ({ fixo: f, ocorrencia: mapa[f.id] }))
-      // 'parcial' também está em aberto: pagar metade não quita a conta.
       .filter((item) => item.ocorrencia && item.ocorrencia.status !== 'confirmado')
-      .map((item) => ({ ...item, diasRestantes: item.fixo.dia_referencia - diaReal }))
+      // Vencimento real = mes_referencia + dia_referencia, não só o dia do mês.
+      .map((item) => ({
+        ...item,
+        diasRestantes: diasAteVencimento(item.ocorrencia.mes_referencia, item.fixo.dia_referencia),
+      }))
+      // Mostra o que vence nos próximos 5 dias E o que já está atrasado (dias negativos).
       .filter((item) => item.diasRestantes <= 5)
       .sort((a, b) => a.diasRestantes - b.diasRestantes);
 

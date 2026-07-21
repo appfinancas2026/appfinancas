@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import { supabase } from '../../lib/supabase';
-import { formatarMoeda } from '../../lib/financeiro';
+import { formatarMoeda, vencimentoOcorrencia } from '../../lib/financeiro';
 
 const GraficoEntradasSaidas    = dynamic(() => import('./RelatoriosCharts').then((m) => m.GraficoEntradasSaidas),    { ssr: false });
 const GraficoDespesasPorCategoria = dynamic(() => import('./RelatoriosCharts').then((m) => m.GraficoDespesasPorCategoria), { ssr: false });
@@ -196,14 +196,11 @@ export default function AbaRelatorios({
     });
     const pendenteDe = (o) => Math.max(0, Number(o.valor) - (pagoPorOcorrencia[o.id] || 0));
 
-    const inicioHoje = new Date();
+ const inicioHoje = new Date();
     inicioHoje.setHours(0, 0, 0, 0);
     const estaAtrasada = (o) => {
       if (o.status === 'confirmado') return false;
-      const dia = Number(o.lancamentos_fixos?.dia_referencia) || 1;
-      const [ano, mes] = o.mes_referencia.slice(0, 7).split('-').map(Number);
-      const venc = new Date(ano, mes - 1, dia);
-      venc.setHours(0, 0, 0, 0);
+      const venc = vencimentoOcorrencia(o.mes_referencia, o.lancamentos_fixos?.dia_referencia);
       return venc < inicioHoje;
     };
 

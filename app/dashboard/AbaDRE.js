@@ -78,8 +78,7 @@ export default function AbaDRE({ entidadeAtual, entidades }) {
   const [comparar, setComparar]       = useState(true);
   const [carregando, setCarregando]   = useState(false);
   const [dre, setDre]                 = useState(null);
-  const [modoPJ, setModoPJ]           = useState(false);
-
+ 
   // Quais seções estão expandidas
   const [expandidas, setExpandidas] = useState({ receitas: true, essencial: false, desejavel: false, superfluo: false, naoclassif: false });
   function toggle(sec) { setExpandidas((p) => ({ ...p, [sec]: !p[sec] })); }
@@ -160,8 +159,6 @@ export default function AbaDRE({ entidadeAtual, entidades }) {
   }, [entidadeAtual, dataInicio, dataFim, comparar]);
 
   useEffect(() => { buscarDados(); }, [buscarDados]);
-
-  const temPJ = entidades?.some((e) => e.tipo === 'PJ');
 
   function exportarDRE() {
     if (!dre) return;
@@ -388,7 +385,7 @@ export default function AbaDRE({ entidadeAtual, entidades }) {
           {/* Nota de rodapé */}
           <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', margin: 0 }}>
             ℹ️ Transferências entre contas não entram no DRE. Clique nas linhas para expandir o detalhamento por categoria.
-            {!entidades?.find((e) => e.id === entidadeAtual)?.tipo === 'PJ' && ' Classifique suas despesas por essencialidade para um DRE mais preciso.'}
+           {entidades?.find((e) => e.id === entidadeAtual)?.tipo !== 'PJ' && ' Classifique suas despesas por essencialidade para um DRE mais preciso.'}
           </p>
         </>
       )}

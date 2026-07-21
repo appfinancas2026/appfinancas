@@ -26,7 +26,6 @@ import CampoCategoria from './CampoCategoria';
 import CampoDescricao from './CampoDescricao';
 import dynamic from 'next/dynamic';
 const AbaAssistente = dynamic(() => import('./AbaAssistente'), { ssr: false });
-const AbaDRE = dynamic(() => import('./AbaDRE'), { ssr: false });
 const AbaFluxoCaixa = dynamic(() => import('./AbaFluxoCaixa'), { ssr: false });
 import CapturaRapida from './CapturaRapida';
 import CardContas from './CardContas';
@@ -1637,7 +1636,6 @@ export default function Dashboard() {
           <div className="tabs">
             <button onClick={() => setAba('painel')} className={`tab ${aba === 'painel' ? 'tab-active' : ''}`}>Painel</button>
             <button onClick={() => setAba('relatorios')} className={`tab ${aba === 'relatorios' ? 'tab-active' : ''}`}>Relatórios</button>
-            <button onClick={() => setAba('dre')} className={`tab ${aba === 'dre' ? 'tab-active' : ''}`}>DRE</button>
             <button onClick={() => setAba('fluxo')} className={`tab ${aba === 'fluxo' ? 'tab-active' : ''}`}>Fluxo</button>
             <button onClick={() => setAba('assistente')} className={`tab ${aba === 'assistente' ? 'tab-active' : ''}`}>✨ Assistente</button>
           </div>
@@ -1650,12 +1648,7 @@ export default function Dashboard() {
           contas={contas}
           lancamentosFixos={lancamentosFixos}
         />
-      ) : aba === 'dre' ? (
-        <AbaDRE
-          entidadeAtual={entidadeAtual}
-          entidades={entidades}
-        />
-      ) : aba === 'assistente' ? (
+ ) : aba === 'assistente' ? (
         <AbaAssistente
           entidadeAtual={entidadeAtual}
           contas={contas}

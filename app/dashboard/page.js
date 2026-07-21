@@ -1564,7 +1564,8 @@ export default function Dashboard() {
         setSidebarMobileAberta={setSidebarMobileAberta}
         alternarSidebar={alternarSidebar}
         setMostrarConfiguracoes={setMostrarConfiguracoes}
-        secoesOcultas={secoesOcultasAtual}
+       secoesOcultas={secoesOcultasAtual}
+        tipoEntidade={entidadeAtualObj?.tipo}
       />
 
       <div className="layout-content">

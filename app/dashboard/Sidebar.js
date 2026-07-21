@@ -1,5 +1,4 @@
 'use client';
-
 const ITENS_SECAO = [
   { id: 'secao-contas', chave: 'contas', icone: '🏦', label: 'Contas' },
   { id: 'secao-cartoes', chave: 'cartoes', icone: '💳', label: 'Cartões' },
@@ -11,7 +10,6 @@ const ITENS_SECAO = [
   { id: 'secao-membros', chave: 'membros', icone: '👥', label: 'Quem tem acesso' },
   { id: 'secao-atividade', chave: 'atividade', icone: '📜', label: 'Atividade' },
 ];
-
 export default function Sidebar({
   perfil,
   aba,
@@ -24,6 +22,7 @@ export default function Sidebar({
   alternarSidebar,
   setMostrarConfiguracoes,
   secoesOcultas = [],
+  tipoEntidade,
 }) {
   return (
     <>
@@ -39,31 +38,29 @@ export default function Sidebar({
           </div>
           <button onClick={alternarSidebar} className="sidebar-toggle" title="Recolher/expandir menu">☰</button>
         </div>
-
         <button onClick={() => { setAba('painel'); setSidebarMobileAberta(false); }} className={`sidebar-link ${aba === 'painel' ? 'active' : ''}`}>
           <span className="sidebar-icon">🏠</span><span className="sidebar-label">Painel</span>
         </button>
         <button onClick={() => { setAba('relatorios'); setSidebarMobileAberta(false); }} className={`sidebar-link ${aba === 'relatorios' ? 'active' : ''}`}>
           <span className="sidebar-icon">📊</span><span className="sidebar-label">Relatórios</span>
         </button>
-        <button onClick={() => { setAba('dre'); setSidebarMobileAberta(false); }} className={`sidebar-link ${aba === 'dre' ? 'active' : ''}`}>
-          <span className="sidebar-icon">📑</span><span className="sidebar-label">DRE</span>
-        </button>
+        {tipoEntidade === 'PJ' && (
+          <button onClick={() => { setAba('relatorios'); setSidebarMobileAberta(false); }} className={`sidebar-link ${aba === 'relatorios' ? 'active' : ''}`}>
+            <span className="sidebar-icon">📑</span><span className="sidebar-label">DRE</span>
+          </button>
+        )}
         <button onClick={() => { setAba('fluxo'); setSidebarMobileAberta(false); }} className={`sidebar-link ${aba === 'fluxo' ? 'active' : ''}`}>
           <span className="sidebar-icon">💹</span><span className="sidebar-label">Fluxo de Caixa</span>
         </button>
         <button onClick={() => { setAba('assistente'); setSidebarMobileAberta(false); }} className={`sidebar-link ${aba === 'assistente' ? 'active' : ''}`}>
           <span className="sidebar-icon">✨</span><span className="sidebar-label">Assistente IA</span>
         </button>
-
         <div className="sidebar-divider" />
-
         {ITENS_SECAO.filter((item) => !secoesOcultas.includes(item.chave)).map((item) => (
           <button key={item.id} onClick={() => irParaSecao(item.id)} className="sidebar-link">
             <span className="sidebar-icon">{item.icone}</span><span className="sidebar-label">{item.label}</span>
           </button>
         ))}
-
         <div className="sidebar-footer">
           <div className="sidebar-divider" />
           <button onClick={() => setMostrarConfiguracoes((v) => !v)} className="sidebar-link">

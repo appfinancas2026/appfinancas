@@ -52,12 +52,9 @@ function mesesReferenciaNoPeriodo(inicio, fim) {
 }
 
 export default function AbaRelatorios({
-  entidadeAtual,
+entidadeAtual,
   entidadeAtualObj,
   salvarMesInicioControle,
-  exportarMesCSV,
-  exportarAnoCSV,
-  exportarPDF,
   comparativoPFPJ,
   dataAtual,
   confirmarOcorrencia,
@@ -292,6 +289,72 @@ export default function AbaRelatorios({
     a.download = `${tipoLabel}_${situacaoLabel}_${dataInicio}_${dataFim}.csv`.replace(/ /g, '-');
     a.click();
     URL.revokeObjectURL(url);
+  }
+// Export da lista de lançamentos do período — respeita o filtro ativo
+  // (período, tipo, categoria, essencialidade). O que está na tela é o que sai.
+  function exportarLancamentosCSV() {
+    if (!dados || dados.lista.length === 0) return;
+    const cabecalho = ['Data', 'Descrição', 'Categoria', 'Tipo', 'Essencialidade', 'Valor'];
+    const linhas = dados.lista.map((t) => [
+      t.data,
+      (t.descricao || '').replace(/"/g, '""'),
+      (t.categoria || '').replace(/"/g, '""'),
+      t.tipo === 'entrada' ? 'Entrada' : 'Saída',
+      t.essencialidade || '',
+      Number(t.valor).toFixed(2).replace('.', ','),
+    ]);
+    const csv = [cabecalho, ...linhas]
+      .map((l) => l.map((c) => `"${String(c)}"`).join(';'))
+      .join('\r\n');
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `lancamentos_${dataInicio}_${dataFim}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function exportarLancamentosPDF() {
+    if (!dados || dados.lista.length === 0) return;
+    const nome = entidadeAtualObj?.nome_entidade || '';
+    const linhasHtml = dados.lista.map((t) => `
+      <tr>
+        <td>${t.data}</td>
+        <td>${(t.descricao || '').replace(/</g, '&lt;')}</td>
+        <td>${(t.categoria || '').replace(/</g, '&lt;')}</td>
+        <td>${t.tipo === 'entrada' ? 'Entrada' : 'Saída'}</td>
+        <td style="text-align:right">${t.tipo === 'entrada' ? '+' : '−'} ${formatarMoeda(t.valor)}</td>
+      </tr>`).join('');
+
+    const janela = window.open('', '_blank');
+    if (!janela) return;
+    janela.document.write(`
+      <html><head><title>Lançamentos ${dataInicio} a ${dataFim}</title><meta charset="utf-8" />
+      <style>
+        body { font-family: Arial, sans-serif; padding: 24px; color: #1D2A22; }
+        h1 { font-size: 18px; margin-bottom: 4px; }
+        p.sub { color: #666; font-size: 13px; margin-top: 0; }
+        table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 16px; }
+        th, td { padding: 6px 8px; border-bottom: 1px solid #ddd; text-align: left; }
+        th { background: #f2f2f2; }
+        tfoot td { font-weight: bold; border-top: 2px solid #333; }
+      </style></head><body>
+        <h1>${nome}</h1>
+        <p class="sub">Lançamentos de ${dataInicio} a ${dataFim} — ${labelPeriodo}</p>
+        <table>
+          <thead><tr><th>Data</th><th>Descrição</th><th>Categoria</th><th>Tipo</th><th style="text-align:right">Valor</th></tr></thead>
+          <tbody>${linhasHtml}</tbody>
+          <tfoot>
+            <tr><td colspan="4">Total entradas</td><td style="text-align:right">${formatarMoeda(dados.totalE)}</td></tr>
+            <tr><td colspan="4">Total saídas</td><td style="text-align:right">${formatarMoeda(dados.totalS)}</td></tr>
+            <tr><td colspan="4">Resultado</td><td style="text-align:right">${formatarMoeda(dados.resultado)}</td></tr>
+          </tfoot>
+        </table>
+        <script>window.onload = function () { window.print(); };</script>
+      </body></html>
+    `);
+    janela.document.close();
   }
 
   return (
@@ -673,13 +736,12 @@ export default function AbaRelatorios({
             <AbaDRE entidadeAtual={entidadeAtual} entidades={[entidadeAtualObj]} />
           )}
 
-         {/* ── Exportar (oculto na sub-aba DRE) ── */}
-          {abaAtiva !== 'dre' && (
+         {/* ── Exportar (oculto na sub-aba DRE e na aba Contas, que tem export próprio) ── */}
+          {abaAtiva !== 'dre' && abaAtiva !== 'contas' && (
           <div className="card" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-            <span className="card-title" style={{ marginRight: 4 }}>Exportar</span>
-            <button onClick={exportarMesCSV} className="btn btn-ghost">CSV do mês</button>
-            <button onClick={exportarAnoCSV} className="btn btn-ghost">CSV do ano</button>
-            <button onClick={exportarPDF}    className="btn btn-ghost">PDF do mês</button>
+            <span className="card-title" style={{ marginRight: 4 }}>Exportar lançamentos do período</span>
+            <button onClick={exportarLancamentosCSV} className="btn btn-ghost" disabled={!dados || dados.lista.length === 0}>CSV</button>
+            <button onClick={exportarLancamentosPDF} className="btn btn-ghost" disabled={!dados || dados.lista.length === 0}>PDF</button>
           </div>
           )}
         </>

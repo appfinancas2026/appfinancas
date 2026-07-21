@@ -1663,9 +1663,6 @@ export default function Dashboard() {
           entidadeAtual={entidadeAtual}
           entidadeAtualObj={entidadeAtualObj}
           salvarMesInicioControle={salvarMesInicioControle}
-          exportarMesCSV={exportarMesCSV}
-          exportarAnoCSV={exportarAnoCSV}
-          exportarPDF={exportarPDF}
           comparativoPFPJ={comparativoPFPJ}
           dataAtual={dataAtual}
           pendenciasVencidas={pendenciasVencidas}

@@ -170,10 +170,17 @@ export default function AbaRelatorios({
       variacaoS = anterior.Saídas > 0 ? ((atual.Saídas - anterior.Saídas) / anterior.Saídas) * 100 : null;
     }
 
-    setDados({ lista, totalE, totalS, resultado, margem, despesasPorCategoria, dadosMensais, ess, maiores, variacaoE, variacaoS });
+   setDados({ lista, totalE, totalS, resultado, margem, despesasPorCategoria, dadosMensais, ess, maiores, variacaoE, variacaoS });
 
-    // ── Contas em aberto/atraso/quitadas — vêm de lancamentos_fixos_mensal,
-    //    não de transacoes (uma conta só vira transação quando é paga). ──
+    setCarregando(false);
+  }, [entidadeAtual, dataInicio, dataFim, filtroTipo, filtroCategoria, filtroEssencialidade]);
+
+  // ── Busca das contas do período — separada dos filtros de tipo/categoria/
+  //    essencialidade, que não afetam as contas. Só refaz quando muda a
+  //    entidade ou o período. ──
+  const buscarContas = useCallback(async () => {
+    if (!entidadeAtual) { setContasData(null); return; }
+
     const mesesRef = mesesReferenciaNoPeriodo(dataInicio, dataFim);
     const { data: ocorrencias } = await supabase
       .from('lancamentos_fixos_mensal')
@@ -181,22 +188,25 @@ export default function AbaRelatorios({
       .eq('entidade_id', entidadeAtual)
       .in('mes_referencia', mesesRef);
 
-    // Quanto já foi pago de cada ocorrência (soma das transações vinculadas),
-    // para o valor pendente das parciais. Mesmo princípio do page.js.
-    const { data: txVinc } = await supabase
-      .from('transacoes')
-      .select('lancamento_mensal_id, valor')
-      .eq('entidade_id', entidadeAtual)
-      .not('lancamento_mensal_id', 'is', null);
-
+    // Soma dos pagamentos por ocorrência, para o valor pendente das parciais.
+    // Busca só as transações vinculadas às ocorrências deste período —
+    // não a entidade inteira, que cresceria sem limite com o histórico.
+    const idsOcorrencias = (ocorrencias || []).map((o) => o.id);
     const pagoPorOcorrencia = {};
-    (txVinc || []).forEach((t) => {
-      pagoPorOcorrencia[t.lancamento_mensal_id] =
-        (pagoPorOcorrencia[t.lancamento_mensal_id] || 0) + Number(t.valor);
-    });
+    if (idsOcorrencias.length > 0) {
+      const { data: txVinc } = await supabase
+        .from('transacoes')
+        .select('lancamento_mensal_id, valor')
+        .eq('entidade_id', entidadeAtual)
+        .in('lancamento_mensal_id', idsOcorrencias);
+      (txVinc || []).forEach((t) => {
+        pagoPorOcorrencia[t.lancamento_mensal_id] =
+          (pagoPorOcorrencia[t.lancamento_mensal_id] || 0) + Number(t.valor);
+      });
+    }
     const pendenteDe = (o) => Math.max(0, Number(o.valor) - (pagoPorOcorrencia[o.id] || 0));
 
- const inicioHoje = new Date();
+    const inicioHoje = new Date();
     inicioHoje.setHours(0, 0, 0, 0);
     const estaAtrasada = (o) => {
       if (o.status === 'confirmado') return false;
@@ -219,11 +229,10 @@ export default function AbaRelatorios({
     mapContas.entrada.atraso = mapContas.entrada.aberto.filter(estaAtrasada);
 
     setContasData({ mapContas, pendenteDe, estaAtrasada });
-
-    setCarregando(false);
-  }, [entidadeAtual, dataInicio, dataFim, filtroTipo, filtroCategoria, filtroEssencialidade]);
+  }, [entidadeAtual, dataInicio, dataFim]);
 
   useEffect(() => { buscarDados(); }, [buscarDados]);
+  useEffect(() => { buscarContas(); }, [buscarContas]);
 
   const nDias = Math.round((new Date(dataFim) - new Date(dataInicio)) / 86400000) + 1;
   const labelPeriodo = periodoPre < 5 ? PERIODOS[periodoPre].label : `${dataInicio} → ${dataFim}`;

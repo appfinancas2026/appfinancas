@@ -1,11 +1,5 @@
 'use client';
 
-import {
-  mesReferenciaStr, primeiroDiaDoMes, ultimoDiaDoMes, subtrairMeses,
-  calcularPeriodoFaturaAberta, calcularMesFaturaCompra, avancarMeses,
-  parseOFX, parseCSVExtrato, calcularParcela, formatarMoeda,
-  vencimentoOcorrencia, diasAteVencimento,   // ← adicionar estes dois
-} from '../../lib/financeiro';
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '../../lib/supabase';
@@ -14,6 +8,7 @@ import {
   mesReferenciaStr, primeiroDiaDoMes, ultimoDiaDoMes, subtrairMeses,
   calcularPeriodoFaturaAberta, calcularMesFaturaCompra, avancarMeses,
   parseOFX, parseCSVExtrato, calcularParcela, formatarMoeda,
+  vencimentoOcorrencia, diasAteVencimento,
 } from '../../lib/financeiro';
 import { recalcularSaldoConta } from '../../lib/saldos';
 import TelaPin from './TelaPin';

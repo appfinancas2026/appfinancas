@@ -129,6 +129,7 @@ export default function Dashboard() {
   const [totalParcelasFixo, setTotalParcelasFixo] = useState('');
   const [parcelaAtualFixo, setParcelaAtualFixo] = useState('');
   const [essencialidadeFixo, setEssencialidadeFixo] = useState('');
+  const [categoriaFixo, setCategoriaFixo] = useState('');
   const [edicaoFixoId, setEdicaoFixoId] = useState(null);
   const [formFixo, setFormFixo] = useState({ nome: '', dia_referencia: '', valor_padrao: '', conta_padrao_id: '' });
 
@@ -970,6 +971,7 @@ export default function Dashboard() {
       total_parcelas: tipoAlvo === 'saida' && parceladoFixo ? parseInt(totalParcelasFixo, 10) : null,
       mes_inicio: mesInicio,
       essencialidade: tipoAlvo === 'saida' ? (essencialidadeFixo || null) : null,
+      categoria: categoriaFixo || null,
     });
 
     if (!error) {
@@ -981,6 +983,7 @@ export default function Dashboard() {
       setTotalParcelasFixo('');
       setParcelaAtualFixo('');
       setEssencialidadeFixo('');
+      setCategoriaFixo('');
       setMostrarNovaReceitaFixa(false);
       setMostrarNovaDespesaFixa(false);
       carregarLancamentosFixos(entidadeAtual);
@@ -1046,7 +1049,7 @@ export default function Dashboard() {
       lancamento_mensal_id: ocorrencia.id,
       valor,
       tipo: fixo.tipo,
-      categoria: fixo.nome,
+      categoria: fixo.categoria || fixo.nome,
       descricao: fixo.nome,
       essencialidade: fixo.tipo === 'saida' ? (fixo.essencialidade || null) : null,
       origem: 'recorrente',
@@ -1794,6 +1797,7 @@ export default function Dashboard() {
                       <option value="">Conta de destino (opcional)</option>
                       {contas.map((c) => (<option key={c.id} value={c.id}>{c.nome}</option>))}
                     </select>
+                    <CampoCategoria entidadeAtual={entidadeAtual} tipo="entrada" value={categoriaFixo} onChange={(e) => setCategoriaFixo(e.target.value)} placeholder="Categoria (opcional)" style={{ flex: 1, minWidth: 140 }} />
                     <button type="submit" className="btn btn-primary">Salvar</button>
                   </form>
                 )}
@@ -1838,6 +1842,7 @@ export default function Dashboard() {
                       <option value="desejavel">Desejável</option>
                       <option value="superfluo">Supérfluo</option>
                     </select>
+                    <CampoCategoria entidadeAtual={entidadeAtual} tipo="saida" value={categoriaFixo} onChange={(e) => setCategoriaFixo(e.target.value)} placeholder="Categoria (opcional)" style={{ flex: 1, minWidth: 140 }} />
                     <label className="checkbox-label">
                       <input type="checkbox" checked={parceladoFixo} onChange={(e) => setParceladoFixo(e.target.checked)} />
                       Parcelado

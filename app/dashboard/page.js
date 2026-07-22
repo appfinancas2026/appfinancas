@@ -1797,7 +1797,7 @@ export default function Dashboard() {
                       <option value="">Conta de destino (opcional)</option>
                       {contas.map((c) => (<option key={c.id} value={c.id}>{c.nome}</option>))}
                     </select>
-                    <CampoCategoria entidadeAtual={entidadeAtual} tipo="entrada" value={categoriaFixo} onChange={(e) => setCategoriaFixo(e.target.value)} placeholder="Categoria (opcional)" style={{ flex: 1, minWidth: 140 }} />
+                    <CampoCategoria entidadeAtual={entidadeAtual} tipo="entrada" value={categoriaFixo} onChange={(e) => setCategoriaFixo(e.target.value)} placeholder="Categoria (opcional)" style={{ width: 180 }} />
                     <button type="submit" className="btn btn-primary">Salvar</button>
                   </form>
                 )}
@@ -1842,7 +1842,7 @@ export default function Dashboard() {
                       <option value="desejavel">Desejável</option>
                       <option value="superfluo">Supérfluo</option>
                     </select>
-                    <CampoCategoria entidadeAtual={entidadeAtual} tipo="saida" value={categoriaFixo} onChange={(e) => setCategoriaFixo(e.target.value)} placeholder="Categoria (opcional)" style={{ flex: 1, minWidth: 140 }} />
+                    <CampoCategoria entidadeAtual={entidadeAtual} tipo="saida" value={categoriaFixo} onChange={(e) => setCategoriaFixo(e.target.value)} placeholder="Categoria (opcional)" style={{ width: 180 }} />
                     <label className="checkbox-label">
                       <input type="checkbox" checked={parceladoFixo} onChange={(e) => setParceladoFixo(e.target.checked)} />
                       Parcelado

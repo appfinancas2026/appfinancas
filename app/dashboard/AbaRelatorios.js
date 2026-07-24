@@ -10,6 +10,7 @@ const GraficoDespesasPorCategoria = dynamic(() => import('./RelatoriosCharts').t
 const GraficoEvolucaoPatrimonio  = dynamic(() => import('./RelatoriosCharts').then((m) => m.GraficoEvolucaoPatrimonio),  { ssr: false });
 const GraficoComparativoPFPJ    = dynamic(() => import('./RelatoriosCharts').then((m) => m.GraficoComparativoPFPJ),    { ssr: false });
 const AbaDRE = dynamic(() => import('./AbaDRE'), { ssr: false });
+
 const NOMES_MESES = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
 const NOMES_MESES_FULL = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 
@@ -52,7 +53,7 @@ function mesesReferenciaNoPeriodo(inicio, fim) {
 }
 
 export default function AbaRelatorios({
-entidadeAtual,
+  entidadeAtual,
   entidadeAtualObj,
   salvarMesInicioControle,
   comparativoPFPJ,
@@ -167,7 +168,7 @@ entidadeAtual,
       variacaoS = anterior.Saídas > 0 ? ((atual.Saídas - anterior.Saídas) / anterior.Saídas) * 100 : null;
     }
 
-   setDados({ lista, totalE, totalS, resultado, margem, despesasPorCategoria, dadosMensais, ess, maiores, variacaoE, variacaoS });
+    setDados({ lista, totalE, totalS, resultado, margem, despesasPorCategoria, dadosMensais, ess, maiores, variacaoE, variacaoS });
 
     setCarregando(false);
   }, [entidadeAtual, dataInicio, dataFim, filtroTipo, filtroCategoria, filtroEssencialidade]);
@@ -178,12 +179,17 @@ entidadeAtual,
   const buscarContas = useCallback(async () => {
     if (!entidadeAtual) { setContasData(null); return; }
 
-    const mesesRef = mesesReferenciaNoPeriodo(dataInicio, dataFim);
-    const { data: ocorrencias } = await supabase
-      .from('lancamentos_fixos_mensal')
-      .select('*, lancamentos_fixos(nome, tipo, dia_referencia)')
-      .eq('entidade_id', entidadeAtual)
-      .in('mes_referencia', mesesRef);
+    // Respeita o mês de início do controle: nada anterior a ele entra nos relatórios.
+    const mesesRef = mesesReferenciaNoPeriodo(dataInicio, dataFim)
+      .filter((m) => !entidadeAtualObj?.mes_inicio_controle || m >= entidadeAtualObj.mes_inicio_controle);
+
+    const { data: ocorrencias } = mesesRef.length === 0
+      ? { data: [] }
+      : await supabase
+          .from('lancamentos_fixos_mensal')
+          .select('*, lancamentos_fixos(nome, tipo, dia_referencia)')
+          .eq('entidade_id', entidadeAtual)
+          .in('mes_referencia', mesesRef);
 
     // Soma dos pagamentos por ocorrência, para o valor pendente das parciais.
     // Busca só as transações vinculadas às ocorrências deste período —
@@ -226,7 +232,7 @@ entidadeAtual,
     mapContas.entrada.atraso = mapContas.entrada.aberto.filter(estaAtrasada);
 
     setContasData({ mapContas, pendenteDe, estaAtrasada });
-  }, [entidadeAtual, dataInicio, dataFim]);
+  }, [entidadeAtual, entidadeAtualObj, dataInicio, dataFim]);
 
   useEffect(() => { buscarDados(); }, [buscarDados]);
   useEffect(() => { buscarContas(); }, [buscarContas]);
@@ -234,7 +240,7 @@ entidadeAtual,
   const nDias = Math.round((new Date(dataFim) - new Date(dataInicio)) / 86400000) + 1;
   const labelPeriodo = periodoPre < 5 ? PERIODOS[periodoPre].label : `${dataInicio} → ${dataFim}`;
 
-  // ── Derivados da aba Contas (fora do buscarDados p/ reagir ao seletor) ──
+  // ── Derivados da aba Contas (fora do buscarContas p/ reagir ao seletor) ──
   const contasView = (() => {
     if (!contasData) return null;
     const { mapContas, pendenteDe } = contasData;
@@ -290,7 +296,8 @@ entidadeAtual,
     a.click();
     URL.revokeObjectURL(url);
   }
-// Export da lista de lançamentos do período — respeita o filtro ativo
+
+  // Export da lista de lançamentos do período — respeita o filtro ativo
   // (período, tipo, categoria, essencialidade). O que está na tela é o que sai.
   function exportarLancamentosCSV() {
     if (!dados || dados.lista.length === 0) return;
@@ -360,7 +367,7 @@ entidadeAtual,
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-       {/* ── Filtros (ocultos na sub-aba DRE, que tem período próprio) ── */}
+      {/* ── Filtros (ocultos na sub-aba DRE, que tem período próprio) ── */}
       {abaAtiva !== 'dre' && (
       <div className="card relatorio-filtros">
         <div className="relatorio-filtros-periodos">
@@ -406,7 +413,7 @@ entidadeAtual,
           )}
         </div>
 
-       <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', margin: '8px 0 0' }}>
+        <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', margin: '8px 0 0' }}>
           {carregando ? 'Carregando...' : dados ? `${dados.lista.length} lançamentos em ${nDias} dias — ${labelPeriodo}` : ''}
         </p>
       </div>
@@ -736,7 +743,7 @@ entidadeAtual,
             <AbaDRE entidadeAtual={entidadeAtual} entidades={[entidadeAtualObj]} />
           )}
 
-         {/* ── Exportar (oculto na sub-aba DRE e na aba Contas, que tem export próprio) ── */}
+          {/* ── Exportar (oculto na sub-aba DRE e na aba Contas, que tem export próprio) ── */}
           {abaAtiva !== 'dre' && abaAtiva !== 'contas' && (
           <div className="card" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
             <span className="card-title" style={{ marginRight: 4 }}>Exportar lançamentos do período</span>

@@ -252,6 +252,14 @@ export default function Dashboard() {
     }
 
     const mesRef = mesReferenciaStr(ano, mes);
+    
+    // Não gera ocorrências antes do início do controle — navegar para trás
+    // no calendário não deve criar dados retroativos.
+    const entidadeObjGuarda = entidades.find((e) => e.id === entidadeId);
+    if (entidadeObjGuarda?.mes_inicio_controle && mesRef < entidadeObjGuarda.mes_inicio_controle) {
+      setOcorrenciasDoMes({});
+      return;
+    }
 
     const { data: existentes } = await supabase
       .from('lancamentos_fixos_mensal')

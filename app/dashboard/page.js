@@ -1774,9 +1774,9 @@ export default function Dashboard() {
             />
           )}
 
+         )}
+
           <SimuladorRotativo />
-          )}
-          <div className="card card-receitas" id="secao-receitas">
             <div className="card-header">
               <span className="card-title-group"><span className="card-icon">⬇</span><p className="card-title">Receitas fixas</p></span>
               <div className="card-header-actions">

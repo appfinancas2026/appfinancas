@@ -132,7 +132,7 @@ export default function Dashboard() {
   const [essencialidadeFixo, setEssencialidadeFixo] = useState('');
   const [categoriaFixo, setCategoriaFixo] = useState('');
   const [edicaoFixoId, setEdicaoFixoId] = useState(null);
-  const [formFixo, setFormFixo] = useState({ nome: '', dia_referencia: '', valor_padrao: '', conta_padrao_id: '' });
+  const [formFixo, setFormFixo] = useState({ nome: '', dia_referencia: '', valor_padrao: '', conta_padrao_id: '', categoria: '' });
 
   const [edicaoOcorrenciaId, setEdicaoOcorrenciaId] = useState(null);
   const [formOcorrencia, setFormOcorrencia] = useState({ valor: '', conta_id: '' });
@@ -1006,7 +1006,7 @@ export default function Dashboard() {
 
   function iniciarEdicaoFixo(f) {
     setEdicaoFixoId(f.id);
-    setFormFixo({ nome: f.nome, dia_referencia: f.dia_referencia, valor_padrao: f.valor_padrao, conta_padrao_id: f.conta_padrao_id || '' });
+    setFormFixo({ nome: f.nome, dia_referencia: f.dia_referencia, valor_padrao: f.valor_padrao, conta_padrao_id: f.conta_padrao_id || '', categoria: f.categoria || '' });
   }
 
   async function salvarEdicaoFixo(e) {
@@ -1018,6 +1018,7 @@ export default function Dashboard() {
         dia_referencia: parseInt(formFixo.dia_referencia, 10),
         valor_padrao: parseFloat(formFixo.valor_padrao),
         conta_padrao_id: formFixo.conta_padrao_id || null,
+        categoria: formFixo.categoria || null,
       })
       .eq('id', edicaoFixoId);
 
@@ -1438,6 +1439,7 @@ export default function Dashboard() {
               <option value="">Conta padrão (opcional)</option>
               {contas.map((c) => (<option key={c.id} value={c.id}>{c.nome}</option>))}
             </select>
+            <CampoCategoria entidadeAtual={entidadeAtual} tipo={tipoAlvo === 'entrada' ? 'entrada' : 'saida'} value={formFixo.categoria} onChange={(e) => setFormFixo({ ...formFixo, categoria: e.target.value })} placeholder="Categoria (opcional)" style={{ width: 180 }} />
             <button type="submit" className="btn btn-primary">Salvar</button>
             <button type="button" onClick={() => setEdicaoFixoId(null)} className="btn-link">Cancelar</button>
           </form>
@@ -1787,8 +1789,6 @@ export default function Dashboard() {
             />
           )}
 
-          <SimuladorRotativo />
-
           <div className="card card-receitas" id="secao-receitas">
             <div className="card-header">
               <span className="card-title-group"><span className="card-icon">⬇</span><p className="card-title">Receitas fixas</p></span>
@@ -1912,13 +1912,6 @@ export default function Dashboard() {
             />
           )}
 
-          {!secoesOcultasAtual.includes('atividade') && (
-            <CardAuditoria
-              entidadeAtual={entidadeAtual}
-              aberto={secaoAberta.atividade}
-              onAlternarAberto={() => setSecaoAberta({ ...secaoAberta, atividade: !secaoAberta.atividade })}
-            />
-          )}
           </div>
 
           <div className="card card-lancamentos" id="secao-lancamentos">
@@ -2047,6 +2040,16 @@ export default function Dashboard() {
               </>
             )}
           </div>
+
+          <SimuladorRotativo />
+
+          {!secoesOcultasAtual.includes('atividade') && (
+            <CardAuditoria
+              entidadeAtual={entidadeAtual}
+              aberto={secaoAberta.atividade}
+              onAlternarAberto={() => setSecaoAberta({ ...secaoAberta, atividade: !secaoAberta.atividade })}
+            />
+          )}
         </>
       )}
     </div>

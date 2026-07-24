@@ -1772,12 +1772,12 @@ export default function Dashboard() {
                 carregarTransacoesDoMes(entidadeAtual, dataAtual.ano, dataAtual.mes);
               }}
             />
-          )}
-
-         )}
+)}
 
           <SimuladorRotativo />
-            <div className="card-header">
+
+          <div className="card card-receitas" id="secao-receitas">
+            <div className="card-header">            <div className="card-header">
               <span className="card-title-group"><span className="card-icon">⬇</span><p className="card-title">Receitas fixas</p></span>
               <div className="card-header-actions">
                 <select className="input" style={{ padding: '5px 8px', fontSize: 12 }} value={ordenarReceitasPor} onChange={(e) => setOrdenarReceitasPor(e.target.value)}>

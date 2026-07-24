@@ -253,7 +253,7 @@ export default function Dashboard() {
 
     const mesRef = mesReferenciaStr(ano, mes);
     
-    // Não gera ocorrências antes do início do controle — navegar para trás
+    /// Não gera ocorrências antes do início do controle — navegar para trás
     // no calendário não deve criar dados retroativos.
     const entidadeObjGuarda = entidades.find((e) => e.id === entidadeId);
     if (entidadeObjGuarda?.mes_inicio_controle && mesRef < entidadeObjGuarda.mes_inicio_controle) {
@@ -915,8 +915,13 @@ export default function Dashboard() {
     const { data: sessionData } = await supabase.auth.getSession();
     const userId = sessionData.session.user.id;
 
+    // O controle começa no mês do cadastro: nada é gerado para trás.
+    const hojeCadastro = new Date();
+    const mesInicioCadastro = `${hojeCadastro.getFullYear()}-${String(hojeCadastro.getMonth() + 1).padStart(2, '0')}-01`;
+
     const { error } = await supabase.from('entidades').insert({
       usuario_id: userId, tipo: 'PJ', cnpj, nome_entidade: nomeEmpresa, padrao: false,
+      mes_inicio_controle: mesInicioCadastro,
     });
 
     if (!error) {

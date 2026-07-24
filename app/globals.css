@@ -146,6 +146,7 @@ button, input, select { font-family: var(--font-body); }
     grid-template-columns: 1fr 1fr;
     gap: 0 24px;
     align-items: start;
+    grid-auto-flow: dense;
   }
   .cards-grid > * { margin-bottom: 24px; }
 }

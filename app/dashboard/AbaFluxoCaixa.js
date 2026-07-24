@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import { supabase } from '../../lib/supabase';
-import { formatarMoeda, calcularParcela, vencimentoOcorrencia } from '../../lib/financeiro';
+import { formatarMoeda, calcularParcela } from '../../lib/financeiro';
 
 const GraficoFluxo = dynamic(() => import('./RelatoriosCharts').then((m) => m.GraficoFluxo), { ssr: false });
 
@@ -27,6 +27,7 @@ export default function AbaFluxoCaixa({ entidadeAtual, contas, lancamentosFixos 
   const [diasHistorico, setDiasHistorico] = useState(30);
   const [diasProjecao, setDiasProjecao]   = useState(60);
   const [mostrarProjecao, setMostrarProjecao] = useState(true);
+  const [incluirVariaveis, setIncluirVariaveis] = useState(true);
   const [carregando, setCarregando]       = useState(false);
   const [fluxo, setFluxo]                 = useState(null);
   const [expandido, setExpandido]         = useState({});
@@ -47,6 +48,26 @@ export default function AbaFluxoCaixa({ entidadeAtual, contas, lancamentosFixos 
       .gte('data', inicioHist)
       .lte('data', hoje)
       .order('data', { ascending: true });
+
+    // Média diária de gastos variáveis dos últimos 3 meses.
+    // Exclui os recorrentes (origem 'recorrente'), que já entram na projeção
+    // pelos lançamentos fixos — senão contaria o mesmo gasto duas vezes.
+    let mediaDiariaVariavel = 0;
+    if (mostrarProjecao && incluirVariaveis) {
+      const inicioMedia = addDias(hoje, -90);
+      const { data: txsVar } = await supabase
+        .from('transacoes')
+        .select('valor, data, origem')
+        .eq('entidade_id', entidadeAtual)
+        .eq('tipo', 'saida')
+        .is('transferencia_id', null)
+        .neq('origem', 'recorrente')
+        .gte('data', inicioMedia)
+        .lte('data', hoje);
+
+      const totalVariavel = (txsVar || []).reduce((s, t) => s + Number(t.valor), 0);
+      mediaDiariaVariavel = totalVariavel / 90;
+    }
 
     const txsPorDia = {};
     (txs || []).forEach((t) => {
@@ -81,8 +102,9 @@ export default function AbaFluxoCaixa({ entidadeAtual, contas, lancamentosFixos 
     }
 
     // Projeção futura com base nos fixos.
-    // Inclui parcelados (usando calcularParcela para saber se a parcela cai no mês)
-    // e trata o dia de vencimento maior que o último dia do mês.
+    // Inclui parcelados (usando calcularParcela para saber se a parcela cai no mês),
+    // trata o dia de vencimento maior que o último dia do mês, e desconta a média
+    // diária de gastos variáveis quando o usuário optar por incluí-la.
     const projecao = [];
     if (mostrarProjecao && lancamentosFixos?.length > 0) {
       let saldoProj = saldoInicial;
@@ -105,10 +127,13 @@ export default function AbaFluxoCaixa({ entidadeAtual, contas, lancamentosFixos 
 
         const entradas = fixosDoDia.filter((f) => f.tipo === 'entrada').reduce((s, f) => s + Number(f.valor_padrao), 0);
         const saidas   = fixosDoDia.filter((f) => f.tipo === 'saida').reduce((s, f) => s + Number(f.valor_padrao), 0);
-        saldoProj += entradas - saidas;
+        saldoProj += entradas - saidas - mediaDiariaVariavel;
         if (entradas > 0 || saidas > 0 || i % 7 === 0) {
           projecao.push({
-            data, label: formatarData(data), entradas, saidas, saldo: saldoProj,
+            data, label: formatarData(data),
+            entradas,
+            saidas: saidas + mediaDiariaVariavel,
+            saldo: saldoProj,
             itens: fixosDoDia.map((f) => ({ descricao: f.nome, tipo: f.tipo, valor: f.valor_padrao })),
             ehProjecao: true,
           });
@@ -131,9 +156,10 @@ export default function AbaFluxoCaixa({ entidadeAtual, contas, lancamentosFixos 
     setFluxo({
       historico, projecao, tudo, saldoInicial, totalEntradas, totalSaidas,
       menorSaldo, diasNegativos, primeiroNegativoFuturo, diasAteNegativo,
+      mediaDiariaVariavel,
     });
     setCarregando(false);
-  }, [entidadeAtual, contas, lancamentosFixos, diasHistorico, diasProjecao, mostrarProjecao]);
+  }, [entidadeAtual, contas, lancamentosFixos, diasHistorico, diasProjecao, mostrarProjecao, incluirVariaveis]);
 
   useEffect(() => { calcularFluxo(); }, [calcularFluxo]);
 
@@ -146,9 +172,16 @@ export default function AbaFluxoCaixa({ entidadeAtual, contas, lancamentosFixos 
           <h2 style={{ font: `var(--weight-semibold) var(--text-xl) var(--font-display)`, margin: '0 0 2px' }}>Fluxo de Caixa</h2>
           <p style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)', margin: 0 }}>Evolução do saldo e projeção com base nos lançamentos fixos.</p>
         </div>
-        <button onClick={() => setMostrarProjecao((v) => !v)} className={`btn ${mostrarProjecao ? 'btn-primary' : 'btn-ghost'}`} style={{ fontSize: 'var(--text-sm)' }}>
-          {mostrarProjecao ? '✓ Projeção ativa' : 'Mostrar projeção'}
-        </button>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <button onClick={() => setMostrarProjecao((v) => !v)} className={`btn ${mostrarProjecao ? 'btn-primary' : 'btn-ghost'}`} style={{ fontSize: 'var(--text-sm)' }}>
+            {mostrarProjecao ? '✓ Projeção ativa' : 'Mostrar projeção'}
+          </button>
+          {mostrarProjecao && (
+            <button onClick={() => setIncluirVariaveis((v) => !v)} className={`btn ${incluirVariaveis ? 'btn-primary' : 'btn-ghost'}`} style={{ fontSize: 'var(--text-sm)' }}>
+              {incluirVariaveis ? '✓ Com gastos do dia a dia' : 'Só contas fixas'}
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="card" style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -220,7 +253,11 @@ export default function AbaFluxoCaixa({ entidadeAtual, contas, lancamentosFixos 
 
           <div className="card">
             <p className="card-title" style={{ marginBottom: 4 }}>Evolução do saldo</p>
-            <p className="empty-hint" style={{ margin: '0 0 12px' }}>Linha sólida = histórico real · Tracejada = projeção</p>
+            <p className="empty-hint" style={{ margin: '0 0 12px' }}>
+              Linha sólida = histórico real · Tracejada = projeção
+              {incluirVariaveis && mostrarProjecao && fluxo.mediaDiariaVariavel > 0 &&
+                ` · inclui ${formatarMoeda(fluxo.mediaDiariaVariavel)}/dia de gastos variáveis (média dos últimos 3 meses)`}
+            </p>
             <GraficoFluxo dados={fluxo.tudo} />
           </div>
 

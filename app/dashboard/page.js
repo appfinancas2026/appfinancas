@@ -30,6 +30,7 @@ const AbaFluxoCaixa = dynamic(() => import('./AbaFluxoCaixa'), { ssr: false });
 import CapturaRapida from './CapturaRapida';
 import CardContas from './CardContas';
 import CardCartoes from './CardCartoes';
+import SimuladorRotativo from './SimuladorRotativo';
 
 
 const NOMES_MESES = [
@@ -1771,6 +1772,9 @@ export default function Dashboard() {
                 carregarTransacoesDoMes(entidadeAtual, dataAtual.ano, dataAtual.mes);
               }}
             />
+          )}
+
+          <SimuladorRotativo />
           )}
           <div className="card card-receitas" id="secao-receitas">
             <div className="card-header">

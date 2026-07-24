@@ -80,8 +80,6 @@ export default function AbaFluxoCaixa({ entidadeAtual, contas, lancamentosFixos 
       });
     }
 
-    // Projeção futura com base nos fixos
-    const projecao = [];
     // Projeção futura com base nos fixos.
     // Inclui parcelados (usando calcularParcela para saber se a parcela cai no mês)
     // e trata o dia de vencimento maior que o último dia do mês.

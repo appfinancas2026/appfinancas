@@ -1254,10 +1254,13 @@ table.report-table td { padding: 12px 0; border-top: 1px solid var(--border); }
  * app: borda de 1px, cantos arredondados, ação primária em bloco sólido. */
 
 .login-root {
+  /* Mesma cor do fundo da logo (public/logo.png) para a imagem se fundir
+   * na tela, sem retângulo de cor diferente ao redor. */
+  --login-bg: #02050F;
   display: flex;
   min-height: 100vh;
   min-height: 100dvh;
-  background: var(--bg);
+  background: var(--login-bg);
   color: var(--text);
 }
 
@@ -1271,8 +1274,7 @@ table.report-table td { padding: 12px 0; border-top: 1px solid var(--border); }
   flex-direction: column;
   justify-content: center;
   padding: 56px;
-  background: var(--surface);
-  border-right: 1px solid var(--border);
+  background: transparent;
   overflow: hidden;
 }
 

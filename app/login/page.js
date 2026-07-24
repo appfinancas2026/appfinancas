@@ -43,8 +43,13 @@ export default function LoginPage() {
     // Força tema escuro na tela de login — o fundo é sempre escuro
     // independente da preferência do usuário no dashboard.
     document.documentElement.setAttribute('data-theme', 'dark');
+    // Pinta o body com a mesma cor do fundo da logo, para não sobrar
+    // nenhuma faixa de cor diferente atrás da tela (ex.: overscroll).
+    const bodyBgAnterior = document.body.style.backgroundColor;
+    document.body.style.backgroundColor = '#02050F';
     return () => {
       // Restaura ao sair (o dashboard reaplica a preferência do usuário)
+      document.body.style.backgroundColor = bodyBgAnterior;
       try {
         const t = localStorage.getItem('financas-tema');
         if (t !== 'dark') document.documentElement.removeAttribute('data-theme');

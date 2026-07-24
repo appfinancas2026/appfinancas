@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import { supabase } from '../../lib/supabase';
-import { formatarMoeda } from '../../lib/financeiro';
+import { formatarMoeda, calcularParcela, vencimentoOcorrencia } from '../../lib/financeiro';
 
 const GraficoFluxo = dynamic(() => import('./RelatoriosCharts').then((m) => m.GraficoFluxo), { ssr: false });
 
@@ -82,12 +82,29 @@ export default function AbaFluxoCaixa({ entidadeAtual, contas, lancamentosFixos 
 
     // Projeção futura com base nos fixos
     const projecao = [];
+    // Projeção futura com base nos fixos.
+    // Inclui parcelados (usando calcularParcela para saber se a parcela cai no mês)
+    // e trata o dia de vencimento maior que o último dia do mês.
+    const projecao = [];
     if (mostrarProjecao && lancamentosFixos?.length > 0) {
       let saldoProj = saldoInicial;
       for (let i = 1; i <= diasProjecao; i++) {
         const data = addDias(hoje, i);
-        const diaDoMes = parseInt(data.split('-')[2], 10);
-        const fixosDoDia = lancamentosFixos.filter((f) => !f.parcelado && f.dia_referencia === diaDoMes);
+        const [anoStr, mesStr, diaStr] = data.split('-');
+        const ano = parseInt(anoStr, 10);
+        const mesIdx = parseInt(mesStr, 10) - 1;
+        const diaDoMes = parseInt(diaStr, 10);
+        const ultimoDiaDoMes = new Date(ano, mesIdx + 1, 0).getDate();
+
+        const fixosDoDia = lancamentosFixos.filter((f) => {
+          // Vencimento efetivo: dia 31 em mês de 30 dias cai no dia 30.
+          const diaEfetivo = Math.min(Number(f.dia_referencia) || 1, ultimoDiaDoMes);
+          if (diaEfetivo !== diaDoMes) return false;
+          // Parcelado só entra se a parcela existir neste mês.
+          if (f.parcelado) return calcularParcela(f, ano, mesIdx) !== null;
+          return true;
+        });
+
         const entradas = fixosDoDia.filter((f) => f.tipo === 'entrada').reduce((s, f) => s + Number(f.valor_padrao), 0);
         const saidas   = fixosDoDia.filter((f) => f.tipo === 'saida').reduce((s, f) => s + Number(f.valor_padrao), 0);
         saldoProj += entradas - saidas;
@@ -107,7 +124,16 @@ export default function AbaFluxoCaixa({ entidadeAtual, contas, lancamentosFixos 
     const menorSaldo    = tudo.length ? Math.min(...tudo.map((d) => d.saldo)) : saldoInicial;
     const diasNegativos = tudo.filter((d) => d.saldo < 0);
 
-    setFluxo({ historico, projecao, tudo, saldoInicial, totalEntradas, totalSaidas, menorSaldo, diasNegativos });
+    // Primeiro dia futuro em que o saldo fica negativo — é o dado acionável.
+    const primeiroNegativoFuturo = tudo.find((d) => d.saldo < 0 && (d.ehProjecao || d.ehHoje)) || null;
+    const diasAteNegativo = primeiroNegativoFuturo
+      ? Math.round((new Date(primeiroNegativoFuturo.data + 'T00:00:00') - new Date(hoje + 'T00:00:00')) / 86400000)
+      : null;
+
+    setFluxo({
+      historico, projecao, tudo, saldoInicial, totalEntradas, totalSaidas,
+      menorSaldo, diasNegativos, primeiroNegativoFuturo, diasAteNegativo,
+    });
     setCarregando(false);
   }, [entidadeAtual, contas, lancamentosFixos, diasHistorico, diasProjecao, mostrarProjecao]);
 
@@ -169,16 +195,30 @@ export default function AbaFluxoCaixa({ entidadeAtual, contas, lancamentosFixos 
             </div>
           </div>
 
-          {fluxo.diasNegativos.length > 0 && (
+          {fluxo.primeiroNegativoFuturo ? (
             <div style={{ background: 'var(--negative-tint)', border: '1px solid var(--negative)', borderRadius: 'var(--radius-md)', padding: '12px 16px' }}>
-              <p style={{ margin: '0 0 4px', fontWeight: 'var(--weight-semibold)', color: 'var(--negative)' }}>⚠️ Atenção: saldo negativo previsto</p>
+              <p style={{ margin: '0 0 4px', fontWeight: 'var(--weight-semibold)', color: 'var(--negative)' }}>
+                Seu saldo fica negativo em {formatarDataCompleta(fluxo.primeiroNegativoFuturo.data)}
+                {fluxo.diasAteNegativo > 0 && ` — daqui a ${fluxo.diasAteNegativo} dia${fluxo.diasAteNegativo > 1 ? 's' : ''}`}
+              </p>
               <p style={{ margin: 0, fontSize: 'var(--text-sm)' }}>
-                {fluxo.diasNegativos.filter((d) => d.ehProjecao).length > 0
-                  ? `A projeção indica saldo negativo em ${fluxo.diasNegativos.filter((d) => d.ehProjecao).length} dia(s) nos próximos ${diasProjecao} dias.`
-                  : `Houve saldo negativo em ${fluxo.diasNegativos.length} dia(s) nos últimos ${diasHistorico} dias.`}
+                Faltam <strong>{formatarMoeda(Math.abs(fluxo.primeiroNegativoFuturo.saldo))}</strong> para cobrir os compromissos desse dia.
+                {fluxo.diasNegativos.filter((d) => d.ehProjecao).length > 1 &&
+                  ` No total, a projeção indica ${fluxo.diasNegativos.filter((d) => d.ehProjecao).length} dias no vermelho nos próximos ${diasProjecao} dias.`}
+              </p>
+              <p style={{ margin: '8px 0 0', fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
+                Ainda dá tempo de agir: antecipar um recebimento, remanejar uma despesa ou negociar a data de vencimento
+                costuma sair bem mais barato que entrar no rotativo ou no cheque especial.
               </p>
             </div>
-          )}
+          ) : fluxo.diasNegativos.length > 0 ? (
+            <div style={{ background: 'var(--surface-alt)', borderRadius: 'var(--radius-md)', padding: '12px 16px' }}>
+              <p style={{ margin: 0, fontSize: 'var(--text-sm)' }}>
+                Houve saldo negativo em {fluxo.diasNegativos.length} dia(s) nos últimos {diasHistorico} dias.
+                A projeção atual não indica novos dias no vermelho.
+              </p>
+            </div>
+          ) : null}
 
           <div className="card">
             <p className="card-title" style={{ marginBottom: 4 }}>Evolução do saldo</p>

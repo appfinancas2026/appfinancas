@@ -7,7 +7,7 @@ import {
 } from 'recharts';
 import { formatarMoeda } from '../../lib/financeiro';
 
-const CORES_GRAFICO = ['#0F6E56', '#C68A2E', '#B4472F', '#3B6E8F', '#7A5C9E', '#5C8A3A', '#A6763F', '#4A5A6B'];
+const CORES_GRAFICO = ['#1AA37D', '#C68A2E', '#B4472F', '#3B6E8F', '#7A5C9E', '#5C8A3A', '#A6763F', '#6E8298'];
 
 const tooltipStyle = { borderRadius: 8, border: '1px solid var(--border)', fontSize: 13 };
 
@@ -20,7 +20,7 @@ export function GraficoComparativoPFPJ({ dados }) {
         <YAxis tick={{ fontSize: 12 }} width={40} />
         <Tooltip formatter={(v) => formatarMoeda(v)} contentStyle={tooltipStyle} />
         <Legend wrapperStyle={{ fontSize: 12 }} />
-        <Bar dataKey="Entradas" fill="#0F6E56" radius={[4, 4, 0, 0]} />
+        <Bar dataKey="Entradas" fill="#1AA37D" radius={[4, 4, 0, 0]} />
         <Bar dataKey="Saídas" fill="#B4472F" radius={[4, 4, 0, 0]} />
       </BarChart>
     </ResponsiveContainer>
@@ -36,7 +36,7 @@ export function GraficoEntradasSaidas({ dados }) {
         <YAxis tick={{ fontSize: 12 }} width={40} />
         <Tooltip formatter={(v) => formatarMoeda(v)} contentStyle={tooltipStyle} />
         <Legend wrapperStyle={{ fontSize: 12 }} />
-        <Bar dataKey="Entradas" fill="#0F6E56" radius={[4, 4, 0, 0]} />
+        <Bar dataKey="Entradas" fill="#1AA37D" radius={[4, 4, 0, 0]} />
         <Bar dataKey="Saídas" fill="#B4472F" radius={[4, 4, 0, 0]} />
       </BarChart>
     </ResponsiveContainer>
@@ -51,7 +51,7 @@ export function GraficoEvolucaoPatrimonio({ dados }) {
         <XAxis dataKey="mes" tick={{ fontSize: 12 }} />
         <YAxis tick={{ fontSize: 12 }} width={50} />
         <Tooltip formatter={(v) => formatarMoeda(v)} contentStyle={tooltipStyle} />
-        <Bar dataKey="Patrimônio" fill="#0F6E56" radius={[4, 4, 0, 0]} />
+        <Bar dataKey="Patrimônio" fill="#1AA37D" radius={[4, 4, 0, 0]} />
       </BarChart>
     </ResponsiveContainer>
   );
@@ -84,8 +84,8 @@ export function GraficoFluxo({ dados }) {
       <AreaChart data={dados} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
         <defs>
           <linearGradient id="gradHistorico" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%" stopColor="#0F6E56" stopOpacity={0.2} />
-            <stop offset="95%" stopColor="#0F6E56" stopOpacity={0} />
+            <stop offset="5%" stopColor="#1AA37D" stopOpacity={0.2} />
+            <stop offset="95%" stopColor="#1AA37D" stopOpacity={0} />
           </linearGradient>
           <linearGradient id="gradProjecao" x1="0" y1="0" x2="0" y2="1">
             <stop offset="5%" stopColor="#3B6E8F" stopOpacity={0.15} />
@@ -105,7 +105,7 @@ export function GraficoFluxo({ dados }) {
           type="monotone"
           dataKey="saldo"
           name="Saldo"
-          stroke="#0F6E56"
+          stroke="#1AA37D"
           strokeWidth={2}
           fill="url(#gradHistorico)"
           dot={false}

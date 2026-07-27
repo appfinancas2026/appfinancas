@@ -14,7 +14,7 @@ const AbaDRE = dynamic(() => import('./AbaDRE'), { ssr: false });
 const NOMES_MESES = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
 const NOMES_MESES_FULL = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 
-const CORES_CAT = ['#0F6E56','#C68A2E','#B4472F','#3B6E8F','#7A5C9E','#5C8A3A','#A6763F','#4A5A6B','#2E7D6E','#8B5E3C'];
+const CORES_CAT = ['#1AA37D','#C68A2E','#B4472F','#3B6E8F','#7A5C9E','#5C8A3A','#A6763F','#6E8298','#2E7D6E','#8B5E3C'];
 
 function hoje() { return new Date().toISOString().slice(0, 10); }
 function primeiroDiaMes(data = new Date()) { return `${data.getFullYear()}-${String(data.getMonth()+1).padStart(2,'0')}-01`; }

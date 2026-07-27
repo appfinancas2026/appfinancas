@@ -44,6 +44,9 @@
   --weight-medium: 500;
   --weight-semibold: 600;
   --weight-bold: 700;
+  --btn-primary-bg: #18181B;
+  --btn-primary-text: #FFFFFF;
+  --btn-primary-hover: #3F3F46;
 }
 
 [data-theme='dark'] {
@@ -64,6 +67,9 @@
   --info-tint: #27272A;
   --info-text: #D4D4D8;
   --accent-text: #FACC15;
+  --btn-primary-bg: #FAFAFA;
+  --btn-primary-text: #18181B;
+  --btn-primary-hover: #E4E4E7;
   --shadow: none;
 }
 
@@ -182,11 +188,11 @@ button, input, select { font-family: var(--font-body); }
   width: 28px;
   height: 28px;
   border-radius: 8px;
-  background: var(--text);
+  background: var(--btn-primary-bg);
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: #fff;
+  color: var(--btn-primary-text);
   font-size: var(--text-md);
   font-weight: var(--weight-semibold);
 }
@@ -289,8 +295,8 @@ button, input, select { font-family: var(--font-body); }
 }
 
 /* Ação primária em preto, não em cor — a cor fica reservada ao significado */
-.btn-primary { background: var(--text); color: #fff; }
-.btn-primary:hover { background: #3F3F46; }
+.btn-primary { background: var(--btn-primary-bg); color: var(--btn-primary-text); }
+.btn-primary:hover { background: var(--btn-primary-hover); }
 .btn-primary:disabled { background: var(--surface-alt); color: var(--text-muted); cursor: not-allowed; }
 
 .btn-ghost {
@@ -344,7 +350,7 @@ button, input, select { font-family: var(--font-body); }
 }
 
 .pill:hover { background: var(--surface-alt); color: var(--text); }
-.pill-active { background: var(--text); color: #fff; border-color: var(--text); }
+.pill-active { background: var(--btn-primary-bg); color: var(--btn-primary-text); border-color: var(--btn-primary-bg); }
 
 .pill-remove {
   border: 1px solid var(--border);
@@ -445,12 +451,12 @@ button, input, select { font-family: var(--font-body); }
 .acao-rapida:hover { background: var(--surface-alt); }
 
 .acao-rapida-principal {
-  background: var(--text);
-  border-color: var(--text);
-  color: #fff;
+  background: var(--btn-primary-bg);
+  border-color: var(--btn-primary-bg);
+  color: var(--btn-primary-text);
 }
 
-.acao-rapida-principal:hover { background: #3F3F46; border-color: #3F3F46; }
+.acao-rapida-principal:hover { background: var(--btn-primary-hover); border-color: var(--btn-primary-hover); }
 
 .acao-rapida-icone { font-size: var(--text-lg); line-height: 1; }
 
@@ -761,7 +767,7 @@ button, input, select { font-family: var(--font-body); }
 
 .pin-dots { display: flex; justify-content: center; gap: 12px; margin: 24px 0; }
 .pin-dot { width: 12px; height: 12px; border-radius: 50%; border: 1.5px solid var(--border); }
-.pin-dot-filled { background: var(--text); border-color: var(--text); }
+.pin-dot-filled { background: var(--btn-primary-bg); border-color: var(--btn-primary-bg); }
 
 .pin-keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 8px; }
 .pin-key {
@@ -828,7 +834,7 @@ button, input, select { font-family: var(--font-body); }
   transition: background 0.15s;
 }
 
-.toggle-switch.on { background: var(--text); }
+.toggle-switch.on { background: var(--btn-primary-bg); }
 
 .toggle-switch::after {
   content: '';
@@ -842,7 +848,7 @@ button, input, select { font-family: var(--font-body); }
   transition: transform 0.15s ease;
 }
 
-.toggle-switch.on::after { transform: translateX(16px); }
+.toggle-switch.on::after { transform: translateX(16px); background: var(--btn-primary-text); }
 
 /* ---------- Linhas de listas ---------- */
 
@@ -967,8 +973,8 @@ table.report-table td { padding: 12px 0; border-top: 1px solid var(--border); }
     width: 50px;
     height: 50px;
     border-radius: 50%;
-    background: var(--text);
-    color: #fff;
+    background: var(--btn-primary-bg);
+    color: var(--btn-primary-text);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1091,8 +1097,8 @@ table.report-table td { padding: 12px 0; border-top: 1px solid var(--border); }
   width: 52px;
   height: 52px;
   border-radius: 50%;
-  background: var(--text);
-  color: #fff;
+  background: var(--btn-primary-bg);
+  color: var(--btn-primary-text);
   font-size: 22px;
   border: none;
   cursor: pointer;
@@ -1498,3 +1504,21 @@ table.report-table td { padding: 12px 0; border-top: 1px solid var(--border); }
   line-height: 1.6;
   margin: 24px 0 0;
 }
+
+/* ---------- Onboarding ---------- */
+.onboarding-progresso {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+
+.onboarding-bolinha {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--border);
+  transition: background 0.15s;
+}
+
+.onboarding-bolinha.ativa { background: var(--text); }

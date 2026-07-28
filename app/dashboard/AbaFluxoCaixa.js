@@ -3,7 +3,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import { supabase } from '../../lib/supabase';
-import { formatarMoeda, calcularParcela } from '../../lib/financeiro';
+import { formatarMoeda } from '../../lib/financeiro';
+import { projetarSaldoDiario } from '../../lib/insights';
 
 const GraficoFluxo = dynamic(() => import('./RelatoriosCharts').then((m) => m.GraficoFluxo), { ssr: false });
 
@@ -101,44 +102,26 @@ export default function AbaFluxoCaixa({ entidadeAtual, contas, lancamentosFixos 
       });
     }
 
-    // Projeção futura com base nos fixos.
-    // Inclui parcelados (usando calcularParcela para saber se a parcela cai no mês),
-    // trata o dia de vencimento maior que o último dia do mês, e desconta a média
-    // diária de gastos variáveis quando o usuário optar por incluí-la.
+    // Projeção futura com base nos fixos. A lógica dia a dia vive em
+    // lib/insights.js (projetarSaldoDiario), reutilizada pelo Card de insights.
+    // Aqui montamos a versão "esparsa" para o gráfico: só entram os dias com
+    // movimento ou a cada 7 dias, e a média de variáveis é somada às saídas.
     const projecao = [];
     if (mostrarProjecao && lancamentosFixos?.length > 0) {
-      let saldoProj = saldoInicial;
-      for (let i = 1; i <= diasProjecao; i++) {
-        const data = addDias(hoje, i);
-        const [anoStr, mesStr, diaStr] = data.split('-');
-        const ano = parseInt(anoStr, 10);
-        const mesIdx = parseInt(mesStr, 10) - 1;
-        const diaDoMes = parseInt(diaStr, 10);
-        const ultimoDiaDoMes = new Date(ano, mesIdx + 1, 0).getDate();
-
-        const fixosDoDia = lancamentosFixos.filter((f) => {
-          // Vencimento efetivo: dia 31 em mês de 30 dias cai no dia 30.
-          const diaEfetivo = Math.min(Number(f.dia_referencia) || 1, ultimoDiaDoMes);
-          if (diaEfetivo !== diaDoMes) return false;
-          // Parcelado só entra se a parcela existir neste mês.
-          if (f.parcelado) return calcularParcela(f, ano, mesIdx) !== null;
-          return true;
-        });
-
-        const entradas = fixosDoDia.filter((f) => f.tipo === 'entrada').reduce((s, f) => s + Number(f.valor_padrao), 0);
-        const saidas   = fixosDoDia.filter((f) => f.tipo === 'saida').reduce((s, f) => s + Number(f.valor_padrao), 0);
-        saldoProj += entradas - saidas - mediaDiariaVariavel;
-        if (entradas > 0 || saidas > 0 || i % 7 === 0) {
+      const diaria = projetarSaldoDiario({ saldoInicial, lancamentosFixos, dias: diasProjecao, mediaDiariaVariavel, hoje });
+      diaria.forEach((d, idx) => {
+        const i = idx + 1;
+        if (d.entradas > 0 || d.saidas > 0 || i % 7 === 0) {
           projecao.push({
-            data, label: formatarData(data),
-            entradas,
-            saidas: saidas + mediaDiariaVariavel,
-            saldo: saldoProj,
-            itens: fixosDoDia.map((f) => ({ descricao: f.nome, tipo: f.tipo, valor: f.valor_padrao })),
+            data: d.data, label: formatarData(d.data),
+            entradas: d.entradas,
+            saidas: d.saidas + mediaDiariaVariavel,
+            saldo: d.saldo,
+            itens: d.itens.map((f) => ({ descricao: f.nome, tipo: f.tipo, valor: f.valor_padrao })),
             ehProjecao: true,
           });
         }
-      }
+      });
     }
 
     const tudo = [...historico, ...projecao];

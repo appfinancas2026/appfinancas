@@ -167,6 +167,56 @@ describe('gerarInsights — regras isoladas', () => {
   });
 });
 
+describe('gerarInsights — blindagem contra pouco histórico', () => {
+  test('categoria que só apareceu em 1 mês anterior não vira "alta" (evita falso positivo)', () => {
+    const res = gerarInsights({
+      transacoesMes: [{ data: '2026-07-05', tipo: 'saida', valor: 500, categoria: 'Delivery' }],
+      transacoesHistorico: [
+        // Delivery só existe em 1 mês → base insuficiente, mesmo sendo um "salto".
+        { data: '2026-06-05', tipo: 'saida', valor: 100, categoria: 'Delivery' },
+      ],
+      projecaoFluxo: [],
+      lancamentosFixos: [],
+      dataAtual,
+    });
+    assert.equal(res.length, 0);
+  });
+
+  test('categoria com gasto em 2 meses anteriores já pode disparar', () => {
+    const res = gerarInsights({
+      // Entrada de 300 mantém o resultado do mês (−200) igual à média histórica,
+      // isolando a regra de categoria (senão a regra de resultado também dispara).
+      transacoesMes: [
+        { data: '2026-07-05', tipo: 'saida', valor: 500, categoria: 'Delivery' },
+        { data: '2026-07-01', tipo: 'entrada', valor: 300 },
+      ],
+      transacoesHistorico: [
+        { data: '2026-05-05', tipo: 'saida', valor: 200, categoria: 'Delivery' },
+        { data: '2026-06-05', tipo: 'saida', valor: 200, categoria: 'Delivery' },
+      ],
+      projecaoFluxo: [],
+      lancamentosFixos: [],
+      dataAtual,
+    });
+    assert.equal(res.length, 1);
+    assert.equal(res[0].tipo, 'alta');
+    assert.match(res[0].texto, /Delivery/);
+  });
+
+  test('resultado vs média não dispara com apenas 1 mês de histórico', () => {
+    const res = gerarInsights({
+      transacoesMes: [{ data: '2026-07-01', tipo: 'entrada', valor: 2000 }],
+      transacoesHistorico: [
+        { data: '2026-06-01', tipo: 'entrada', valor: 300 },
+      ],
+      projecaoFluxo: [],
+      lancamentosFixos: [],
+      dataAtual,
+    });
+    assert.equal(res.length, 0);
+  });
+});
+
 describe('gerarInsights — orquestração', () => {
   test('retorna no máximo 3, ordenados por score decrescente', () => {
     const res = gerarInsights({

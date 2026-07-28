@@ -18,6 +18,7 @@ import BottomNav from './BottomNav';
 import MenuConfiguracoes from './MenuConfiguracoes';
 import CardMetas from './CardMetas';
 import CardOrcamento from './CardOrcamento';
+import CardInsights from './CardInsights';
 import CardMembros from './CardMembros';
 import CardAuditoria from './CardAuditoria';
 import AbaRelatorios from './AbaRelatorios';
@@ -1741,6 +1742,14 @@ export default function Dashboard() {
               {receitasFixasPendentes > 0 && <> · <span className="saldo-hero-mais">+{formatarMoeda(receitasFixasPendentes)}</span> a receber</>}
             </p>
           </div>
+
+          <CardInsights
+            entidadeAtual={entidadeAtual}
+            contas={contas}
+            lancamentosFixos={lancamentosFixos}
+            dataAtual={dataAtual}
+            transacoesMes={transacoes}
+          />
 
           <div className="acoes-rapidas">
             <button onClick={() => irParaSecao('secao-lancamentos')} className="acao-rapida acao-rapida-principal">

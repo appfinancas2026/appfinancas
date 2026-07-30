@@ -37,6 +37,7 @@ export async function GET(request) {
 
   const { searchParams } = new URL(request.url);
   const email = (searchParams.get('email') || '').trim();
+  const usarIA = searchParams.get('ia') !== '0'; // ?ia=0 desliga a IA (usa textos-template)
 
   // Mapa usuario_id -> email (uma chamada admin, reutilizada nos dois modos).
   const { data: listaUsers, error: erroUsers } = await supabase.auth.admin.listUsers({ page: 1, perPage: 1000 });
@@ -54,7 +55,7 @@ export async function GET(request) {
     const entidade = (entidades || []).find((e) => e.padrao) || (entidades || [])[0];
     if (!entidade) return Response.json({ error: 'Entidade PF não encontrada.' }, { status: 404 });
 
-    const r = await processarEntidade({ supabase, resend, entidadeId: entidade.id, email: usuario.email, hoje });
+    const r = await processarEntidade({ supabase, resend, entidadeId: entidade.id, email: usuario.email, hoje, usarIA });
     return Response.json({ ok: !r.erro, modo: 'teste', ...r });
   }
 
@@ -66,9 +67,10 @@ export async function GET(request) {
   for (const ent of (entidadesPF || [])) {
     const emailUsuario = emailPorUsuario[ent.usuario_id];
     if (!emailUsuario) continue; // sem e-mail conhecido → pula
-    resultados.push(await processarEntidade({ supabase, resend, entidadeId: ent.id, email: emailUsuario, hoje }));
+    resultados.push(await processarEntidade({ supabase, resend, entidadeId: ent.id, email: emailUsuario, hoje, usarIA }));
   }
 
+  console.log(`[insights] lote: ${resultados.filter((r) => r.enviado).length}/${(entidadesPF || []).length} enviados`);
   return Response.json({
     ok: true,
     modo: 'lote',
@@ -76,5 +78,6 @@ export async function GET(request) {
     enviados: resultados.filter((r) => r.enviado).length,
     semInsights: resultados.filter((r) => !r.enviado && !r.erro).length,
     erros: resultados.filter((r) => r.erro).length,
+    detalhes: resultados,
   });
 }

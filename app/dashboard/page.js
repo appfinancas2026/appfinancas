@@ -1746,6 +1746,7 @@ export default function Dashboard() {
           <CardInsights
             entidadeAtual={entidadeAtual}
             contas={contas}
+            cartoes={cartoes}
             lancamentosFixos={lancamentosFixos}
             dataAtual={dataAtual}
             transacoesMes={transacoes}

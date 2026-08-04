@@ -7,6 +7,7 @@ import {
   calcularPeriodoFaturaAberta, subtrairMeses, mesReferenciaStr,
 } from '../../lib/financeiro';
 import { recalcularSaldoConta } from '../../lib/saldos';
+import { calcularFaturasCartao } from '../../lib/faturas';
 import CampoCategoria from './CampoCategoria';
 
 export default function CardCartoes({ entidadeAtual, contas, cartoes, onAtualizar, aberto, onAlternarAberto }) {
@@ -16,8 +17,9 @@ export default function CardCartoes({ entidadeAtual, contas, cartoes, onAtualiza
   const [diaFechamentoCartao, setDiaFechamentoCartao] = useState('');
   const [diaVencimentoCartao, setDiaVencimentoCartao] = useState('');
   const [contaPagamentoCartaoId, setContaPagamentoCartaoId] = useState('');
+  const [limiteCartao, setLimiteCartao] = useState('');
   const [edicaoCartaoId, setEdicaoCartaoId] = useState(null);
-  const [formCartao, setFormCartao] = useState({ nome: '', dia_fechamento: '', dia_vencimento: '', conta_pagamento_id: '' });
+  const [formCartao, setFormCartao] = useState({ nome: '', dia_fechamento: '', dia_vencimento: '', conta_pagamento_id: '', limite: '' });
 
   const [mostrarCompraCartaoId, setMostrarCompraCartaoId] = useState(null);
   const [valorCompraCartao, setValorCompraCartao] = useState('');
@@ -56,17 +58,8 @@ export default function CardCartoes({ entidadeAtual, contas, cartoes, onAtualiza
         .eq('cartao_id', cartao.id)
         .in('mes_fatura', [mesRefAberta, mesRefFechada]);
 
-      const compras = (data || []).filter((t) => t.origem !== 'fatura');
-      const pagamentos = (data || []).filter((t) => t.origem === 'fatura');
-
-      const totalAberta = compras.filter((t) => t.mes_fatura === mesRefAberta).reduce((s, t) => s + Number(t.valor), 0);
-      const totalFechada = compras.filter((t) => t.mes_fatura === mesRefFechada).reduce((s, t) => s + Number(t.valor), 0);
-      const fechadaPaga = pagamentos.some((t) => t.mes_fatura === mesRefFechada);
-
-      resultado[cartao.id] = {
-        aberta: { mesRef: mesRefAberta, total: totalAberta },
-        fechada: { mesRef: mesRefFechada, total: totalFechada, paga: fechadaPaga },
-      };
+      // Agregação extraída p/ lib/faturas (reutilizada pelos insights).
+      resultado[cartao.id] = calcularFaturasCartao(cartao, data || [], hoje);
     }));
 
     setFaturasPorCartao(resultado);
@@ -128,6 +121,7 @@ export default function CardCartoes({ entidadeAtual, contas, cartoes, onAtualiza
       dia_fechamento: parseInt(diaFechamentoCartao, 10),
       dia_vencimento: parseInt(diaVencimentoCartao, 10),
       conta_pagamento_id: contaPagamentoCartaoId || null,
+      limite: limiteCartao !== '' ? parseFloat(limiteCartao) : null,
     });
 
     if (!error) {
@@ -135,6 +129,7 @@ export default function CardCartoes({ entidadeAtual, contas, cartoes, onAtualiza
       setDiaFechamentoCartao('');
       setDiaVencimentoCartao('');
       setContaPagamentoCartaoId('');
+      setLimiteCartao('');
       setMostrarNovoCartao(false);
       onAtualizar();
     }
@@ -147,6 +142,7 @@ export default function CardCartoes({ entidadeAtual, contas, cartoes, onAtualiza
       dia_fechamento: c.dia_fechamento,
       dia_vencimento: c.dia_vencimento,
       conta_pagamento_id: c.conta_pagamento_id || '',
+      limite: c.limite != null ? c.limite : '',
     });
   }
 
@@ -159,6 +155,7 @@ export default function CardCartoes({ entidadeAtual, contas, cartoes, onAtualiza
         dia_fechamento: parseInt(formCartao.dia_fechamento, 10),
         dia_vencimento: parseInt(formCartao.dia_vencimento, 10),
         conta_pagamento_id: formCartao.conta_pagamento_id || null,
+        limite: formCartao.limite !== '' ? parseFloat(formCartao.limite) : null,
       })
       .eq('id', edicaoCartaoId);
 
@@ -347,6 +344,7 @@ export default function CardCartoes({ entidadeAtual, contas, cartoes, onAtualiza
           <input className="input" placeholder="Nome (ex: Nubank)" value={nomeCartao} onChange={(e) => setNomeCartao(e.target.value)} required autoFocus />
           <input className="input" style={{ width: 100 }} type="number" min="1" max="31" placeholder="Dia fecham." value={diaFechamentoCartao} onChange={(e) => setDiaFechamentoCartao(e.target.value)} required />
           <input className="input" style={{ width: 100 }} type="number" min="1" max="31" placeholder="Dia venc." value={diaVencimentoCartao} onChange={(e) => setDiaVencimentoCartao(e.target.value)} required />
+          <input className="input" style={{ width: 120 }} type="number" step="0.01" min="0" placeholder="Limite (R$, opc.)" value={limiteCartao} onChange={(e) => setLimiteCartao(e.target.value)} />
           <select className="input" value={contaPagamentoCartaoId} onChange={(e) => setContaPagamentoCartaoId(e.target.value)}>
             <option value="">Conta de pagamento (opcional)</option>
             {contas.map((c) => (<option key={c.id} value={c.id}>{c.nome}</option>))}
@@ -363,6 +361,7 @@ export default function CardCartoes({ entidadeAtual, contas, cartoes, onAtualiza
               <input className="input" value={formCartao.nome} onChange={(e) => setFormCartao({ ...formCartao, nome: e.target.value })} required />
               <input className="input" style={{ width: 100 }} type="number" min="1" max="31" value={formCartao.dia_fechamento} onChange={(e) => setFormCartao({ ...formCartao, dia_fechamento: e.target.value })} required />
               <input className="input" style={{ width: 100 }} type="number" min="1" max="31" value={formCartao.dia_vencimento} onChange={(e) => setFormCartao({ ...formCartao, dia_vencimento: e.target.value })} required />
+              <input className="input" style={{ width: 120 }} type="number" step="0.01" min="0" placeholder="Limite (R$, opc.)" value={formCartao.limite} onChange={(e) => setFormCartao({ ...formCartao, limite: e.target.value })} />
               <select className="input" value={formCartao.conta_pagamento_id} onChange={(e) => setFormCartao({ ...formCartao, conta_pagamento_id: e.target.value })}>
                 <option value="">Conta de pagamento (opcional)</option>
                 {contas.map((c) => (<option key={c.id} value={c.id}>{c.nome}</option>))}

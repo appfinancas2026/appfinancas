@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { gerarInsights, projetarSaldoDiario } from '../../lib/insights';
-import { primeiroDiaDoMes, ultimoDiaDoMes, subtrairMeses } from '../../lib/financeiro';
+import { primeiroDiaDoMes, ultimoDiaDoMes, subtrairMeses, calcularPeriodoFaturaAberta, mesReferenciaStr } from '../../lib/financeiro';
+import { calcularFaturasCartao } from '../../lib/faturas';
 
 // Marcador de cor por tipo (mesma semântica do resto do app).
 const COR_TIPO = {
@@ -12,7 +13,7 @@ const COR_TIPO = {
   oportunidade: 'var(--primary)',  // verde — oportunidade
 };
 
-export default function CardInsights({ entidadeAtual, contas, lancamentosFixos, dataAtual, transacoesMes }) {
+export default function CardInsights({ entidadeAtual, contas, cartoes, lancamentosFixos, dataAtual, transacoesMes }) {
   const [insights, setInsights] = useState([]);
 
   useEffect(() => {
@@ -59,12 +60,48 @@ export default function CardInsights({ entidadeAtual, contas, lancamentosFixos, 
         hoje,
       });
 
+      // Cartões — fatura aberta/fechada + histórico p/ média (dados puros p/ os insights).
+      const hojeDate = new Date();
+      const infoCartoes = await Promise.all((cartoes || []).map(async (cartao) => {
+        const aberta = calcularPeriodoFaturaAberta(cartao, hojeDate);
+        const maisAntigo = subtrairMeses(aberta.ano, aberta.mes, 6);
+        const { data: txsCartao } = await supabase
+          .from('transacoes')
+          .select('valor, mes_fatura, origem')
+          .eq('cartao_id', cartao.id)
+          .gte('mes_fatura', mesReferenciaStr(maisAntigo.ano, maisAntigo.mes))
+          .lte('mes_fatura', mesReferenciaStr(aberta.ano, aberta.mes));
+
+        const { aberta: fa, fechada: ff } = calcularFaturasCartao(cartao, txsCartao || [], hojeDate);
+
+        // Histórico: total por fatura dos meses anteriores à fechada (só compras).
+        const totaisPorMes = {};
+        (txsCartao || []).filter((t) => t.origem !== 'fatura').forEach((t) => {
+          totaisPorMes[t.mes_fatura] = (totaisPorMes[t.mes_fatura] || 0) + Number(t.valor || 0);
+        });
+        const historicoFaturas = Object.keys(totaisPorMes)
+          .filter((m) => m < ff.mesRef)
+          .sort()
+          .map((m) => totaisPorMes[m]);
+
+        return {
+          nome: cartao.nome,
+          faturaAberta: fa.total,
+          faturaFechadaNaoPaga: ff.paga ? 0 : ff.total,
+          faturaAtual: ff.total,
+          historicoFaturas,
+          limite: (cartao.limite != null && cartao.limite !== '') ? Number(cartao.limite) : null,
+        };
+      }));
+
       const resultado = gerarInsights({
         transacoesMes: transacoesMes || [],
         transacoesHistorico: historico || [],
         projecaoFluxo,
         lancamentosFixos: lancamentosFixos || [],
         dataAtual,
+        cartoes: infoCartoes,
+        saldoEmConta: saldoInicial,
       });
 
       if (!cancelado) setInsights(resultado);
@@ -72,7 +109,7 @@ export default function CardInsights({ entidadeAtual, contas, lancamentosFixos, 
 
     carregar();
     return () => { cancelado = true; };
-  }, [entidadeAtual, dataAtual.ano, dataAtual.mes, transacoesMes, contas, lancamentosFixos]);
+  }, [entidadeAtual, dataAtual.ano, dataAtual.mes, transacoesMes, contas, cartoes, lancamentosFixos]);
 
   if (insights.length === 0) return null;
 

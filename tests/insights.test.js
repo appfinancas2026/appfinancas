@@ -248,3 +248,97 @@ describe('gerarInsights — orquestração', () => {
     assert.deepEqual(res, []);
   });
 });
+
+// Insumos neutros p/ isolar as regras de cartão (nada de estoque/histórico).
+const vazio = { transacoesMes: [], transacoesHistorico: [], projecaoFluxo: [], lancamentosFixos: [], dataAtual };
+
+describe('gerarInsights — regra dinheiro parado vs fatura', () => {
+  test('dispara sugerindo adiantar, mantendo o colchão de R$300', () => {
+    const res = gerarInsights({ ...vazio, saldoEmConta: 1000, cartoes: [{ nome: 'Nubank', faturaAberta: 800 }] });
+    assert.equal(res.length, 1);
+    assert.equal(res[0].tipo, 'oportunidade');
+    assert.match(res[0].texto, /1\.000,00/); // saldo
+    assert.match(res[0].texto, /800,00/);    // fatura
+    assert.match(res[0].texto, /700,00/);    // adiantar = min(1000-300, 800)
+    assert.match(res[0].texto, /reserva/);
+  });
+
+  test('não zera a conta: saldo 500 e fatura 450 sugere só R$200 (não os 450)', () => {
+    const res = gerarInsights({ ...vazio, saldoEmConta: 500, cartoes: [{ nome: 'X', faturaAberta: 450 }] });
+    assert.equal(res.length, 1);
+    assert.match(res[0].texto, /200,00/); // adiantar = 500-300, não a fatura cheia
+  });
+
+  test('BLINDAGEM: adiantamento que zeraria a conta não dispara (saldo = colchão)', () => {
+    const res = gerarInsights({ ...vazio, saldoEmConta: 300, cartoes: [{ nome: 'X', faturaAberta: 800 }] });
+    assert.equal(res.length, 0);
+  });
+
+  test('BLINDAGEM: saldo abaixo do colchão não dispara', () => {
+    const res = gerarInsights({ ...vazio, saldoEmConta: 250, cartoes: [{ nome: 'X', faturaAberta: 800 }] });
+    assert.equal(res.length, 0);
+  });
+
+  test('BLINDAGEM: sem fatura em aberto não dispara', () => {
+    const res = gerarInsights({ ...vazio, saldoEmConta: 5000, cartoes: [{ nome: 'X', faturaAberta: 0 }] });
+    assert.equal(res.length, 0);
+  });
+});
+
+describe('gerarInsights — regra fatura acima da média', () => {
+  test('dispara quando a fatura atual está ≥30% acima da média', () => {
+    const res = gerarInsights({ ...vazio, cartoes: [{ nome: 'Nubank', faturaAtual: 1400, historicoFaturas: [1000, 1000] }] });
+    assert.equal(res.length, 1);
+    assert.equal(res[0].tipo, 'alta');
+    assert.match(res[0].texto, /Nubank/);
+    assert.match(res[0].texto, /40%/);
+  });
+
+  test('BLINDAGEM: histórico insuficiente (só 1 mês) não dispara', () => {
+    const res = gerarInsights({ ...vazio, cartoes: [{ nome: 'Nubank', faturaAtual: 1400, historicoFaturas: [1000] }] });
+    assert.equal(res.length, 0);
+  });
+
+  test('BLINDAGEM: média zero não dispara (não divide por zero)', () => {
+    const res = gerarInsights({ ...vazio, cartoes: [{ nome: 'Nubank', faturaAtual: 1400, historicoFaturas: [0, 0] }] });
+    assert.equal(res.length, 0);
+  });
+
+  test('abaixo de 30% acima da média não dispara', () => {
+    const res = gerarInsights({ ...vazio, cartoes: [{ nome: 'Nubank', faturaAtual: 1200, historicoFaturas: [1000, 1000] }] });
+    assert.equal(res.length, 0);
+  });
+});
+
+describe('gerarInsights — regra limite comprometido', () => {
+  test('dispara quando uso do limite ≥80%', () => {
+    const res = gerarInsights({ ...vazio, cartoes: [{ nome: 'Itaú', faturaAberta: 850, faturaFechadaNaoPaga: 0, limite: 1000 }] });
+    assert.equal(res.length, 1);
+    assert.equal(res[0].tipo, 'risco');
+    assert.match(res[0].texto, /Itaú/);
+    assert.match(res[0].texto, /85%/);
+    assert.match(res[0].texto, /850,00/);
+    assert.match(res[0].texto, /1\.000,00/);
+  });
+
+  test('uso soma fatura aberta + fechada não paga', () => {
+    const res = gerarInsights({ ...vazio, cartoes: [{ nome: 'X', faturaAberta: 500, faturaFechadaNaoPaga: 400, limite: 1000 }] });
+    assert.equal(res.length, 1);
+    assert.match(res[0].texto, /90%/); // (500+400)/1000
+  });
+
+  test('BLINDAGEM: limite nulo não dispara (não calcula percentual)', () => {
+    const res = gerarInsights({ ...vazio, cartoes: [{ nome: 'X', faturaAberta: 900, faturaFechadaNaoPaga: 0, limite: null }] });
+    assert.equal(res.length, 0);
+  });
+
+  test('BLINDAGEM: limite zero não dispara', () => {
+    const res = gerarInsights({ ...vazio, cartoes: [{ nome: 'X', faturaAberta: 900, faturaFechadaNaoPaga: 0, limite: 0 }] });
+    assert.equal(res.length, 0);
+  });
+
+  test('abaixo de 80% não dispara', () => {
+    const res = gerarInsights({ ...vazio, cartoes: [{ nome: 'X', faturaAberta: 700, faturaFechadaNaoPaga: 0, limite: 1000 }] });
+    assert.equal(res.length, 0);
+  });
+});

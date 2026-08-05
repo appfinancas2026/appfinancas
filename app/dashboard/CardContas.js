@@ -111,7 +111,7 @@ export default function CardContas({ entidadeAtual, contas, cartoes, aberto, onA
   const [processandoPDF, setProcessandoPDF] = useState(false);
   const [erroPDF, setErroPDF] = useState('');
 
-  function handleArquivoExtrato(e) {
+  async function handleArquivoExtrato(e) {
     const arquivo = e.target.files[0];
     if (!arquivo) return;
 
@@ -124,13 +124,22 @@ export default function CardContas({ entidadeAtual, contas, cartoes, aberto, onA
       return;
     }
 
-    const leitor = new FileReader();
-    leitor.onload = (evento) => {
-      const texto = evento.target.result;
-      const resultado = extensao === 'csv' ? parseCSVExtrato(texto) : parseOFX(texto);
-      setPreviewImportacao(resultado);
-    };
-    leitor.readAsText(arquivo, 'ISO-8859-1');
+    const texto = await lerTextoDoArquivo(arquivo);
+    const resultado = extensao === 'csv' ? parseCSVExtrato(texto) : parseOFX(texto);
+    setPreviewImportacao(resultado);
+  }
+
+  // Encoding do arquivo: hoje os bancos exportam em UTF-8 (o C6 exporta), mas
+  // alguns ainda mandam Windows-1252. Ler tudo como latin1 nunca falha — só
+  // corrompe silenciosamente ("Descrição" vira "DescriÃ§Ã£o"). Por isso tenta
+  // UTF-8 em modo estrito e só cai no legado quando ele realmente não é UTF-8.
+  async function lerTextoDoArquivo(arquivo) {
+    const buffer = await arquivo.arrayBuffer();
+    try {
+      return new TextDecoder('utf-8', { fatal: true }).decode(buffer).replace(/^﻿/, '');
+    } catch {
+      return new TextDecoder('windows-1252').decode(buffer);
+    }
   }
 
   async function extrairPDF(arquivo) {
@@ -202,7 +211,12 @@ export default function CardContas({ entidadeAtual, contas, cartoes, aberto, onA
     const [tipoDestino, idDestino] = destinoImportacaoId.split(':');
     const cartaoSelecionado = tipoDestino === 'cartao' ? cartoes.find((c) => c.id === idDestino) : null;
 
-    const selecionadas = previewImportacao.filter((t) => t.incluir);
+    // Numa fatura, crédito é pagamento/estorno — nunca compra. O pagamento da
+    // fatura é registrado pelo fluxo próprio do cartão, então importar aqui
+    // contaria duas vezes.
+    const selecionadas = previewImportacao
+      .filter((t) => t.incluir)
+      .filter((t) => !(tipoDestino === 'cartao' && t.ehCredito));
     const referencias = selecionadas.map((t) => t.referencia_externa).filter(Boolean);
 
     let existentes = new Set();

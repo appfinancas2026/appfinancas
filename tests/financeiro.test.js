@@ -388,6 +388,60 @@ describe('parseCSVExtrato', () => {
   });
 });
 
+// Layout real da fatura do C6: três colunas de "valor", sendo as de moeda
+// estrangeira zeradas em compra nacional. Pegar a primeira zerava tudo.
+describe('parseCSVExtrato — fatura de cartão (layout C6)', () => {
+  const CABECALHO = 'Data de Compra;Nome no Cartão;Final do Cartão;Categoria;Descrição;Parcela;Valor (em US$);Cotação (em R$);Valor (em R$)';
+  const csvC6 = [
+    CABECALHO,
+    '28/07/2025;RICARDO M BUENO;4280;Supermercados;BOLO DE MAE;12/12;0;0;136.60',
+    '30/09/2025;RICARDO M BUENO;4280;Automotivo;RIVEL VEICULOS;10/10;0;0;1210.00',
+    '10/07/2026;RICARDO M BUENO;4280;Pagamentos;Pag Fatura Boleto;Única;0;0;-5278.18',
+  ].join('\n');
+
+  test('usa a coluna "Valor (em R$)", não a de dólar nem a de cotação', () => {
+    const r = parseCSVExtrato(csvC6);
+    assert.equal(r[0].valor, 136.6);
+    assert.equal(r[1].valor, 1210);
+    assert.ok(r.every((t) => t.valor !== 0), 'nenhuma linha deve vir zerada');
+  });
+
+  test('marca o pagamento da fatura como crédito e já vem desmarcado', () => {
+    const pagamento = parseCSVExtrato(csvC6).find((t) => /Pag Fatura/.test(t.descricao));
+    assert.equal(pagamento.ehCredito, true);
+    assert.equal(pagamento.ehPagamentoFatura, true);
+    assert.equal(pagamento.incluir, false);
+  });
+
+  test('compras normais seguem marcadas para importar', () => {
+    const compra = parseCSVExtrato(csvC6)[0];
+    assert.equal(compra.incluir, true);
+    assert.equal(compra.ehCredito, false);
+  });
+
+  test('extrato com uma única coluna de valor continua funcionando', () => {
+    const r = parseCSVExtrato('Data;Valor;Descrição\n05/07/2026;-10,00;X');
+    assert.equal(r[0].valor, 10);
+    assert.equal(r[0].tipo, 'saida');
+  });
+});
+
+describe('parseValorMonetario — milhar sem decimal', () => {
+  test('ponto de milhar sem casas decimais', () => {
+    assert.equal(parseValorMonetario('1.234'), 1234);
+    assert.equal(parseValorMonetario('1.234.567'), 1234567);
+  });
+
+  test('não confunde com decimal de 2 casas', () => {
+    assert.equal(parseValorMonetario('136.60'), 136.6);
+    assert.equal(parseValorMonetario('1210.00'), 1210);
+  });
+
+  test('negativo com ponto decimal (pagamento de fatura)', () => {
+    assert.equal(parseValorMonetario('-5278.18'), -5278.18);
+  });
+});
+
 describe('calcularSaldoConta', () => {
   test('entradas somam, saídas subtraem', () => {
     const txs = [

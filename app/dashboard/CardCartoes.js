@@ -9,10 +9,12 @@ import {
 import { recalcularSaldoConta } from '../../lib/saldos';
 import { calcularFaturasCartao } from '../../lib/faturas';
 import CampoCategoria from './CampoCategoria';
+import ImportadorExtrato from './ImportadorExtrato';
 
 export default function CardCartoes({ entidadeAtual, contas, cartoes, onAtualizar, aberto, onAlternarAberto }) {
   const [faturasPorCartao, setFaturasPorCartao] = useState({});
   const [mostrarNovoCartao, setMostrarNovoCartao] = useState(false);
+  const [mostrarImportarFatura, setMostrarImportarFatura] = useState(false);
   const [nomeCartao, setNomeCartao] = useState('');
   const [diaFechamentoCartao, setDiaFechamentoCartao] = useState('');
   const [diaVencimentoCartao, setDiaVencimentoCartao] = useState('');
@@ -331,6 +333,9 @@ export default function CardCartoes({ entidadeAtual, contas, cartoes, onAtualiza
       <div className="card-header">
         <span className="card-title-group"><span className="card-icon">💳</span><p className="card-title">Cartões de crédito</p></span>
         <div className="card-header-actions">
+          {aberto && cartoes.length > 0 && (
+            <button onClick={() => setMostrarImportarFatura((v) => !v)} className="btn btn-ghost">⬆ Importar fatura</button>
+          )}
           {aberto && <button onClick={() => setMostrarNovoCartao((v) => !v)} className="btn btn-ghost">+ Novo cartão</button>}
           <button onClick={onAlternarAberto} className="collapse-btn">{aberto ? '▾' : '▸'}</button>
         </div>
@@ -338,6 +343,14 @@ export default function CardCartoes({ entidadeAtual, contas, cartoes, onAtualiza
 
       {aberto && (
       <>
+      {mostrarImportarFatura && (
+        <ImportadorExtrato
+          modo="fatura"
+          entidadeAtual={entidadeAtual}
+          cartoes={cartoes}
+          onConcluido={() => { setMostrarImportarFatura(false); onAtualizar(); carregarFaturas(cartoes); }}
+        />
+      )}
       <div className={`card-limitada ${(alturaCheiaCartoes || mostrarNovoCartao || comprasCartaoVisivelId || mostrarCompraCartaoId) ? 'expandida' : ''}`}>
       {mostrarNovoCartao && (
         <form onSubmit={adicionarCartao} className="form-row" style={{ marginBottom: 12 }}>

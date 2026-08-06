@@ -1560,7 +1560,7 @@ function DashboardConteudo() {
               />
             )}
           </div>
-          <SimuladorRotativo />
+          {cartoes.length > 0 && <SimuladorRotativo />}
         </>
       ) : view === 'lancamentos' ? (
         <>

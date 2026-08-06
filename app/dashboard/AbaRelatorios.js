@@ -63,6 +63,7 @@ export default function AbaRelatorios({
   pendenciasVencidas,
   contas,
   lancamentosFixos,
+  subabaInicial,
 }) {
   const [periodoPre, setPeriodoPre] = useState(0);
   const [dataInicio, setDataInicio] = useState(primeiroDiaMes());
@@ -74,7 +75,7 @@ export default function AbaRelatorios({
   const [dados, setDados] = useState(null);
   const [contasData, setContasData] = useState(null);
   const [categorias, setCategorias] = useState([]);
-  const [abaAtiva, setAbaAtiva] = useState('resumo');
+  const [abaAtiva, setAbaAtiva] = useState(subabaInicial || 'resumo');
 
   // Estado da aba Contas
   const [contasTipo, setContasTipo] = useState('saida');       // 'saida' | 'entrada'

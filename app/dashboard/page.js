@@ -56,6 +56,15 @@ function DashboardConteudo() {
   function setView(v) {
     router.push(`${pathname}?view=${v}`);
   }
+  // Navegação com query extra (ex: conta em foco, sub-aba de Relatórios) —
+  // usada pelos blocos clicáveis da Home (Fase 3). setView cobre o caso
+  // simples e continua em uso nos demais lugares (Sidebar, tabs, etc).
+  function navegarComQuery(v, extra = {}) {
+    const params = new URLSearchParams({ view: v, ...extra });
+    router.push(`${pathname}?${params.toString()}`);
+  }
+  const contaFocoParam = searchParams.get('conta');
+  const subabaParam = searchParams.get('subaba');
 
   const [montado, setMontado] = useState(false);
   const [tema, setTema] = useState('light');
@@ -1519,6 +1528,7 @@ function DashboardConteudo() {
           confirmarOcorrencia={confirmarOcorrencia}
           contas={contas}
           lancamentosFixos={lancamentosFixos}
+          subabaInicial={subabaParam}
         />
       ) : view === 'contas-cartoes' ? (
         <>
@@ -1533,6 +1543,7 @@ function DashboardConteudo() {
                 carregarContas(entidadeAtual);
                 carregarTransacoesDoMes(entidadeAtual, dataAtual.ano, dataAtual.mes);
               }}
+              contaFoco={contaFocoParam}
             />
             {!secoesOcultasAtual.includes('cartoes') && (
               <CardCartoes
@@ -1763,7 +1774,14 @@ function DashboardConteudo() {
                 return (
                   <div key={fixo.id} className="atencao-linha">
                     <div className="atencao-linha-info">
-                      <span className="atencao-nome">{fixo.nome}</span>
+                      <span
+                        className="atencao-nome"
+                        onClick={() => navegarComQuery('contas-fixas')}
+                        style={{ cursor: 'pointer' }}
+                        title="Ver em Contas fixas"
+                      >
+                        {fixo.nome}
+                      </span>
                       <span className={`atencao-prazo ${diasRestantes < 0 ? 'atrasado' : ''}`}>
                         {diasRestantes < 0
                           ? `atrasada há ${Math.abs(diasRestantes)} dia${Math.abs(diasRestantes) > 1 ? 's' : ''}`
@@ -1799,6 +1817,22 @@ function DashboardConteudo() {
               {despesasFixasPendentes > 0 && <> · <span className="saldo-hero-menos">−{formatarMoeda(despesasFixasPendentes)}</span> a pagar</>}
               {receitasFixasPendentes > 0 && <> · <span className="saldo-hero-mais">+{formatarMoeda(receitasFixasPendentes)}</span> a receber</>}
             </p>
+
+            {contas.length > 0 && (
+              <div style={{ marginTop: 16, paddingTop: 4 }}>
+                {contas.map((c) => (
+                  <div
+                    key={c.id}
+                    className="row row-main"
+                    onClick={() => navegarComQuery('contas-cartoes', { conta: c.id })}
+                    style={{ cursor: 'pointer' }}
+                  >
+                    <span style={{ fontSize: 'var(--text-md)' }}>{c.nome}</span>
+                    <span className={`amount ${Number(c.saldo_atual) < 0 ? 'amount-negative' : ''}`}>{formatarMoeda(c.saldo_atual)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           <CardInsights
@@ -1808,6 +1842,7 @@ function DashboardConteudo() {
             lancamentosFixos={lancamentosFixos}
             dataAtual={dataAtual}
             transacoesMes={transacoes}
+            onNavegar={(destino, subaba) => navegarComQuery(destino, subaba ? { subaba } : {})}
           />
 
           <div className="acoes-rapidas">

@@ -13,7 +13,7 @@ const COR_TIPO = {
   oportunidade: 'var(--primary)',  // verde — oportunidade
 };
 
-export default function CardInsights({ entidadeAtual, contas, cartoes, lancamentosFixos, dataAtual, transacoesMes }) {
+export default function CardInsights({ entidadeAtual, contas, cartoes, lancamentosFixos, dataAtual, transacoesMes, onNavegar }) {
   const [insights, setInsights] = useState([]);
 
   useEffect(() => {
@@ -125,10 +125,15 @@ export default function CardInsights({ entidadeAtual, contas, cartoes, lancament
         {insights.map((ins, i) => (
           <div
             key={i}
+            role={ins.destino ? 'button' : undefined}
+            tabIndex={ins.destino ? 0 : undefined}
+            onClick={ins.destino ? () => onNavegar?.(ins.destino, ins.subaba) : undefined}
+            onKeyDown={ins.destino ? (e) => { if (e.key === 'Enter') onNavegar?.(ins.destino, ins.subaba); } : undefined}
             style={{
               display: 'flex', alignItems: 'flex-start', gap: 10,
               padding: '10px 0',
               borderTop: i > 0 ? '1px solid var(--border)' : 'none',
+              cursor: ins.destino ? 'pointer' : 'default',
             }}
           >
             <span

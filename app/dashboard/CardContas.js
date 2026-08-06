@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { formatarMoeda } from '../../lib/financeiro';
 import { recalcularSaldoConta } from '../../lib/saldos';
@@ -8,7 +8,7 @@ import ImportadorExtrato from './ImportadorExtrato';
 
 const LIMITE_LISTA = 6;
 
-export default function CardContas({ entidadeAtual, contas, aberto, onAlternarAberto, onContasAlteradas }) {
+export default function CardContas({ entidadeAtual, contas, aberto, onAlternarAberto, onContasAlteradas, contaFoco }) {
   const [mostrarNovaConta, setMostrarNovaConta] = useState(false);
   const [nomeConta, setNomeConta] = useState('');
   const [saldoConta, setSaldoConta] = useState('');
@@ -24,6 +24,20 @@ export default function CardContas({ entidadeAtual, contas, aberto, onAlternarAb
 
   const [expandirContas, setExpandirContas] = useState(false);
   const [alturaCheiaContas, setAlturaCheiaContas] = useState(false);
+
+  // Foco vindo de ?conta= (ex: clique no Bloco 1 da Home): expande a lista se
+  // a conta estiver truncada, depois rola até a linha dela.
+  useEffect(() => {
+    if (!contaFoco) return;
+    if (!contas.slice(0, LIMITE_LISTA).some((c) => c.id === contaFoco)) {
+      setExpandirContas(true);
+    }
+  }, [contaFoco, contas]);
+
+  useEffect(() => {
+    if (!contaFoco) return;
+    document.getElementById(`conta-${contaFoco}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, [contaFoco, expandirContas]);
 
   async function adicionarConta(e) {
     e.preventDefault();
@@ -165,7 +179,12 @@ export default function CardContas({ entidadeAtual, contas, aberto, onAlternarAb
                 <button type="button" onClick={() => setEdicaoContaId(null)} className="btn-link">Cancelar</button>
               </form>
             ) : (
-              <div key={c.id} className="row-main row">
+              <div
+                key={c.id}
+                id={`conta-${c.id}`}
+                className="row-main row"
+                style={c.id === contaFoco ? { outline: '2px solid var(--primary)', outlineOffset: 2, borderRadius: 'var(--radius-sm)' } : undefined}
+              >
                 <span style={{ fontSize: 14, display: 'flex', alignItems: 'center', gap: 6 }}>
                   <button onClick={() => alternarPrincipal(c)} className={`star-btn ${c.principal ? 'is-principal' : ''}`} title="Definir como conta principal">★</button>
                   {c.nome}

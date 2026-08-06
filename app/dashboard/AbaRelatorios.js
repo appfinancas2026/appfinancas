@@ -10,6 +10,7 @@ const GraficoDespesasPorCategoria = dynamic(() => import('./RelatoriosCharts').t
 const GraficoEvolucaoPatrimonio  = dynamic(() => import('./RelatoriosCharts').then((m) => m.GraficoEvolucaoPatrimonio),  { ssr: false });
 const GraficoComparativoPFPJ    = dynamic(() => import('./RelatoriosCharts').then((m) => m.GraficoComparativoPFPJ),    { ssr: false });
 const AbaDRE = dynamic(() => import('./AbaDRE'), { ssr: false });
+const AbaFluxoCaixa = dynamic(() => import('./AbaFluxoCaixa'), { ssr: false });
 
 const NOMES_MESES = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
 const NOMES_MESES_FULL = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
@@ -60,6 +61,8 @@ export default function AbaRelatorios({
   dataAtual,
   confirmarOcorrencia,
   pendenciasVencidas,
+  contas,
+  lancamentosFixos,
 }) {
   const [periodoPre, setPeriodoPre] = useState(0);
   const [dataInicio, setDataInicio] = useState(primeiroDiaMes());
@@ -367,8 +370,8 @@ export default function AbaRelatorios({
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-      {/* ── Filtros (ocultos na sub-aba DRE, que tem período próprio) ── */}
-      {abaAtiva !== 'dre' && (
+      {/* ── Filtros (ocultos nas sub-abas DRE e Fluxo, que têm período próprio) ── */}
+      {abaAtiva !== 'dre' && abaAtiva !== 'fluxo' && (
       <div className="card relatorio-filtros">
         <div className="relatorio-filtros-periodos">
           {PERIODOS.map((p, i) => (
@@ -459,7 +462,7 @@ export default function AbaRelatorios({
 
           {/* ── Abas internas ── */}
           <div className="relatorio-abas">
-            {['resumo','categorias','contas','lançamentos','essencialidade', ...(entidadeAtualObj?.tipo === 'PJ' ? ['dre'] : [])].map((a) => (
+            {['resumo','categorias','contas','lançamentos','essencialidade','fluxo', ...(entidadeAtualObj?.tipo === 'PJ' ? ['dre'] : [])].map((a) => (
               <button key={a} onClick={() => setAbaAtiva(a)} className={`tab ${abaAtiva === a ? 'tab-active' : ''}`} style={{ textTransform: 'capitalize' }}>
                 {a}
               </button>
@@ -738,13 +741,18 @@ export default function AbaRelatorios({
             </div>
           )}
 
+          {/* ── Aba Fluxo de Caixa ── */}
+          {abaAtiva === 'fluxo' && (
+            <AbaFluxoCaixa entidadeAtual={entidadeAtual} contas={contas} lancamentosFixos={lancamentosFixos} />
+          )}
+
           {/* ── Aba DRE (só PJ) ── */}
           {abaAtiva === 'dre' && entidadeAtualObj?.tipo === 'PJ' && (
             <AbaDRE entidadeAtual={entidadeAtual} entidades={[entidadeAtualObj]} />
           )}
 
-          {/* ── Exportar (oculto na sub-aba DRE e na aba Contas, que tem export próprio) ── */}
-          {abaAtiva !== 'dre' && abaAtiva !== 'contas' && (
+          {/* ── Exportar (oculto nas sub-abas DRE/Fluxo e na aba Contas, que tem export próprio) ── */}
+          {abaAtiva !== 'dre' && abaAtiva !== 'fluxo' && abaAtiva !== 'contas' && (
           <div className="card" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
             <span className="card-title" style={{ marginRight: 4 }}>Exportar lançamentos do período</span>
             <button onClick={exportarLancamentosCSV} className="btn btn-ghost" disabled={!dados || dados.lista.length === 0}>CSV</button>

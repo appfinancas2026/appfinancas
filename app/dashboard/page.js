@@ -25,7 +25,6 @@ import AbaRelatorios from './AbaRelatorios';
 import Onboarding from './Onboarding';
 import dynamic from 'next/dynamic';
 const AbaAssistente = dynamic(() => import('./AbaAssistente'), { ssr: false });
-const AbaFluxoCaixa = dynamic(() => import('./AbaFluxoCaixa'), { ssr: false });
 import CardContas from './CardContas';
 import CardCartoes from './CardCartoes';
 import SimuladorRotativo from './SimuladorRotativo';
@@ -170,10 +169,10 @@ function DashboardConteudo() {
     receitas: true,
     despesas: true,
     lancamentos: true,
-    cartoes: false,
-    metas: false,
-    orcamento: false,
-    membros: false,
+    cartoes: true,
+    metas: true,
+    orcamento: true,
+    membros: true,
     atividade: false,
   });
   const [usuarioId, setUsuarioId] = useState(null);
@@ -1495,19 +1494,12 @@ function DashboardConteudo() {
           <div className="tabs">
             <button onClick={() => setView('home')} className={`tab ${view === 'home' ? 'tab-active' : ''}`}>Painel</button>
             <button onClick={() => setView('relatorios')} className={`tab ${view === 'relatorios' ? 'tab-active' : ''}`}>Relatórios</button>
-            <button onClick={() => setView('fluxo')} className={`tab ${view === 'fluxo' ? 'tab-active' : ''}`}>Fluxo</button>
             <button onClick={() => setView('assistente')} className={`tab ${view === 'assistente' ? 'tab-active' : ''}`}>✨ Assistente</button>
           </div>
         </div>
       </div>
 
-      {view === 'fluxo' ? (
-        <AbaFluxoCaixa
-          entidadeAtual={entidadeAtual}
-          contas={contas}
-          lancamentosFixos={lancamentosFixos}
-        />
-      ) : view === 'assistente' ? (
+      {view === 'assistente' ? (
         <AbaAssistente
           entidadeAtual={entidadeAtual}
           contas={contas}
@@ -1525,6 +1517,8 @@ function DashboardConteudo() {
           dataAtual={dataAtual}
           pendenciasVencidas={pendenciasVencidas}
           confirmarOcorrencia={confirmarOcorrencia}
+          contas={contas}
+          lancamentosFixos={lancamentosFixos}
         />
       ) : view === 'contas-cartoes' ? (
         <>

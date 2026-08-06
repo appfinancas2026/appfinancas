@@ -2,8 +2,6 @@
 const ITENS_MENU = [
   { view: 'home', icone: '🏠', label: 'Painel' },
   { view: 'relatorios', icone: '📊', label: 'Relatórios' },
-  { view: 'fluxo', icone: '💹', label: 'Fluxo de Caixa' },
-  { view: 'assistente', icone: '✨', label: 'Assistente IA' },
   { view: 'contas-cartoes', icone: '🏦', label: 'Contas & Cartões' },
   { view: 'lancamentos', icone: '🧾', label: 'Lançamentos' },
   { view: 'contas-fixas', icone: '📆', label: 'Contas fixas' },

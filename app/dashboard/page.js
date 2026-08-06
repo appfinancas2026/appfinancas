@@ -934,17 +934,6 @@ function DashboardConteudo() {
     }
   }
 
-  async function alternarSecaoOculta(chave) {
-    const entidadeAtualObjLocal = entidades.find((e) => e.id === entidadeAtual);
-    const atual = entidadeAtualObjLocal?.secoes_ocultas || [];
-    const nova = atual.includes(chave) ? atual.filter((s) => s !== chave) : [...atual, chave];
-
-    const { error } = await supabase.from('entidades').update({ secoes_ocultas: nova }).eq('id', entidadeAtual);
-    if (!error) {
-      setEntidades((lista) => lista.map((e) => (e.id === entidadeAtual ? { ...e, secoes_ocultas: nova } : e)));
-    }
-  }
-
   // ---------- Lançamentos fixos (molde) ----------
 
   async function adicionarLancamentoFixo(e, tipoAlvo) {
@@ -1319,7 +1308,6 @@ function DashboardConteudo() {
   ).sort((a, b) => b.valor - a.valor);
 
   const entidadeAtualObj = entidades.find((e) => e.id === entidadeAtual);
-  const secoesOcultasAtual = entidadeAtualObj?.secoes_ocultas || [];
 
   const mesInicioVisivel = (() => {
     const referencia = entidadeAtualObj?.mes_inicio_controle || primeiroMovimento;
@@ -1495,20 +1483,18 @@ function DashboardConteudo() {
               }}
               contaFoco={contaFocoParam}
             />
-            {!secoesOcultasAtual.includes('cartoes') && (
-              <CardCartoes
-                entidadeAtual={entidadeAtual}
-                contas={contas}
-                cartoes={cartoes}
-                aberto={secaoAberta.cartoes}
-                onAlternarAberto={() => setSecaoAberta({ ...secaoAberta, cartoes: !secaoAberta.cartoes })}
-                onAtualizar={() => {
-                  carregarCartoes(entidadeAtual);
-                  carregarContas(entidadeAtual);
-                  carregarTransacoesDoMes(entidadeAtual, dataAtual.ano, dataAtual.mes);
-                }}
-              />
-            )}
+            <CardCartoes
+              entidadeAtual={entidadeAtual}
+              contas={contas}
+              cartoes={cartoes}
+              aberto={secaoAberta.cartoes}
+              onAlternarAberto={() => setSecaoAberta({ ...secaoAberta, cartoes: !secaoAberta.cartoes })}
+              onAtualizar={() => {
+                carregarCartoes(entidadeAtual);
+                carregarContas(entidadeAtual);
+                carregarTransacoesDoMes(entidadeAtual, dataAtual.ano, dataAtual.mes);
+              }}
+            />
           </div>
           {cartoes.length > 0 && <SimuladorRotativo />}
         </>
@@ -1670,24 +1656,20 @@ function DashboardConteudo() {
         </div>
       ) : view === 'planejamento' ? (
         <div className="cards-grid">
-          {!secoesOcultasAtual.includes('orcamento') && (
-            <CardOrcamento
-              entidadeAtual={entidadeAtual}
-              transacoesDoMes={transacoes}
-              ano={dataAtual.ano}
-              mes={dataAtual.mes}
-              aberto={secaoAberta.orcamento}
-              onAlternarAberto={() => setSecaoAberta({ ...secaoAberta, orcamento: !secaoAberta.orcamento })}
-            />
-          )}
-          {!secoesOcultasAtual.includes('metas') && (
-            <CardMetas
-              entidadeAtual={entidadeAtual}
-              contas={contas}
-              aberto={secaoAberta.metas}
-              onAlternarAberto={() => setSecaoAberta({ ...secaoAberta, metas: !secaoAberta.metas })}
-            />
-          )}
+          <CardOrcamento
+            entidadeAtual={entidadeAtual}
+            transacoesDoMes={transacoes}
+            ano={dataAtual.ano}
+            mes={dataAtual.mes}
+            aberto={secaoAberta.orcamento}
+            onAlternarAberto={() => setSecaoAberta({ ...secaoAberta, orcamento: !secaoAberta.orcamento })}
+          />
+          <CardMetas
+            entidadeAtual={entidadeAtual}
+            contas={contas}
+            aberto={secaoAberta.metas}
+            onAlternarAberto={() => setSecaoAberta({ ...secaoAberta, metas: !secaoAberta.metas })}
+          />
         </div>
       ) : view === 'configuracoes' ? (
         <div className="cards-grid">
@@ -1704,25 +1686,19 @@ function DashboardConteudo() {
             setNomeExibicaoInput={setNomeExibicaoInput}
             salvarNomeExibicao={salvarNomeExibicao}
             selecionarTema={selecionarTema}
-            secoesOcultas={entidadeAtualObj?.secoes_ocultas || []}
-            alternarSecaoOculta={alternarSecaoOculta}
             entidadeAtual={entidadeAtual}
           />
-          {!secoesOcultasAtual.includes('membros') && (
-            <CardMembros
-              entidadeAtual={entidadeAtual}
-              usuarioId={usuarioId}
-              aberto={secaoAberta.membros}
-              onAlternarAberto={() => setSecaoAberta({ ...secaoAberta, membros: !secaoAberta.membros })}
-            />
-          )}
-          {!secoesOcultasAtual.includes('atividade') && (
-            <CardAuditoria
-              entidadeAtual={entidadeAtual}
-              aberto={secaoAberta.atividade}
-              onAlternarAberto={() => setSecaoAberta({ ...secaoAberta, atividade: !secaoAberta.atividade })}
-            />
-          )}
+          <CardMembros
+            entidadeAtual={entidadeAtual}
+            usuarioId={usuarioId}
+            aberto={secaoAberta.membros}
+            onAlternarAberto={() => setSecaoAberta({ ...secaoAberta, membros: !secaoAberta.membros })}
+          />
+          <CardAuditoria
+            entidadeAtual={entidadeAtual}
+            aberto={secaoAberta.atividade}
+            onAlternarAberto={() => setSecaoAberta({ ...secaoAberta, atividade: !secaoAberta.atividade })}
+          />
         </div>
       ) : (
         <>

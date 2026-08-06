@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback, useRef, Suspense } from 'react';
+import { useEffect, useState, useCallback, Suspense } from 'react';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { supabase } from '../../lib/supabase';
 import { TEMAS_CORES } from '../../lib/temas';
@@ -69,36 +69,6 @@ function DashboardConteudo() {
   const [montado, setMontado] = useState(false);
   const [tema, setTema] = useState('light');
   const [valoresOcultos, setValoresOcultos] = useState(false);
-  const [mostrarConfiguracoes, setMostrarConfiguracoes] = useState(false);
-  const refConfiguracoes = useRef(null);
-
-  // Fecha o menu de configurações ao clicar fora dele ou apertar Esc —
-  // comportamento esperado de qualquer menu suspenso.
-  useEffect(() => {
-    if (!mostrarConfiguracoes) return;
-
-    function aoClicarFora(e) {
-      if (refConfiguracoes.current && !refConfiguracoes.current.contains(e.target)) {
-        setMostrarConfiguracoes(false);
-      }
-    }
-
-    function aoTeclar(e) {
-      if (e.key === 'Escape') setMostrarConfiguracoes(false);
-    }
-
-    // 'mousedown' em vez de 'click': fecha assim que o clique começa, sem
-    // esperar o botão soltar, o que evita um piscar se o alvo sumir no meio.
-    document.addEventListener('mousedown', aoClicarFora);
-    document.addEventListener('touchstart', aoClicarFora);
-    document.addEventListener('keydown', aoTeclar);
-
-    return () => {
-      document.removeEventListener('mousedown', aoClicarFora);
-      document.removeEventListener('touchstart', aoClicarFora);
-      document.removeEventListener('keydown', aoTeclar);
-    };
-  }, [mostrarConfiguracoes]);
   const [sidebarAberta, setSidebarAberta] = useState(true);
   const [sidebarMobileAberta, setSidebarMobileAberta] = useState(false);
 
@@ -1458,30 +1428,8 @@ function DashboardConteudo() {
               <button onClick={() => setMostrarNovaEntidade((v) => !v)} className="btn btn-ghost">+ Adicionar CNPJ</button>
             </div>
           </div>
-          <div className="settings-wrap" ref={refConfiguracoes}>
-            <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
-              <button onClick={() => setMostrarConfiguracoes((v) => !v)} className="btn-icon" title="Configurações">⚙</button>
-              <button onClick={sair} className="btn-link">Sair</button>
-            </div>
-            {mostrarConfiguracoes && (
-              <MenuConfiguracoes
-                tema={tema}
-                alternarTema={alternarTema}
-                valoresOcultos={valoresOcultos}
-                alternarOcultarValores={alternarOcultarValores}
-                pinConfigurado={pinConfigurado}
-                alternarBloqueioPin={alternarBloqueioPin}
-                perfil={perfil}
-                handleUploadLogo={handleUploadLogo}
-                nomeExibicaoInput={nomeExibicaoInput}
-                setNomeExibicaoInput={setNomeExibicaoInput}
-                salvarNomeExibicao={salvarNomeExibicao}
-                selecionarTema={selecionarTema}
-                secoesOcultas={entidadeAtualObj?.secoes_ocultas || []}
-                alternarSecaoOculta={alternarSecaoOculta}
-                entidadeAtual={entidadeAtual}
-              />
-            )}
+          <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
+            <button onClick={sair} className="btn-link">Sair</button>
           </div>
         </div>
 
@@ -1494,12 +1442,14 @@ function DashboardConteudo() {
         )}
 
         <div className="month-row">
-          <div className="month-nav">
-            <button onClick={mesAnterior} className="btn-icon">‹</button>
-            <span className="month-label">{NOMES_MESES[dataAtual.mes]} de {dataAtual.ano}</span>
-            <button onClick={mesProximo} className="btn-icon">›</button>
-            <button onClick={irParaHoje} className="btn btn-ghost">Hoje</button>
-          </div>
+          {['home', 'lancamentos', 'contas-fixas', 'planejamento', 'relatorios'].includes(view) && (
+            <div className="month-nav">
+              <button onClick={mesAnterior} className="btn-icon">‹</button>
+              <span className="month-label">{NOMES_MESES[dataAtual.mes]} de {dataAtual.ano}</span>
+              <button onClick={mesProximo} className="btn-icon">›</button>
+              <button onClick={irParaHoje} className="btn btn-ghost">Hoje</button>
+            </div>
+          )}
           <div className="tabs">
             <button onClick={() => setView('home')} className={`tab ${view === 'home' ? 'tab-active' : ''}`}>Painel</button>
             <button onClick={() => setView('relatorios')} className={`tab ${view === 'relatorios' ? 'tab-active' : ''}`}>Relatórios</button>
@@ -1741,6 +1691,23 @@ function DashboardConteudo() {
         </div>
       ) : view === 'configuracoes' ? (
         <div className="cards-grid">
+          <MenuConfiguracoes
+            tema={tema}
+            alternarTema={alternarTema}
+            valoresOcultos={valoresOcultos}
+            alternarOcultarValores={alternarOcultarValores}
+            pinConfigurado={pinConfigurado}
+            alternarBloqueioPin={alternarBloqueioPin}
+            perfil={perfil}
+            handleUploadLogo={handleUploadLogo}
+            nomeExibicaoInput={nomeExibicaoInput}
+            setNomeExibicaoInput={setNomeExibicaoInput}
+            salvarNomeExibicao={salvarNomeExibicao}
+            selecionarTema={selecionarTema}
+            secoesOcultas={entidadeAtualObj?.secoes_ocultas || []}
+            alternarSecaoOculta={alternarSecaoOculta}
+            entidadeAtual={entidadeAtual}
+          />
           {!secoesOcultasAtual.includes('membros') && (
             <CardMembros
               entidadeAtual={entidadeAtual}

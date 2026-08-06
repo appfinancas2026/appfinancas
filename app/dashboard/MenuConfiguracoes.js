@@ -29,7 +29,10 @@ export default function MenuConfiguracoes({
   ];
 
   return (
-    <div className="settings-menu">
+    <div className="card">
+      <div className="card-header">
+        <span className="card-title-group"><span className="card-icon">⚙</span><p className="card-title">Preferências</p></span>
+      </div>
       <div className="settings-item">
         <span>Modo escuro</span>
         <button onClick={alternarTema} className={`toggle-switch ${tema === 'dark' ? 'on' : ''}`} />

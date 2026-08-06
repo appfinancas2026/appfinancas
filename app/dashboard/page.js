@@ -23,28 +23,22 @@ import CardMembros from './CardMembros';
 import CardAuditoria from './CardAuditoria';
 import AbaRelatorios from './AbaRelatorios';
 import Onboarding from './Onboarding';
-import CampoCategoria from './CampoCategoria';
-import CampoDescricao from './CampoDescricao';
 import dynamic from 'next/dynamic';
 const AbaAssistente = dynamic(() => import('./AbaAssistente'), { ssr: false });
 const AbaFluxoCaixa = dynamic(() => import('./AbaFluxoCaixa'), { ssr: false });
-import CapturaRapida from './CapturaRapida';
 import CardContas from './CardContas';
 import CardCartoes from './CardCartoes';
 import SimuladorRotativo from './SimuladorRotativo';
+import CardReceitasFixas from './CardReceitasFixas';
+import CardDespesasFixas from './CardDespesasFixas';
+import CardNovoLancamento from './CardNovoLancamento';
+import CardListaLancamentos from './CardListaLancamentos';
 
 
 const NOMES_MESES = [
   'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
   'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
 ];
-
-const DIAS_SEMANA = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
-
-function formatarCabecalhoDia(dataISO) {
-  const d = new Date(`${dataISO}T00:00:00`);
-  return `${DIAS_SEMANA[d.getDay()]}, ${d.getDate()}`;
-}
 
 export default function Dashboard() {
   const router = useRouter();
@@ -179,7 +173,6 @@ export default function Dashboard() {
   const [ordenarDespesasPor, setOrdenarDespesasPor] = useState('data');
   const [alturaCheiaReceitas, setAlturaCheiaReceitas] = useState(false);
   const [alturaCheiaDespesas, setAlturaCheiaDespesas] = useState(false);
-  const LIMITE_LISTA = 6;
 
   const [edicaoTransacaoId, setEdicaoTransacaoId] = useState(null);
   const [formTransacao, setFormTransacao] = useState({ valor: '', categoria: '', descricao: '', data: '', essencialidade: '' });
@@ -1414,163 +1407,6 @@ export default function Dashboard() {
     .sort((a, b) => Number(b.valor) - Number(a.valor))
     .slice(0, 5);
 
-  function renderListaFixos(tipoAlvo, expandido, aoExpandir, ordenacao) {
-    const listaCompleta = lancamentosFixos.filter((f) => {
-      if (f.tipo !== tipoAlvo) return false;
-      if (f.parcelado) return calcularParcela(f, dataAtual.ano, dataAtual.mes) !== null;
-      return true;
-    }).sort((a, b) => (
-      ordenacao === 'alfabetica' ? a.nome.localeCompare(b.nome, 'pt-BR') : a.dia_referencia - b.dia_referencia
-    ));
-
-    if (listaCompleta.length === 0) {
-      return <p className="empty-hint">Nenhuma {tipoAlvo === 'entrada' ? 'receita fixa' : 'despesa fixa'} neste mês.</p>;
-    }
-
-    const lista = expandido ? listaCompleta : listaCompleta.slice(0, LIMITE_LISTA);
-
-    const linhas = lista.map((f) => {
-      if (edicaoFixoId === f.id) {
-        return (
-          <form key={f.id} onSubmit={salvarEdicaoFixo} className="form-row" style={{ padding: '8px 0' }}>
-            <input className="input" value={formFixo.nome} onChange={(e) => setFormFixo({ ...formFixo, nome: e.target.value })} required />
-            <input className="input" style={{ width: 90 }} type="number" min="1" max="31" value={formFixo.dia_referencia} onChange={(e) => setFormFixo({ ...formFixo, dia_referencia: e.target.value })} required />
-            <input className="input" style={{ width: 110 }} type="number" step="0.01" value={formFixo.valor_padrao} onChange={(e) => setFormFixo({ ...formFixo, valor_padrao: e.target.value })} required />
-            <select className="input" value={formFixo.conta_padrao_id} onChange={(e) => setFormFixo({ ...formFixo, conta_padrao_id: e.target.value })}>
-              <option value="">Conta padrão (opcional)</option>
-              {contas.map((c) => (<option key={c.id} value={c.id}>{c.nome}</option>))}
-            </select>
-            <CampoCategoria entidadeAtual={entidadeAtual} tipo={tipoAlvo === 'entrada' ? 'entrada' : 'saida'} value={formFixo.categoria} onChange={(e) => setFormFixo({ ...formFixo, categoria: e.target.value })} placeholder="Categoria (opcional)" style={{ width: 180 }} />
-            <button type="submit" className="btn btn-primary">Salvar</button>
-            <button type="button" onClick={() => setEdicaoFixoId(null)} className="btn-link">Cancelar</button>
-          </form>
-        );
-      }
-
-      const ocorrencia = ocorrenciasDoMes[f.id];
-      const contaVinculada = contas.find((c) => c.id === (ocorrencia ? ocorrencia.conta_id : f.conta_padrao_id));
-
-      if (!ocorrencia) {
-        return <p key={f.id} className="empty-hint">{f.nome} — carregando mês...</p>;
-      }
-
-      if (edicaoOcorrenciaId === ocorrencia.id) {
-        return (
-          <form key={f.id} onSubmit={(e) => salvarEdicaoOcorrencia(e, ocorrencia.id)} className="form-row" style={{ padding: '8px 0' }}>
-            <span style={{ fontSize: 13 }}>{f.nome} ({NOMES_MESES[dataAtual.mes]}):</span>
-            <input className="input" style={{ width: 110 }} type="number" step="0.01" value={formOcorrencia.valor} onChange={(e) => setFormOcorrencia({ ...formOcorrencia, valor: e.target.value })} required />
-            <select className="input" value={formOcorrencia.conta_id} onChange={(e) => setFormOcorrencia({ ...formOcorrencia, conta_id: e.target.value })}>
-              <option value="">Sem conta</option>
-              {contas.map((c) => (<option key={c.id} value={c.id}>{c.nome}</option>))}
-            </select>
-            <button type="submit" className="btn btn-primary">Salvar</button>
-            <button type="button" onClick={() => setEdicaoOcorrenciaId(null)} className="btn-link">Cancelar</button>
-          </form>
-        );
-      }
-
-      const pago = jaPagoNaOcorrencia(ocorrencia.id);
-      const pendente = pendenteNaOcorrencia(ocorrencia);
-      const ehParcial = ocorrencia.status === 'parcial';
-
-      return (
-        <div key={f.id} className="row">
-          <div className="row-main">
-            <div>
-              <p className="row-title">
-                {f.nome}
-                {ocorrencia.parcela_numero && <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}> · {ocorrencia.parcela_numero}/{f.total_parcelas}</span>}
-              </p>
-              <p className="row-subtitle">
-                todo dia {f.dia_referencia}{contaVinculada ? ` · ${contaVinculada.nome}` : ''}
-                {ehParcial && (
-                  <span style={{ color: 'var(--accent)' }}>
-                    {' '}· {formatarMoeda(pago)} {tipoAlvo === 'entrada' ? 'recebido' : 'pago'}, falta {formatarMoeda(pendente)}
-                  </span>
-                )}
-              </p>
-            </div>
-            <div className="row-actions">
-              <span className="amount">{formatarMoeda(ocorrencia.valor)}</span>
-              {ocorrencia.status === 'confirmado' ? (
-                <>
-                  <span className="badge badge-confirmed">{tipoAlvo === 'entrada' ? 'Recebido' : 'Pago'}</span>
-                  <button onClick={() => desfazerOcorrencia(ocorrencia)} className="btn-link">desfazer</button>
-                </>
-              ) : (
-                <>
-                  <span className={`badge ${ehParcial ? 'badge-partial' : 'badge-pending'}`}>
-                    {ehParcial ? 'Parcial' : 'Pendente'}
-                  </span>
-                  <button onClick={() => iniciarEdicaoOcorrencia(ocorrencia)} className="btn-link">ajustar</button>
-                  <button onClick={() => setPagamentoParcialId(pagamentoParcialId === ocorrencia.id ? null : ocorrencia.id)} className="btn-link">
-                    parcial
-                  </button>
-                  <button onClick={() => confirmarOcorrencia(f, ocorrencia)} className="btn btn-primary" style={{ padding: '6px 10px', fontSize: 12 }}>
-                    {ehParcial ? 'Quitar' : (tipoAlvo === 'entrada' ? 'Recebido' : 'Pago')}
-                  </button>
-                </>
-              )}
-            </div>
-          </div>
-          {pagamentoParcialId === ocorrencia.id && (
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                const valor = parseFloat(valorParcial);
-                if (!valor || valor <= 0) return;
-                confirmarOcorrencia(f, ocorrencia, valor);
-                setValorParcial('');
-                setPagamentoParcialId(null);
-              }}
-              className="form-row"
-              style={{ marginTop: 8, padding: 10, background: 'var(--surface-alt)', borderRadius: 'var(--radius-sm)' }}
-            >
-              <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                Falta {formatarMoeda(pendente)} —
-              </span>
-              <input
-                className="input"
-                style={{ width: 120 }}
-                type="number"
-                step="0.01"
-                max={pendente}
-                placeholder="Quanto agora?"
-                value={valorParcial}
-                onChange={(e) => setValorParcial(e.target.value)}
-                autoFocus
-                required
-              />
-              <button type="submit" className="btn btn-primary">
-                {tipoAlvo === 'entrada' ? 'Receber' : 'Pagar'}
-              </button>
-              <button type="button" onClick={() => { setPagamentoParcialId(null); setValorParcial(''); }} className="btn-link">
-                Cancelar
-              </button>
-            </form>
-          )}
-          <div style={{ display: 'flex', gap: 10, marginTop: 4, flexWrap: 'wrap' }}>
-            <button onClick={() => iniciarEdicaoFixo(f)} className="btn-link">editar molde</button>
-            <button onClick={() => excluirFixo(f)} className="btn-link">excluir</button>
-          </div>
-        </div>
-      );
-    });
-
-    return (
-      <>
-        {linhas}
-        {listaCompleta.length > LIMITE_LISTA && (
-          <div className="show-more-row">
-            <button onClick={() => aoExpandir((v) => !v)} className="btn-link">
-              {expandido ? 'ver menos' : `ver mais (${listaCompleta.length - LIMITE_LISTA})`}
-            </button>
-          </div>
-        )}
-      </>
-    );
-  }
-
   return (
     <div className="layout-root">
       <Sidebar
@@ -1799,99 +1635,115 @@ export default function Dashboard() {
             />
           )}
 
-          <div className="card card-receitas" id="secao-receitas">
-            <div className="card-header">
-              <span className="card-title-group"><span className="card-icon">⬇</span><p className="card-title">Receitas fixas</p></span>
-              <div className="card-header-actions">
-                <select className="input" style={{ padding: '5px 8px', fontSize: 12 }} value={ordenarReceitasPor} onChange={(e) => setOrdenarReceitasPor(e.target.value)}>
-                  <option value="data">Ordenar: dia</option>
-                  <option value="alfabetica">Ordenar: A-Z</option>
-                </select>
-                <button onClick={() => setMostrarNovaReceitaFixa((v) => !v)} className="btn btn-ghost">+ Nova receita fixa</button>
-                <button onClick={() => setSecaoAberta({ ...secaoAberta, receitas: !secaoAberta.receitas })} className="collapse-btn">{secaoAberta.receitas ? '▾' : '▸'}</button>
-              </div>
-            </div>
+          <CardReceitasFixas
+            entidadeAtual={entidadeAtual}
+            contas={contas}
+            lancamentosFixos={lancamentosFixos}
+            ocorrenciasDoMes={ocorrenciasDoMes}
+            dataAtual={dataAtual}
+            nomeMes={NOMES_MESES[dataAtual.mes]}
+            aberto={secaoAberta.receitas}
+            onAlternarAberto={() => setSecaoAberta({ ...secaoAberta, receitas: !secaoAberta.receitas })}
+            mostrarNovaReceitaFixa={mostrarNovaReceitaFixa}
+            setMostrarNovaReceitaFixa={setMostrarNovaReceitaFixa}
+            ordenarReceitasPor={ordenarReceitasPor}
+            setOrdenarReceitasPor={setOrdenarReceitasPor}
+            expandirReceitas={expandirReceitas}
+            setExpandirReceitas={setExpandirReceitas}
+            alturaCheiaReceitas={alturaCheiaReceitas}
+            setAlturaCheiaReceitas={setAlturaCheiaReceitas}
+            nomeFixo={nomeFixo}
+            setNomeFixo={setNomeFixo}
+            diaFixo={diaFixo}
+            setDiaFixo={setDiaFixo}
+            valorFixo={valorFixo}
+            setValorFixo={setValorFixo}
+            contaFixoId={contaFixoId}
+            setContaFixoId={setContaFixoId}
+            categoriaFixo={categoriaFixo}
+            setCategoriaFixo={setCategoriaFixo}
+            adicionarLancamentoFixo={adicionarLancamentoFixo}
+            edicaoFixoId={edicaoFixoId}
+            setEdicaoFixoId={setEdicaoFixoId}
+            formFixo={formFixo}
+            setFormFixo={setFormFixo}
+            salvarEdicaoFixo={salvarEdicaoFixo}
+            iniciarEdicaoFixo={iniciarEdicaoFixo}
+            excluirFixo={excluirFixo}
+            edicaoOcorrenciaId={edicaoOcorrenciaId}
+            setEdicaoOcorrenciaId={setEdicaoOcorrenciaId}
+            formOcorrencia={formOcorrencia}
+            setFormOcorrencia={setFormOcorrencia}
+            salvarEdicaoOcorrencia={salvarEdicaoOcorrencia}
+            iniciarEdicaoOcorrencia={iniciarEdicaoOcorrencia}
+            confirmarOcorrencia={confirmarOcorrencia}
+            desfazerOcorrencia={desfazerOcorrencia}
+            pagamentoParcialId={pagamentoParcialId}
+            setPagamentoParcialId={setPagamentoParcialId}
+            valorParcial={valorParcial}
+            setValorParcial={setValorParcial}
+            jaPagoNaOcorrencia={jaPagoNaOcorrencia}
+            pendenteNaOcorrencia={pendenteNaOcorrencia}
+          />
 
-            {secaoAberta.receitas && (
-              <>
-                <div className={`card-limitada ${(alturaCheiaReceitas || mostrarNovaReceitaFixa) ? 'expandida' : ''}`}>
-                {mostrarNovaReceitaFixa && (
-                  <form onSubmit={(e) => adicionarLancamentoFixo(e, 'entrada')} className="form-row" style={{ marginBottom: 12 }}>
-                    <input className="input" placeholder="Nome (ex: Salário)" value={nomeFixo} onChange={(e) => setNomeFixo(e.target.value)} required autoFocus />
-                    <input className="input" style={{ width: 90 }} type="number" min="1" max="31" placeholder="Dia" value={diaFixo} onChange={(e) => setDiaFixo(e.target.value)} required />
-                    <input className="input" style={{ width: 110 }} type="number" step="0.01" placeholder="Valor" value={valorFixo} onChange={(e) => setValorFixo(e.target.value)} required />
-                    <select className="input" value={contaFixoId} onChange={(e) => setContaFixoId(e.target.value)}>
-                      <option value="">Conta de destino (opcional)</option>
-                      {contas.map((c) => (<option key={c.id} value={c.id}>{c.nome}</option>))}
-                    </select>
-                    <CampoCategoria entidadeAtual={entidadeAtual} tipo="entrada" value={categoriaFixo} onChange={(e) => setCategoriaFixo(e.target.value)} placeholder="Categoria (opcional)" style={{ width: 180 }} />
-                    <button type="submit" className="btn btn-primary">Salvar</button>
-                  </form>
-                )}
-
-                {renderListaFixos('entrada', expandirReceitas, setExpandirReceitas, ordenarReceitasPor)}
-                </div>
-                <button onClick={() => setAlturaCheiaReceitas((v) => !v)} className="ver-card-completo">
-                  {alturaCheiaReceitas ? 'Recolher' : 'Ver receitas completas'}
-                </button>
-              </>
-            )}
-          </div>
-
-          <div className="card card-despesas" id="secao-despesas">
-            <div className="card-header">
-              <span className="card-title-group"><span className="card-icon">⬆</span><p className="card-title">Despesas fixas</p></span>
-              <div className="card-header-actions">
-                <select className="input" style={{ padding: '5px 8px', fontSize: 12 }} value={ordenarDespesasPor} onChange={(e) => setOrdenarDespesasPor(e.target.value)}>
-                  <option value="data">Ordenar: dia</option>
-                  <option value="alfabetica">Ordenar: A-Z</option>
-                </select>
-                <button onClick={() => setMostrarNovaDespesaFixa((v) => !v)} className="btn btn-ghost">+ Nova despesa fixa</button>
-                <button onClick={() => setSecaoAberta({ ...secaoAberta, despesas: !secaoAberta.despesas })} className="collapse-btn">{secaoAberta.despesas ? '▾' : '▸'}</button>
-              </div>
-            </div>
-
-            {secaoAberta.despesas && (
-              <>
-                <div className={`card-limitada ${(alturaCheiaDespesas || mostrarNovaDespesaFixa) ? 'expandida' : ''}`}>
-                {mostrarNovaDespesaFixa && (
-                  <form onSubmit={(e) => adicionarLancamentoFixo(e, 'saida')} className="form-row" style={{ marginBottom: 12 }}>
-                    <input className="input" placeholder="Nome (ex: Aluguel)" value={nomeFixo} onChange={(e) => setNomeFixo(e.target.value)} required autoFocus />
-                    <input className="input" style={{ width: 90 }} type="number" min="1" max="31" placeholder="Dia" value={diaFixo} onChange={(e) => setDiaFixo(e.target.value)} required />
-                    <input className="input" style={{ width: 110 }} type="number" step="0.01" placeholder="Valor" value={valorFixo} onChange={(e) => setValorFixo(e.target.value)} required />
-                    <select className="input" value={contaFixoId} onChange={(e) => setContaFixoId(e.target.value)}>
-                      <option value="">Conta de origem (opcional)</option>
-                      {contas.map((c) => (<option key={c.id} value={c.id}>{c.nome}</option>))}
-                    </select>
-                    <select className="input" value={essencialidadeFixo} onChange={(e) => setEssencialidadeFixo(e.target.value)}>
-                      <option value="">Essencialidade (opc.)</option>
-                      <option value="essencial">Essencial</option>
-                      <option value="desejavel">Desejável</option>
-                      <option value="superfluo">Supérfluo</option>
-                    </select>
-                    <CampoCategoria entidadeAtual={entidadeAtual} tipo="saida" value={categoriaFixo} onChange={(e) => setCategoriaFixo(e.target.value)} placeholder="Categoria (opcional)" style={{ width: 180 }} />
-                    <label className="checkbox-label">
-                      <input type="checkbox" checked={parceladoFixo} onChange={(e) => setParceladoFixo(e.target.checked)} />
-                      Parcelado
-                    </label>
-                    {parceladoFixo && (
-                      <>
-                        <input className="input" style={{ width: 130 }} type="number" min="1" placeholder="Total de parcelas" value={totalParcelasFixo} onChange={(e) => setTotalParcelasFixo(e.target.value)} required />
-                        <input className="input" style={{ width: 170 }} type="number" min="1" placeholder="Já está na parcela nº (opc.)" value={parcelaAtualFixo} onChange={(e) => setParcelaAtualFixo(e.target.value)} />
-                      </>
-                    )}
-                    <button type="submit" className="btn btn-primary">Salvar</button>
-                  </form>
-                )}
-
-                {renderListaFixos('saida', expandirDespesas, setExpandirDespesas, ordenarDespesasPor)}
-                </div>
-                <button onClick={() => setAlturaCheiaDespesas((v) => !v)} className="ver-card-completo">
-                  {alturaCheiaDespesas ? 'Recolher' : 'Ver despesas completas'}
-                </button>
-              </>
-            )}
-          </div>
+          <CardDespesasFixas
+            entidadeAtual={entidadeAtual}
+            contas={contas}
+            lancamentosFixos={lancamentosFixos}
+            ocorrenciasDoMes={ocorrenciasDoMes}
+            dataAtual={dataAtual}
+            nomeMes={NOMES_MESES[dataAtual.mes]}
+            aberto={secaoAberta.despesas}
+            onAlternarAberto={() => setSecaoAberta({ ...secaoAberta, despesas: !secaoAberta.despesas })}
+            mostrarNovaDespesaFixa={mostrarNovaDespesaFixa}
+            setMostrarNovaDespesaFixa={setMostrarNovaDespesaFixa}
+            ordenarDespesasPor={ordenarDespesasPor}
+            setOrdenarDespesasPor={setOrdenarDespesasPor}
+            expandirDespesas={expandirDespesas}
+            setExpandirDespesas={setExpandirDespesas}
+            alturaCheiaDespesas={alturaCheiaDespesas}
+            setAlturaCheiaDespesas={setAlturaCheiaDespesas}
+            nomeFixo={nomeFixo}
+            setNomeFixo={setNomeFixo}
+            diaFixo={diaFixo}
+            setDiaFixo={setDiaFixo}
+            valorFixo={valorFixo}
+            setValorFixo={setValorFixo}
+            contaFixoId={contaFixoId}
+            setContaFixoId={setContaFixoId}
+            categoriaFixo={categoriaFixo}
+            setCategoriaFixo={setCategoriaFixo}
+            essencialidadeFixo={essencialidadeFixo}
+            setEssencialidadeFixo={setEssencialidadeFixo}
+            parceladoFixo={parceladoFixo}
+            setParceladoFixo={setParceladoFixo}
+            totalParcelasFixo={totalParcelasFixo}
+            setTotalParcelasFixo={setTotalParcelasFixo}
+            parcelaAtualFixo={parcelaAtualFixo}
+            setParcelaAtualFixo={setParcelaAtualFixo}
+            adicionarLancamentoFixo={adicionarLancamentoFixo}
+            edicaoFixoId={edicaoFixoId}
+            setEdicaoFixoId={setEdicaoFixoId}
+            formFixo={formFixo}
+            setFormFixo={setFormFixo}
+            salvarEdicaoFixo={salvarEdicaoFixo}
+            iniciarEdicaoFixo={iniciarEdicaoFixo}
+            excluirFixo={excluirFixo}
+            edicaoOcorrenciaId={edicaoOcorrenciaId}
+            setEdicaoOcorrenciaId={setEdicaoOcorrenciaId}
+            formOcorrencia={formOcorrencia}
+            setFormOcorrencia={setFormOcorrencia}
+            salvarEdicaoOcorrencia={salvarEdicaoOcorrencia}
+            iniciarEdicaoOcorrencia={iniciarEdicaoOcorrencia}
+            confirmarOcorrencia={confirmarOcorrencia}
+            desfazerOcorrencia={desfazerOcorrencia}
+            pagamentoParcialId={pagamentoParcialId}
+            setPagamentoParcialId={setPagamentoParcialId}
+            valorParcial={valorParcial}
+            setValorParcial={setValorParcial}
+            jaPagoNaOcorrencia={jaPagoNaOcorrencia}
+            pendenteNaOcorrencia={pendenteNaOcorrencia}
+          />
 
           {!secoesOcultasAtual.includes('orcamento') && (
             <CardOrcamento
@@ -1924,132 +1776,49 @@ export default function Dashboard() {
 
           </div>
 
-          <div className="card card-lancamentos" id="secao-lancamentos">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, flexWrap: 'wrap', gap: 8 }}>
-              <span className="card-title-group" style={{ marginBottom: 0 }}><span className="card-icon">🧾</span><p className="card-title">Novo lançamento</p></span>
-              {!mostrarCapturaRapida && (
-                <button onClick={() => setMostrarCapturaRapida(true)} className="btn btn-ghost">✨ Capturar com IA</button>
-              )}
-            </div>
-            {mostrarCapturaRapida && (
-              <CapturaRapida onExtraido={aplicarExtracaoIA} onFechar={() => setMostrarCapturaRapida(false)} />
-            )}
-            {sugestao && (
-              <div className="suggestion-banner">
-                <span>
-                  Histórico sugere: <strong>{sugestao.tipo === 'entrada' ? 'Entrada' : 'Saída'}</strong>
-                  {sugestao.valor && <> · <strong>{formatarMoeda(sugestao.valor)}</strong></>}
-                  {sugestao.categoria && <> · {sugestao.categoria}</>}
-                  {sugestao.conta_nome && <> · {sugestao.conta_nome}</>}
-                  {sugestao.essencialidade && <> · {sugestao.essencialidade}</>}
-                </span>
-                <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-                  <button type="button" onClick={aplicarSugestao} className="btn-link btn-link-accent">usar</button>
-                  <button type="button" onClick={() => setSugestao(null)} className="btn-link">ignorar</button>
-                </div>
-              </div>
-            )}
-            <form onSubmit={adicionarTransacao} className="form-row">
-              <select className="input" value={tipo} onChange={(e) => setTipo(e.target.value)}>
-                <option value="saida">Saída (despesa)</option>
-                <option value="entrada">Entrada (receita)</option>
-              </select>
-              <input className="input" style={{ width: 100 }} type="number" step="0.01" placeholder="Valor" value={valor} onChange={(e) => setValor(e.target.value)} required />
-              <CampoDescricao entidadeAtual={entidadeAtual} tipo={tipo} value={descricao} onChange={(e) => setDescricao(e.target.value)} style={{ flex: 1, minWidth: 140 }} />
-              <CampoCategoria entidadeAtual={entidadeAtual} tipo={tipo} value={categoria} onChange={(e) => setCategoria(e.target.value)} style={{ flex: 1, minWidth: 140 }} />
-              <input className="input" style={{ width: 150 }} type="date" value={dataLancamento} onChange={(e) => setDataLancamento(e.target.value)} required />
-              {tipo === 'saida' && (
-                <select className="input" value={essencialidade} onChange={(e) => setEssencialidade(e.target.value)}>
-                  <option value="">Essencialidade (opc.)</option>
-                  <option value="essencial">Essencial</option>
-                  <option value="desejavel">Desejável</option>
-                  <option value="superfluo">Supérfluo</option>
-                </select>
-              )}
-              <select className="input" value={contaLancamentoId} onChange={(e) => setContaLancamentoId(e.target.value)} required>
-                <option value="" disabled>Conta *</option>
-                {contas.map((c) => (<option key={c.id} value={c.id}>{c.nome}{c.principal ? ' ★' : ''}</option>))}
-              </select>
-              <button type="submit" className="btn btn-primary" disabled={contas.length === 0}>Lançar</button>
-            </form>
-            {contas.length === 0 && <p className="error-hint">Cadastre uma conta antes de lançar movimentações.</p>}
-          </div>
+          <CardNovoLancamento
+            entidadeAtual={entidadeAtual}
+            contas={contas}
+            adicionarTransacao={adicionarTransacao}
+            tipo={tipo}
+            setTipo={setTipo}
+            valor={valor}
+            setValor={setValor}
+            descricao={descricao}
+            setDescricao={setDescricao}
+            categoria={categoria}
+            setCategoria={setCategoria}
+            dataLancamento={dataLancamento}
+            setDataLancamento={setDataLancamento}
+            essencialidade={essencialidade}
+            setEssencialidade={setEssencialidade}
+            contaLancamentoId={contaLancamentoId}
+            setContaLancamentoId={setContaLancamentoId}
+            mostrarCapturaRapida={mostrarCapturaRapida}
+            setMostrarCapturaRapida={setMostrarCapturaRapida}
+            aplicarExtracaoIA={aplicarExtracaoIA}
+            sugestao={sugestao}
+            setSugestao={setSugestao}
+            aplicarSugestao={aplicarSugestao}
+          />
 
-          <div className="card card-lancamentos">
-            <div className="card-header">
-              <p className="card-title" style={{ marginBottom: 0 }}>Lançamentos de {NOMES_MESES[dataAtual.mes]}</p>
-              <button onClick={() => setSecaoAberta({ ...secaoAberta, lancamentos: !secaoAberta.lancamentos })} className="collapse-btn">{secaoAberta.lancamentos ? '▾' : '▸'}</button>
-            </div>
-            {secaoAberta.lancamentos && (
-              <>
-                {transacoes.length === 0 && <p className="empty-hint">Nenhum lançamento em {NOMES_MESES[dataAtual.mes].toLowerCase()}.</p>}
-                {(() => {
-                  let dataAnterior = null;
-                  return (expandirLancamentos ? transacoes : transacoes.slice(0, LIMITE_LISTA)).map((t) => {
-                    const novoDia = t.data !== dataAnterior;
-                    dataAnterior = t.data;
-                    return (
-                      <div key={t.id}>
-                        {novoDia && <p className="date-header">{formatarCabecalhoDia(t.data)}</p>}
-                        {edicaoTransacaoId === t.id ? (
-                          <form onSubmit={salvarEdicaoTransacao} className="form-row" style={{ padding: '10px 0' }}>
-                            <input className="input" style={{ width: 100 }} type="number" step="0.01" value={formTransacao.valor} onChange={(e) => setFormTransacao({ ...formTransacao, valor: e.target.value })} required />
-                            <CampoDescricao entidadeAtual={entidadeAtual} tipo={formTransacao.tipo} value={formTransacao.descricao} onChange={(e) => setFormTransacao({ ...formTransacao, descricao: e.target.value })} style={{ flex: 1, minWidth: 120 }} />
-                            <CampoCategoria entidadeAtual={entidadeAtual} tipo={formTransacao.tipo} value={formTransacao.categoria} onChange={(e) => setFormTransacao({ ...formTransacao, categoria: e.target.value })} style={{ width: 120 }} />
-                            <input className="input" style={{ width: 140 }} type="date" value={formTransacao.data} onChange={(e) => setFormTransacao({ ...formTransacao, data: e.target.value })} />
-                            {t.tipo === 'saida' && (
-                              <select className="input" value={formTransacao.essencialidade} onChange={(e) => setFormTransacao({ ...formTransacao, essencialidade: e.target.value })}>
-                                <option value="">Essencialidade (opc.)</option>
-                                <option value="essencial">Essencial</option>
-                                <option value="desejavel">Desejável</option>
-                                <option value="superfluo">Supérfluo</option>
-                              </select>
-                            )}
-                            <button type="submit" className="btn btn-primary">Salvar</button>
-                            <button type="button" onClick={() => setEdicaoTransacaoId(null)} className="btn-link">Cancelar</button>
-                          </form>
-                        ) : (
-                          <div className="row row-main">
-                            <div>
-                              <p className="row-title">{t.transferencia_id && '⇄ '}{t.descricao || t.categoria}</p>
-                              <p className="row-subtitle">{t.transferencia_id ? 'transferência entre contas' : t.categoria}</p>
-                            </div>
-                            <div className="row-actions">
-                              {t.tipo === 'saida' && !t.transferencia_id && !t.essencialidade && (
-                                <select
-                                  className="input"
-                                  style={{ fontSize: 11, padding: '4px 6px', borderColor: 'var(--accent)' }}
-                                  value=""
-                                  onChange={(e) => classificarEssencialidade(t, e.target.value)}
-                                >
-                                  <option value="">Classificar</option>
-                                  <option value="essencial">Essencial</option>
-                                  <option value="desejavel">Desejável</option>
-                                  <option value="superfluo">Supérfluo</option>
-                                </select>
-                              )}
-                              <span className={`amount ${t.tipo === 'entrada' ? 'amount-positive' : ''}`}>
-                                {t.tipo === 'entrada' ? '+' : '−'} {formatarMoeda(t.valor)}
-                              </span>
-                              {!t.transferencia_id && <button onClick={() => iniciarEdicaoTransacao(t)} className="btn-link">editar</button>}
-                              <button onClick={() => excluirTransacao(t)} className="btn-link">excluir</button>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  });
-                })()}
-                {transacoes.length > LIMITE_LISTA && (
-                  <div className="show-more-row">
-                    <button onClick={() => setExpandirLancamentos((v) => !v)} className="btn-link">
-                      {expandirLancamentos ? 'ver menos' : `ver mais (${transacoes.length - LIMITE_LISTA})`}
-                    </button>
-                  </div>
-                )}
-              </>
-            )}
-          </div>
+          <CardListaLancamentos
+            entidadeAtual={entidadeAtual}
+            transacoes={transacoes}
+            nomeMes={NOMES_MESES[dataAtual.mes]}
+            aberto={secaoAberta.lancamentos}
+            onAlternarAberto={() => setSecaoAberta({ ...secaoAberta, lancamentos: !secaoAberta.lancamentos })}
+            expandirLancamentos={expandirLancamentos}
+            setExpandirLancamentos={setExpandirLancamentos}
+            edicaoTransacaoId={edicaoTransacaoId}
+            setEdicaoTransacaoId={setEdicaoTransacaoId}
+            formTransacao={formTransacao}
+            setFormTransacao={setFormTransacao}
+            salvarEdicaoTransacao={salvarEdicaoTransacao}
+            iniciarEdicaoTransacao={iniciarEdicaoTransacao}
+            excluirTransacao={excluirTransacao}
+            classificarEssencialidade={classificarEssencialidade}
+          />
 
           <SimuladorRotativo />
 

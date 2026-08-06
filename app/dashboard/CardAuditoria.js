@@ -60,7 +60,7 @@ export default function CardAuditoria({ entidadeAtual, aberto, onAlternarAberto 
   const visiveis = expandir ? registros : registros.slice(0, LIMITE_INICIAL);
 
   return (
-    <div className="card" id="secao-atividade">
+    <div className="card">
       <div className="card-header">
         <span className="card-title-group"><span className="card-icon">📜</span><p className="card-title">Atividade recente</p></span>
         <div className="card-header-actions">

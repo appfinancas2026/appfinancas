@@ -65,7 +65,7 @@ export default function CardDespesasFixas({
   pendenteNaOcorrencia,
 }) {
   return (
-    <div className="card card-despesas" id="secao-despesas">
+    <div className="card card-despesas">
       <div className="card-header">
         <span className="card-title-group"><span className="card-icon">⬆</span><p className="card-title">Despesas fixas</p></span>
         <div className="card-header-actions">

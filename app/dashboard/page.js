@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState, useCallback, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useState, useCallback, useRef, Suspense } from 'react';
+import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { supabase } from '../../lib/supabase';
 import { TEMAS_CORES } from '../../lib/temas';
 import {
@@ -41,9 +41,22 @@ const NOMES_MESES = [
 ];
 
 export default function Dashboard() {
+  return (
+    <Suspense fallback={null}>
+      <DashboardConteudo />
+    </Suspense>
+  );
+}
+
+function DashboardConteudo() {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [carregando, setCarregando] = useState(true);
-  const [aba, setAba] = useState('painel');
+  const view = searchParams.get('view') || 'home';
+  function setView(v) {
+    router.push(`${pathname}?view=${v}`);
+  }
 
   const [montado, setMontado] = useState(false);
   const [tema, setTema] = useState('light');
@@ -692,7 +705,7 @@ export default function Dashboard() {
   }, [entidadeAtual, lancamentosFixos, dataAtual.ano, dataAtual.mes]);
 
   useEffect(() => {
-    if (entidadeAtual && aba === 'relatorios') {
+    if (entidadeAtual && view === 'relatorios') {
       const entidadeObj = entidades.find((e) => e.id === entidadeAtual);
       carregarResumoAnual(entidadeAtual, dataAtual.ano);
       carregarComparativoPFPJ(entidades, dataAtual.ano, dataAtual.mes);
@@ -701,7 +714,7 @@ export default function Dashboard() {
       carregarPrimeiroMovimento(entidadeAtual);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [entidadeAtual, aba, dataAtual.ano, dataAtual.mes, entidades, contas]);
+  }, [entidadeAtual, view, dataAtual.ano, dataAtual.mes, entidades, contas]);
 
   useEffect(() => {
     if (contas.length > 0 && !contaLancamentoId) {
@@ -1214,14 +1227,6 @@ export default function Dashboard() {
     router.replace('/login');
   }
 
-  function irParaSecao(idSecao) {
-    setAba('painel');
-    setSidebarMobileAberta(false);
-    setTimeout(() => {
-      document.getElementById(idSecao)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }, 60);
-  }
-
   function alternarSidebar() {
     if (window.innerWidth <= 620) {
       setSidebarMobileAberta((v) => !v);
@@ -1278,7 +1283,7 @@ export default function Dashboard() {
   // Usar a ausência de contas (e não uma flag) faz o assistente reaparecer se a
   // pessoa entrar de outro dispositivo antes de configurar, e some sozinho
   // assim que existir uma conta — inclusive para quem já usava o app antes.
-  if (!onboardingDispensado && entidadeAtual && contas.length === 0 && aba === 'painel') {
+  if (!onboardingDispensado && entidadeAtual && contas.length === 0 && view === 'home') {
     return (
       <Onboarding
         entidadeAtual={entidadeAtual}
@@ -1411,16 +1416,13 @@ export default function Dashboard() {
     <div className="layout-root">
       <Sidebar
         perfil={perfil}
-        aba={aba}
-        setAba={setAba}
-        irParaSecao={irParaSecao}
+        view={view}
+        setView={setView}
         sair={sair}
         sidebarAberta={sidebarAberta}
         sidebarMobileAberta={sidebarMobileAberta}
         setSidebarMobileAberta={setSidebarMobileAberta}
         alternarSidebar={alternarSidebar}
-        setMostrarConfiguracoes={setMostrarConfiguracoes}
-       secoesOcultas={secoesOcultasAtual}
         tipoEntidade={entidadeAtualObj?.tipo}
       />
 
@@ -1491,21 +1493,21 @@ export default function Dashboard() {
             <button onClick={irParaHoje} className="btn btn-ghost">Hoje</button>
           </div>
           <div className="tabs">
-            <button onClick={() => setAba('painel')} className={`tab ${aba === 'painel' ? 'tab-active' : ''}`}>Painel</button>
-            <button onClick={() => setAba('relatorios')} className={`tab ${aba === 'relatorios' ? 'tab-active' : ''}`}>Relatórios</button>
-            <button onClick={() => setAba('fluxo')} className={`tab ${aba === 'fluxo' ? 'tab-active' : ''}`}>Fluxo</button>
-            <button onClick={() => setAba('assistente')} className={`tab ${aba === 'assistente' ? 'tab-active' : ''}`}>✨ Assistente</button>
+            <button onClick={() => setView('home')} className={`tab ${view === 'home' ? 'tab-active' : ''}`}>Painel</button>
+            <button onClick={() => setView('relatorios')} className={`tab ${view === 'relatorios' ? 'tab-active' : ''}`}>Relatórios</button>
+            <button onClick={() => setView('fluxo')} className={`tab ${view === 'fluxo' ? 'tab-active' : ''}`}>Fluxo</button>
+            <button onClick={() => setView('assistente')} className={`tab ${view === 'assistente' ? 'tab-active' : ''}`}>✨ Assistente</button>
           </div>
         </div>
       </div>
 
-      {aba === 'fluxo' ? (
+      {view === 'fluxo' ? (
         <AbaFluxoCaixa
           entidadeAtual={entidadeAtual}
           contas={contas}
           lancamentosFixos={lancamentosFixos}
         />
- ) : aba === 'assistente' ? (
+      ) : view === 'assistente' ? (
         <AbaAssistente
           entidadeAtual={entidadeAtual}
           contas={contas}
@@ -1514,7 +1516,7 @@ export default function Dashboard() {
           ano={dataAtual.ano}
           mes={dataAtual.mes}
         />
-      ) : aba === 'relatorios' ? (
+      ) : view === 'relatorios' ? (
         <AbaRelatorios
           entidadeAtual={entidadeAtual}
           entidadeAtualObj={entidadeAtualObj}
@@ -1524,6 +1526,232 @@ export default function Dashboard() {
           pendenciasVencidas={pendenciasVencidas}
           confirmarOcorrencia={confirmarOcorrencia}
         />
+      ) : view === 'contas-cartoes' ? (
+        <>
+          <div className="cards-grid">
+            <CardContas
+              entidadeAtual={entidadeAtual}
+              contas={contas}
+              cartoes={cartoes}
+              aberto={secaoAberta.contas}
+              onAlternarAberto={() => setSecaoAberta({ ...secaoAberta, contas: !secaoAberta.contas })}
+              onContasAlteradas={() => {
+                carregarContas(entidadeAtual);
+                carregarTransacoesDoMes(entidadeAtual, dataAtual.ano, dataAtual.mes);
+              }}
+            />
+            {!secoesOcultasAtual.includes('cartoes') && (
+              <CardCartoes
+                entidadeAtual={entidadeAtual}
+                contas={contas}
+                cartoes={cartoes}
+                aberto={secaoAberta.cartoes}
+                onAlternarAberto={() => setSecaoAberta({ ...secaoAberta, cartoes: !secaoAberta.cartoes })}
+                onAtualizar={() => {
+                  carregarCartoes(entidadeAtual);
+                  carregarContas(entidadeAtual);
+                  carregarTransacoesDoMes(entidadeAtual, dataAtual.ano, dataAtual.mes);
+                }}
+              />
+            )}
+          </div>
+          <SimuladorRotativo />
+        </>
+      ) : view === 'lancamentos' ? (
+        <>
+          <CardNovoLancamento
+            entidadeAtual={entidadeAtual}
+            contas={contas}
+            adicionarTransacao={adicionarTransacao}
+            tipo={tipo}
+            setTipo={setTipo}
+            valor={valor}
+            setValor={setValor}
+            descricao={descricao}
+            setDescricao={setDescricao}
+            categoria={categoria}
+            setCategoria={setCategoria}
+            dataLancamento={dataLancamento}
+            setDataLancamento={setDataLancamento}
+            essencialidade={essencialidade}
+            setEssencialidade={setEssencialidade}
+            contaLancamentoId={contaLancamentoId}
+            setContaLancamentoId={setContaLancamentoId}
+            mostrarCapturaRapida={mostrarCapturaRapida}
+            setMostrarCapturaRapida={setMostrarCapturaRapida}
+            aplicarExtracaoIA={aplicarExtracaoIA}
+            sugestao={sugestao}
+            setSugestao={setSugestao}
+            aplicarSugestao={aplicarSugestao}
+          />
+          <CardListaLancamentos
+            entidadeAtual={entidadeAtual}
+            transacoes={transacoes}
+            nomeMes={NOMES_MESES[dataAtual.mes]}
+            aberto={secaoAberta.lancamentos}
+            onAlternarAberto={() => setSecaoAberta({ ...secaoAberta, lancamentos: !secaoAberta.lancamentos })}
+            expandirLancamentos={expandirLancamentos}
+            setExpandirLancamentos={setExpandirLancamentos}
+            edicaoTransacaoId={edicaoTransacaoId}
+            setEdicaoTransacaoId={setEdicaoTransacaoId}
+            formTransacao={formTransacao}
+            setFormTransacao={setFormTransacao}
+            salvarEdicaoTransacao={salvarEdicaoTransacao}
+            iniciarEdicaoTransacao={iniciarEdicaoTransacao}
+            excluirTransacao={excluirTransacao}
+            classificarEssencialidade={classificarEssencialidade}
+          />
+        </>
+      ) : view === 'contas-fixas' ? (
+        <div className="cards-grid">
+          <CardDespesasFixas
+            entidadeAtual={entidadeAtual}
+            contas={contas}
+            lancamentosFixos={lancamentosFixos}
+            ocorrenciasDoMes={ocorrenciasDoMes}
+            dataAtual={dataAtual}
+            nomeMes={NOMES_MESES[dataAtual.mes]}
+            aberto={secaoAberta.despesas}
+            onAlternarAberto={() => setSecaoAberta({ ...secaoAberta, despesas: !secaoAberta.despesas })}
+            mostrarNovaDespesaFixa={mostrarNovaDespesaFixa}
+            setMostrarNovaDespesaFixa={setMostrarNovaDespesaFixa}
+            ordenarDespesasPor={ordenarDespesasPor}
+            setOrdenarDespesasPor={setOrdenarDespesasPor}
+            expandirDespesas={expandirDespesas}
+            setExpandirDespesas={setExpandirDespesas}
+            alturaCheiaDespesas={alturaCheiaDespesas}
+            setAlturaCheiaDespesas={setAlturaCheiaDespesas}
+            nomeFixo={nomeFixo}
+            setNomeFixo={setNomeFixo}
+            diaFixo={diaFixo}
+            setDiaFixo={setDiaFixo}
+            valorFixo={valorFixo}
+            setValorFixo={setValorFixo}
+            contaFixoId={contaFixoId}
+            setContaFixoId={setContaFixoId}
+            categoriaFixo={categoriaFixo}
+            setCategoriaFixo={setCategoriaFixo}
+            essencialidadeFixo={essencialidadeFixo}
+            setEssencialidadeFixo={setEssencialidadeFixo}
+            parceladoFixo={parceladoFixo}
+            setParceladoFixo={setParceladoFixo}
+            totalParcelasFixo={totalParcelasFixo}
+            setTotalParcelasFixo={setTotalParcelasFixo}
+            parcelaAtualFixo={parcelaAtualFixo}
+            setParcelaAtualFixo={setParcelaAtualFixo}
+            adicionarLancamentoFixo={adicionarLancamentoFixo}
+            edicaoFixoId={edicaoFixoId}
+            setEdicaoFixoId={setEdicaoFixoId}
+            formFixo={formFixo}
+            setFormFixo={setFormFixo}
+            salvarEdicaoFixo={salvarEdicaoFixo}
+            iniciarEdicaoFixo={iniciarEdicaoFixo}
+            excluirFixo={excluirFixo}
+            edicaoOcorrenciaId={edicaoOcorrenciaId}
+            setEdicaoOcorrenciaId={setEdicaoOcorrenciaId}
+            formOcorrencia={formOcorrencia}
+            setFormOcorrencia={setFormOcorrencia}
+            salvarEdicaoOcorrencia={salvarEdicaoOcorrencia}
+            iniciarEdicaoOcorrencia={iniciarEdicaoOcorrencia}
+            confirmarOcorrencia={confirmarOcorrencia}
+            desfazerOcorrencia={desfazerOcorrencia}
+            pagamentoParcialId={pagamentoParcialId}
+            setPagamentoParcialId={setPagamentoParcialId}
+            valorParcial={valorParcial}
+            setValorParcial={setValorParcial}
+            jaPagoNaOcorrencia={jaPagoNaOcorrencia}
+            pendenteNaOcorrencia={pendenteNaOcorrencia}
+          />
+          <CardReceitasFixas
+            entidadeAtual={entidadeAtual}
+            contas={contas}
+            lancamentosFixos={lancamentosFixos}
+            ocorrenciasDoMes={ocorrenciasDoMes}
+            dataAtual={dataAtual}
+            nomeMes={NOMES_MESES[dataAtual.mes]}
+            aberto={secaoAberta.receitas}
+            onAlternarAberto={() => setSecaoAberta({ ...secaoAberta, receitas: !secaoAberta.receitas })}
+            mostrarNovaReceitaFixa={mostrarNovaReceitaFixa}
+            setMostrarNovaReceitaFixa={setMostrarNovaReceitaFixa}
+            ordenarReceitasPor={ordenarReceitasPor}
+            setOrdenarReceitasPor={setOrdenarReceitasPor}
+            expandirReceitas={expandirReceitas}
+            setExpandirReceitas={setExpandirReceitas}
+            alturaCheiaReceitas={alturaCheiaReceitas}
+            setAlturaCheiaReceitas={setAlturaCheiaReceitas}
+            nomeFixo={nomeFixo}
+            setNomeFixo={setNomeFixo}
+            diaFixo={diaFixo}
+            setDiaFixo={setDiaFixo}
+            valorFixo={valorFixo}
+            setValorFixo={setValorFixo}
+            contaFixoId={contaFixoId}
+            setContaFixoId={setContaFixoId}
+            categoriaFixo={categoriaFixo}
+            setCategoriaFixo={setCategoriaFixo}
+            adicionarLancamentoFixo={adicionarLancamentoFixo}
+            edicaoFixoId={edicaoFixoId}
+            setEdicaoFixoId={setEdicaoFixoId}
+            formFixo={formFixo}
+            setFormFixo={setFormFixo}
+            salvarEdicaoFixo={salvarEdicaoFixo}
+            iniciarEdicaoFixo={iniciarEdicaoFixo}
+            excluirFixo={excluirFixo}
+            edicaoOcorrenciaId={edicaoOcorrenciaId}
+            setEdicaoOcorrenciaId={setEdicaoOcorrenciaId}
+            formOcorrencia={formOcorrencia}
+            setFormOcorrencia={setFormOcorrencia}
+            salvarEdicaoOcorrencia={salvarEdicaoOcorrencia}
+            iniciarEdicaoOcorrencia={iniciarEdicaoOcorrencia}
+            confirmarOcorrencia={confirmarOcorrencia}
+            desfazerOcorrencia={desfazerOcorrencia}
+            pagamentoParcialId={pagamentoParcialId}
+            setPagamentoParcialId={setPagamentoParcialId}
+            valorParcial={valorParcial}
+            setValorParcial={setValorParcial}
+            jaPagoNaOcorrencia={jaPagoNaOcorrencia}
+            pendenteNaOcorrencia={pendenteNaOcorrencia}
+          />
+        </div>
+      ) : view === 'planejamento' ? (
+        <div className="cards-grid">
+          {!secoesOcultasAtual.includes('orcamento') && (
+            <CardOrcamento
+              entidadeAtual={entidadeAtual}
+              transacoesDoMes={transacoes}
+              ano={dataAtual.ano}
+              mes={dataAtual.mes}
+              aberto={secaoAberta.orcamento}
+              onAlternarAberto={() => setSecaoAberta({ ...secaoAberta, orcamento: !secaoAberta.orcamento })}
+            />
+          )}
+          {!secoesOcultasAtual.includes('metas') && (
+            <CardMetas
+              entidadeAtual={entidadeAtual}
+              contas={contas}
+              aberto={secaoAberta.metas}
+              onAlternarAberto={() => setSecaoAberta({ ...secaoAberta, metas: !secaoAberta.metas })}
+            />
+          )}
+        </div>
+      ) : view === 'configuracoes' ? (
+        <div className="cards-grid">
+          {!secoesOcultasAtual.includes('membros') && (
+            <CardMembros
+              entidadeAtual={entidadeAtual}
+              usuarioId={usuarioId}
+              aberto={secaoAberta.membros}
+              onAlternarAberto={() => setSecaoAberta({ ...secaoAberta, membros: !secaoAberta.membros })}
+            />
+          )}
+          {!secoesOcultasAtual.includes('atividade') && (
+            <CardAuditoria
+              entidadeAtual={entidadeAtual}
+              aberto={secaoAberta.atividade}
+              onAlternarAberto={() => setSecaoAberta({ ...secaoAberta, atividade: !secaoAberta.atividade })}
+            />
+          )}
+        </div>
       ) : (
         <>
           {(alertas.length > 0 || pctRendaComprometida > 70) && (
@@ -1589,256 +1817,33 @@ export default function Dashboard() {
           />
 
           <div className="acoes-rapidas">
-            <button onClick={() => irParaSecao('secao-lancamentos')} className="acao-rapida acao-rapida-principal">
+            <button onClick={() => setView('lancamentos')} className="acao-rapida acao-rapida-principal">
               <span className="acao-rapida-icone">+</span>
               Novo lançamento
             </button>
-            <button onClick={() => { setMostrarCapturaRapida(true); irParaSecao('secao-lancamentos'); }} className="acao-rapida">
+            <button onClick={() => { setView('lancamentos'); setMostrarCapturaRapida(true); }} className="acao-rapida">
               <span className="acao-rapida-icone">✨</span>
               Capturar com IA
             </button>
-            <button onClick={() => irParaSecao('secao-contas')} className="acao-rapida">
+            <button onClick={() => setView('contas-cartoes')} className="acao-rapida">
               <span className="acao-rapida-icone">🏦</span>
               Contas
             </button>
-            <button onClick={() => setAba('relatorios')} className="acao-rapida">
+            <button onClick={() => setView('relatorios')} className="acao-rapida">
               <span className="acao-rapida-icone">📊</span>
               Relatórios
             </button>
           </div>
-
-          <div className="cards-grid">
-          <CardContas
-            entidadeAtual={entidadeAtual}
-            contas={contas}
-            cartoes={cartoes}
-            aberto={secaoAberta.contas}
-            onAlternarAberto={() => setSecaoAberta({ ...secaoAberta, contas: !secaoAberta.contas })}
-            onContasAlteradas={() => {
-              carregarContas(entidadeAtual);
-              carregarTransacoesDoMes(entidadeAtual, dataAtual.ano, dataAtual.mes);
-            }}
-          />
-
-          {!secoesOcultasAtual.includes('cartoes') && (
-            <CardCartoes
-              entidadeAtual={entidadeAtual}
-              contas={contas}
-              cartoes={cartoes}
-              aberto={secaoAberta.cartoes}
-              onAlternarAberto={() => setSecaoAberta({ ...secaoAberta, cartoes: !secaoAberta.cartoes })}
-              onAtualizar={() => {
-                carregarCartoes(entidadeAtual);
-                carregarContas(entidadeAtual);
-                carregarTransacoesDoMes(entidadeAtual, dataAtual.ano, dataAtual.mes);
-              }}
-            />
-          )}
-
-          <CardReceitasFixas
-            entidadeAtual={entidadeAtual}
-            contas={contas}
-            lancamentosFixos={lancamentosFixos}
-            ocorrenciasDoMes={ocorrenciasDoMes}
-            dataAtual={dataAtual}
-            nomeMes={NOMES_MESES[dataAtual.mes]}
-            aberto={secaoAberta.receitas}
-            onAlternarAberto={() => setSecaoAberta({ ...secaoAberta, receitas: !secaoAberta.receitas })}
-            mostrarNovaReceitaFixa={mostrarNovaReceitaFixa}
-            setMostrarNovaReceitaFixa={setMostrarNovaReceitaFixa}
-            ordenarReceitasPor={ordenarReceitasPor}
-            setOrdenarReceitasPor={setOrdenarReceitasPor}
-            expandirReceitas={expandirReceitas}
-            setExpandirReceitas={setExpandirReceitas}
-            alturaCheiaReceitas={alturaCheiaReceitas}
-            setAlturaCheiaReceitas={setAlturaCheiaReceitas}
-            nomeFixo={nomeFixo}
-            setNomeFixo={setNomeFixo}
-            diaFixo={diaFixo}
-            setDiaFixo={setDiaFixo}
-            valorFixo={valorFixo}
-            setValorFixo={setValorFixo}
-            contaFixoId={contaFixoId}
-            setContaFixoId={setContaFixoId}
-            categoriaFixo={categoriaFixo}
-            setCategoriaFixo={setCategoriaFixo}
-            adicionarLancamentoFixo={adicionarLancamentoFixo}
-            edicaoFixoId={edicaoFixoId}
-            setEdicaoFixoId={setEdicaoFixoId}
-            formFixo={formFixo}
-            setFormFixo={setFormFixo}
-            salvarEdicaoFixo={salvarEdicaoFixo}
-            iniciarEdicaoFixo={iniciarEdicaoFixo}
-            excluirFixo={excluirFixo}
-            edicaoOcorrenciaId={edicaoOcorrenciaId}
-            setEdicaoOcorrenciaId={setEdicaoOcorrenciaId}
-            formOcorrencia={formOcorrencia}
-            setFormOcorrencia={setFormOcorrencia}
-            salvarEdicaoOcorrencia={salvarEdicaoOcorrencia}
-            iniciarEdicaoOcorrencia={iniciarEdicaoOcorrencia}
-            confirmarOcorrencia={confirmarOcorrencia}
-            desfazerOcorrencia={desfazerOcorrencia}
-            pagamentoParcialId={pagamentoParcialId}
-            setPagamentoParcialId={setPagamentoParcialId}
-            valorParcial={valorParcial}
-            setValorParcial={setValorParcial}
-            jaPagoNaOcorrencia={jaPagoNaOcorrencia}
-            pendenteNaOcorrencia={pendenteNaOcorrencia}
-          />
-
-          <CardDespesasFixas
-            entidadeAtual={entidadeAtual}
-            contas={contas}
-            lancamentosFixos={lancamentosFixos}
-            ocorrenciasDoMes={ocorrenciasDoMes}
-            dataAtual={dataAtual}
-            nomeMes={NOMES_MESES[dataAtual.mes]}
-            aberto={secaoAberta.despesas}
-            onAlternarAberto={() => setSecaoAberta({ ...secaoAberta, despesas: !secaoAberta.despesas })}
-            mostrarNovaDespesaFixa={mostrarNovaDespesaFixa}
-            setMostrarNovaDespesaFixa={setMostrarNovaDespesaFixa}
-            ordenarDespesasPor={ordenarDespesasPor}
-            setOrdenarDespesasPor={setOrdenarDespesasPor}
-            expandirDespesas={expandirDespesas}
-            setExpandirDespesas={setExpandirDespesas}
-            alturaCheiaDespesas={alturaCheiaDespesas}
-            setAlturaCheiaDespesas={setAlturaCheiaDespesas}
-            nomeFixo={nomeFixo}
-            setNomeFixo={setNomeFixo}
-            diaFixo={diaFixo}
-            setDiaFixo={setDiaFixo}
-            valorFixo={valorFixo}
-            setValorFixo={setValorFixo}
-            contaFixoId={contaFixoId}
-            setContaFixoId={setContaFixoId}
-            categoriaFixo={categoriaFixo}
-            setCategoriaFixo={setCategoriaFixo}
-            essencialidadeFixo={essencialidadeFixo}
-            setEssencialidadeFixo={setEssencialidadeFixo}
-            parceladoFixo={parceladoFixo}
-            setParceladoFixo={setParceladoFixo}
-            totalParcelasFixo={totalParcelasFixo}
-            setTotalParcelasFixo={setTotalParcelasFixo}
-            parcelaAtualFixo={parcelaAtualFixo}
-            setParcelaAtualFixo={setParcelaAtualFixo}
-            adicionarLancamentoFixo={adicionarLancamentoFixo}
-            edicaoFixoId={edicaoFixoId}
-            setEdicaoFixoId={setEdicaoFixoId}
-            formFixo={formFixo}
-            setFormFixo={setFormFixo}
-            salvarEdicaoFixo={salvarEdicaoFixo}
-            iniciarEdicaoFixo={iniciarEdicaoFixo}
-            excluirFixo={excluirFixo}
-            edicaoOcorrenciaId={edicaoOcorrenciaId}
-            setEdicaoOcorrenciaId={setEdicaoOcorrenciaId}
-            formOcorrencia={formOcorrencia}
-            setFormOcorrencia={setFormOcorrencia}
-            salvarEdicaoOcorrencia={salvarEdicaoOcorrencia}
-            iniciarEdicaoOcorrencia={iniciarEdicaoOcorrencia}
-            confirmarOcorrencia={confirmarOcorrencia}
-            desfazerOcorrencia={desfazerOcorrencia}
-            pagamentoParcialId={pagamentoParcialId}
-            setPagamentoParcialId={setPagamentoParcialId}
-            valorParcial={valorParcial}
-            setValorParcial={setValorParcial}
-            jaPagoNaOcorrencia={jaPagoNaOcorrencia}
-            pendenteNaOcorrencia={pendenteNaOcorrencia}
-          />
-
-          {!secoesOcultasAtual.includes('orcamento') && (
-            <CardOrcamento
-              entidadeAtual={entidadeAtual}
-              transacoesDoMes={transacoes}
-              ano={dataAtual.ano}
-              mes={dataAtual.mes}
-              aberto={secaoAberta.orcamento}
-              onAlternarAberto={() => setSecaoAberta({ ...secaoAberta, orcamento: !secaoAberta.orcamento })}
-            />
-          )}
-
-          {!secoesOcultasAtual.includes('metas') && (
-            <CardMetas
-              entidadeAtual={entidadeAtual}
-              contas={contas}
-              aberto={secaoAberta.metas}
-              onAlternarAberto={() => setSecaoAberta({ ...secaoAberta, metas: !secaoAberta.metas })}
-            />
-          )}
-
-          {!secoesOcultasAtual.includes('membros') && (
-            <CardMembros
-              entidadeAtual={entidadeAtual}
-              usuarioId={usuarioId}
-              aberto={secaoAberta.membros}
-              onAlternarAberto={() => setSecaoAberta({ ...secaoAberta, membros: !secaoAberta.membros })}
-            />
-          )}
-
-          </div>
-
-          <CardNovoLancamento
-            entidadeAtual={entidadeAtual}
-            contas={contas}
-            adicionarTransacao={adicionarTransacao}
-            tipo={tipo}
-            setTipo={setTipo}
-            valor={valor}
-            setValor={setValor}
-            descricao={descricao}
-            setDescricao={setDescricao}
-            categoria={categoria}
-            setCategoria={setCategoria}
-            dataLancamento={dataLancamento}
-            setDataLancamento={setDataLancamento}
-            essencialidade={essencialidade}
-            setEssencialidade={setEssencialidade}
-            contaLancamentoId={contaLancamentoId}
-            setContaLancamentoId={setContaLancamentoId}
-            mostrarCapturaRapida={mostrarCapturaRapida}
-            setMostrarCapturaRapida={setMostrarCapturaRapida}
-            aplicarExtracaoIA={aplicarExtracaoIA}
-            sugestao={sugestao}
-            setSugestao={setSugestao}
-            aplicarSugestao={aplicarSugestao}
-          />
-
-          <CardListaLancamentos
-            entidadeAtual={entidadeAtual}
-            transacoes={transacoes}
-            nomeMes={NOMES_MESES[dataAtual.mes]}
-            aberto={secaoAberta.lancamentos}
-            onAlternarAberto={() => setSecaoAberta({ ...secaoAberta, lancamentos: !secaoAberta.lancamentos })}
-            expandirLancamentos={expandirLancamentos}
-            setExpandirLancamentos={setExpandirLancamentos}
-            edicaoTransacaoId={edicaoTransacaoId}
-            setEdicaoTransacaoId={setEdicaoTransacaoId}
-            formTransacao={formTransacao}
-            setFormTransacao={setFormTransacao}
-            salvarEdicaoTransacao={salvarEdicaoTransacao}
-            iniciarEdicaoTransacao={iniciarEdicaoTransacao}
-            excluirTransacao={excluirTransacao}
-            classificarEssencialidade={classificarEssencialidade}
-          />
-
-          <SimuladorRotativo />
-
-          {!secoesOcultasAtual.includes('atividade') && (
-            <CardAuditoria
-              entidadeAtual={entidadeAtual}
-              aberto={secaoAberta.atividade}
-              onAlternarAberto={() => setSecaoAberta({ ...secaoAberta, atividade: !secaoAberta.atividade })}
-            />
-          )}
         </>
       )}
     </div>
       </div>
-      <BottomNav aba={aba} setAba={setAba} irParaSecao={irParaSecao} onAbrirMenu={() => setSidebarMobileAberta(true)} />
+      <BottomNav view={view} setView={setView} onAbrirMenu={() => setSidebarMobileAberta(true)} />
 
       {/* Botão flutuante do Assistente — fixo no canto inferior direito */}
-      {aba !== 'assistente' && (
+      {view !== 'assistente' && (
         <button
-          onClick={() => setAba('assistente')}
+          onClick={() => setView('assistente')}
           className="assistente-fab"
           title="Assistente IA"
         >

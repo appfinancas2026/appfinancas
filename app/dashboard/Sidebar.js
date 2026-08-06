@@ -1,29 +1,29 @@
 'use client';
-const ITENS_SECAO = [
-  { id: 'secao-contas', chave: 'contas', icone: '🏦', label: 'Contas' },
-  { id: 'secao-cartoes', chave: 'cartoes', icone: '💳', label: 'Cartões' },
-  { id: 'secao-receitas', chave: 'receitas', icone: '⬇', label: 'Receitas fixas' },
-  { id: 'secao-despesas', chave: 'despesas', icone: '⬆', label: 'Despesas fixas' },
-  { id: 'secao-orcamento', chave: 'orcamento', icone: '📋', label: 'Orçamento' },
-  { id: 'secao-metas', chave: 'metas', icone: '🎯', label: 'Metas' },
-  { id: 'secao-lancamentos', chave: 'lancamentos', icone: '🧾', label: 'Lançamentos' },
-  { id: 'secao-membros', chave: 'membros', icone: '👥', label: 'Quem tem acesso' },
-  { id: 'secao-atividade', chave: 'atividade', icone: '📜', label: 'Atividade' },
+const ITENS_MENU = [
+  { view: 'home', icone: '🏠', label: 'Painel' },
+  { view: 'relatorios', icone: '📊', label: 'Relatórios' },
+  { view: 'fluxo', icone: '💹', label: 'Fluxo de Caixa' },
+  { view: 'assistente', icone: '✨', label: 'Assistente IA' },
+  { view: 'contas-cartoes', icone: '🏦', label: 'Contas & Cartões' },
+  { view: 'lancamentos', icone: '🧾', label: 'Lançamentos' },
+  { view: 'contas-fixas', icone: '📆', label: 'Contas fixas' },
+  { view: 'planejamento', icone: '🎯', label: 'Planejamento' },
 ];
 export default function Sidebar({
   perfil,
-  aba,
-  setAba,
-  irParaSecao,
+  view,
+  setView,
   sair,
   sidebarAberta,
   sidebarMobileAberta,
   setSidebarMobileAberta,
   alternarSidebar,
-  setMostrarConfiguracoes,
-  secoesOcultas = [],
   tipoEntidade,
 }) {
+  function irPara(v) {
+    setView(v);
+    setSidebarMobileAberta(false);
+  }
   return (
     <>
       <div className={`sidebar-backdrop ${sidebarMobileAberta ? 'mobile-open' : ''}`} onClick={() => setSidebarMobileAberta(false)} />
@@ -38,32 +38,19 @@ export default function Sidebar({
           </div>
           <button onClick={alternarSidebar} className="sidebar-toggle" title="Recolher/expandir menu">☰</button>
         </div>
-        <button onClick={() => { setAba('painel'); setSidebarMobileAberta(false); }} className={`sidebar-link ${aba === 'painel' ? 'active' : ''}`}>
-          <span className="sidebar-icon">🏠</span><span className="sidebar-label">Painel</span>
-        </button>
-        <button onClick={() => { setAba('relatorios'); setSidebarMobileAberta(false); }} className={`sidebar-link ${aba === 'relatorios' ? 'active' : ''}`}>
-          <span className="sidebar-icon">📊</span><span className="sidebar-label">Relatórios</span>
-        </button>
-        {tipoEntidade === 'PJ' && (
-          <button onClick={() => { setAba('relatorios'); setSidebarMobileAberta(false); }} className={`sidebar-link ${aba === 'relatorios' ? 'active' : ''}`}>
-            <span className="sidebar-icon">📑</span><span className="sidebar-label">DRE</span>
-          </button>
-        )}
-        <button onClick={() => { setAba('fluxo'); setSidebarMobileAberta(false); }} className={`sidebar-link ${aba === 'fluxo' ? 'active' : ''}`}>
-          <span className="sidebar-icon">💹</span><span className="sidebar-label">Fluxo de Caixa</span>
-        </button>
-        <button onClick={() => { setAba('assistente'); setSidebarMobileAberta(false); }} className={`sidebar-link ${aba === 'assistente' ? 'active' : ''}`}>
-          <span className="sidebar-icon">✨</span><span className="sidebar-label">Assistente IA</span>
-        </button>
-        <div className="sidebar-divider" />
-        {ITENS_SECAO.filter((item) => !secoesOcultas.includes(item.chave)).map((item) => (
-          <button key={item.id} onClick={() => irParaSecao(item.id)} className="sidebar-link">
+        {ITENS_MENU.map((item) => (
+          <button key={item.view} onClick={() => irPara(item.view)} className={`sidebar-link ${view === item.view ? 'active' : ''}`}>
             <span className="sidebar-icon">{item.icone}</span><span className="sidebar-label">{item.label}</span>
           </button>
         ))}
+        {tipoEntidade === 'PJ' && (
+          <button onClick={() => irPara('relatorios')} className={`sidebar-link ${view === 'relatorios' ? 'active' : ''}`}>
+            <span className="sidebar-icon">📑</span><span className="sidebar-label">DRE</span>
+          </button>
+        )}
         <div className="sidebar-footer">
           <div className="sidebar-divider" />
-          <button onClick={() => setMostrarConfiguracoes((v) => !v)} className="sidebar-link">
+          <button onClick={() => irPara('configuracoes')} className={`sidebar-link ${view === 'configuracoes' ? 'active' : ''}`}>
             <span className="sidebar-icon">⚙</span><span className="sidebar-label">Configurações</span>
           </button>
           <button onClick={sair} className="sidebar-link">

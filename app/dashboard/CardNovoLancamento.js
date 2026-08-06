@@ -33,7 +33,7 @@ export default function CardNovoLancamento({
   aplicarSugestao,
 }) {
   return (
-    <div className="card card-lancamentos" id="secao-lancamentos">
+    <div className="card card-lancamentos">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, flexWrap: 'wrap', gap: 8 }}>
         <span className="card-title-group" style={{ marginBottom: 0 }}><span className="card-icon">🧾</span><p className="card-title">Novo lançamento</p></span>
         {!mostrarCapturaRapida && (

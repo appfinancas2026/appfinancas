@@ -700,12 +700,6 @@ button, input, select { font-family: var(--font-body); }
 
 .layout-content { flex: 1; min-width: 0; }
 
-[id^="secao-"] { scroll-margin-top: 178px; }
-
-@media (max-width: 620px) {
-  [id^="secao-"] { scroll-margin-top: 150px; }
-}
-
 .sidebar-backdrop { display: none; }
 .mobile-menu-btn { display: none; }
 
@@ -1248,11 +1242,6 @@ table.report-table td { padding: 12px 0; border-top: 1px solid var(--border); }
 .fluxo-linha:hover { background: var(--surface-alt); }
 .fluxo-hoje { background: var(--surface-alt); }
 .fluxo-projecao { opacity: 0.7; }
-/* Ordem dos cards do painel — Despesas antes de Receitas.
- * Feito por CSS (order) para não reorganizar o JSX. */
-@media (min-width: 900px) {
-  #secao-despesas { order: -1; }
-}
 
 /* ---------- Login / Autenticação ----------
  * A tela força tema escuro (data-theme='dark'). Banner escuro à esquerda

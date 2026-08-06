@@ -329,7 +329,7 @@ export default function CardCartoes({ entidadeAtual, contas, cartoes, onAtualiza
   }
 
   return (
-    <div className="card" id="secao-cartoes">
+    <div className="card">
       <div className="card-header">
         <span className="card-title-group"><span className="card-icon">💳</span><p className="card-title">Cartões de crédito</p></span>
         <div className="card-header-actions">

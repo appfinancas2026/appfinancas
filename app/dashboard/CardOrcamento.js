@@ -221,7 +221,7 @@ export default function CardOrcamento({ entidadeAtual, transacoesDoMes, ano, mes
   const disponivelPorDia = diasRestantes && diasRestantes > 0 ? disponivel / diasRestantes : null;
 
   return (
-    <div className="card" id="secao-orcamento">
+    <div className="card">
       <div className="card-header">
         <span className="card-title-group"><span className="card-icon">📋</span><p className="card-title">Orçamento por categoria</p></span>
         <div className="card-header-actions">

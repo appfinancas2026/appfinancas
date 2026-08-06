@@ -132,7 +132,7 @@ export default function CardMembros({ entidadeAtual, usuarioId, aberto, onAltern
   }
 
   return (
-    <div className="card" id="secao-membros">
+    <div className="card">
       <div className="card-header">
         <span className="card-title-group"><span className="card-icon">👥</span><p className="card-title">Quem tem acesso</p></span>
         <div className="card-header-actions">

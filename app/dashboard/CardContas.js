@@ -107,7 +107,7 @@ export default function CardContas({ entidadeAtual, contas, aberto, onAlternarAb
 
 
   return (
-    <div className="card card-contas" id="secao-contas">
+    <div className="card card-contas">
       <div className="card-header">
         <span className="card-title-group"><span className="card-icon">🏦</span><p className="card-title">Contas</p></span>
         <div className="card-header-actions">

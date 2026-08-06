@@ -109,7 +109,7 @@ export default function CardMetas({ entidadeAtual, contas, aberto, onAlternarAbe
   }
 
   return (
-    <div className="card" id="secao-metas">
+    <div className="card">
       <div className="card-header">
         <span className="card-title-group"><span className="card-icon">🎯</span><p className="card-title">Metas financeiras</p></span>
         <div className="card-header-actions">

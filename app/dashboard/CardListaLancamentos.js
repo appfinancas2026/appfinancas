@@ -1,5 +1,6 @@
 'use client';
 
+import { ChevronDown, ChevronRight, ArrowLeftRight } from 'lucide-react';
 import { formatarMoeda } from '../../lib/financeiro';
 import CampoDescricao from './CampoDescricao';
 import CampoCategoria from './CampoCategoria';
@@ -36,7 +37,7 @@ export default function CardListaLancamentos({
     <div className="card card-lancamentos">
       <div className="card-header">
         <p className="card-title" style={{ marginBottom: 0 }}>Lançamentos de {nomeMes}</p>
-        <button onClick={onAlternarAberto} className="collapse-btn">{aberto ? '▾' : '▸'}</button>
+        <button onClick={onAlternarAberto} className="collapse-btn">{aberto ? <ChevronDown size={16} /> : <ChevronRight size={16} />}</button>
       </div>
       {aberto && (
         <>
@@ -69,7 +70,7 @@ export default function CardListaLancamentos({
                   ) : (
                     <div className="row row-main">
                       <div>
-                        <p className="row-title">{t.transferencia_id && '⇄ '}{t.descricao || t.categoria}</p>
+                        <p className="row-title" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>{t.transferencia_id && <ArrowLeftRight size={13} />}{t.descricao || t.categoria}</p>
                         <p className="row-subtitle">{t.transferencia_id ? 'transferência entre contas' : t.categoria}</p>
                       </div>
                       <div className="row-actions">

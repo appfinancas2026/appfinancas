@@ -1,11 +1,13 @@
 'use client';
+import { Home, BarChart3, Landmark, Receipt, CalendarDays, Target, FileText, Settings, LogOut, Menu } from 'lucide-react';
+
 const ITENS_MENU = [
-  { view: 'home', icone: '🏠', label: 'Painel' },
-  { view: 'relatorios', icone: '📊', label: 'Relatórios' },
-  { view: 'contas-cartoes', icone: '🏦', label: 'Contas & Cartões' },
-  { view: 'lancamentos', icone: '🧾', label: 'Lançamentos' },
-  { view: 'contas-fixas', icone: '📆', label: 'Contas fixas' },
-  { view: 'planejamento', icone: '🎯', label: 'Planejamento' },
+  { view: 'home', Icone: Home, label: 'Painel' },
+  { view: 'relatorios', Icone: BarChart3, label: 'Relatórios' },
+  { view: 'contas-cartoes', Icone: Landmark, label: 'Contas & Cartões' },
+  { view: 'lancamentos', Icone: Receipt, label: 'Lançamentos' },
+  { view: 'contas-fixas', Icone: CalendarDays, label: 'Contas fixas' },
+  { view: 'planejamento', Icone: Target, label: 'Planejamento' },
 ];
 export default function Sidebar({
   perfil,
@@ -34,25 +36,25 @@ export default function Sidebar({
             }
             <span className="brand-text">{perfil.nome_exibicao || 'AppFinançasBr'}</span>
           </div>
-          <button onClick={alternarSidebar} className="sidebar-toggle" title="Recolher/expandir menu">☰</button>
+          <button onClick={alternarSidebar} className="sidebar-toggle" title="Recolher/expandir menu"><Menu size={18} /></button>
         </div>
         {ITENS_MENU.map((item) => (
           <button key={item.view} onClick={() => irPara(item.view)} className={`sidebar-link ${view === item.view ? 'active' : ''}`}>
-            <span className="sidebar-icon">{item.icone}</span><span className="sidebar-label">{item.label}</span>
+            <span className="sidebar-icon"><item.Icone size={18} /></span><span className="sidebar-label">{item.label}</span>
           </button>
         ))}
         {tipoEntidade === 'PJ' && (
           <button onClick={() => irPara('relatorios')} className={`sidebar-link ${view === 'relatorios' ? 'active' : ''}`}>
-            <span className="sidebar-icon">📑</span><span className="sidebar-label">DRE</span>
+            <span className="sidebar-icon"><FileText size={18} /></span><span className="sidebar-label">DRE</span>
           </button>
         )}
         <div className="sidebar-footer">
           <div className="sidebar-divider" />
           <button onClick={() => irPara('configuracoes')} className={`sidebar-link ${view === 'configuracoes' ? 'active' : ''}`}>
-            <span className="sidebar-icon">⚙</span><span className="sidebar-label">Configurações</span>
+            <span className="sidebar-icon"><Settings size={18} /></span><span className="sidebar-label">Configurações</span>
           </button>
           <button onClick={sair} className="sidebar-link">
-            <span className="sidebar-icon">🚪</span><span className="sidebar-label">Sair</span>
+            <span className="sidebar-icon"><LogOut size={18} /></span><span className="sidebar-label">Sair</span>
           </button>
         </div>
       </aside>

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef } from 'react';
+import { Camera, Keyboard, Mic, Square } from 'lucide-react';
 
 export default function CapturaRapida({ onExtraido, onFechar }) {
   const [modo, setModo] = useState('foto');
@@ -93,9 +94,9 @@ export default function CapturaRapida({ onExtraido, onFechar }) {
     <div style={{ background: 'var(--surface-alt)', borderRadius: 'var(--radius-md)', padding: 16, marginBottom: 16 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
         <div className="tabs">
-          <button onClick={() => { setModo('foto'); setErro(''); }} className={`tab ${modo === 'foto' ? 'tab-active' : ''}`}>📷 Foto</button>
-          <button onClick={() => { setModo('texto'); setErro(''); }} className={`tab ${modo === 'texto' ? 'tab-active' : ''}`}>⌨️ Texto</button>
-          <button onClick={() => { setModo('audio'); setErro(''); }} className={`tab ${modo === 'audio' ? 'tab-active' : ''}`}>🎤 Áudio</button>
+          <button onClick={() => { setModo('foto'); setErro(''); }} className={`tab ${modo === 'foto' ? 'tab-active' : ''}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><Camera size={14} /> Foto</button>
+          <button onClick={() => { setModo('texto'); setErro(''); }} className={`tab ${modo === 'texto' ? 'tab-active' : ''}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><Keyboard size={14} /> Texto</button>
+          <button onClick={() => { setModo('audio'); setErro(''); }} className={`tab ${modo === 'audio' ? 'tab-active' : ''}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><Mic size={14} /> Áudio</button>
         </div>
         <button onClick={onFechar} className="btn-link">fechar</button>
       </div>
@@ -130,9 +131,9 @@ export default function CapturaRapida({ onExtraido, onFechar }) {
       {!processando && modo === 'audio' && (
         <div>
           {!gravando ? (
-            <button onClick={iniciarGravacao} className="btn btn-primary">🎤 Começar a falar</button>
+            <button onClick={iniciarGravacao} className="btn btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><Mic size={14} /> Começar a falar</button>
           ) : (
-            <button onClick={pararGravacao} className="btn btn-primary" style={{ background: 'var(--negative)' }}>⏹ Parar</button>
+            <button onClick={pararGravacao} className="btn btn-primary" style={{ background: 'var(--negative)', display: 'inline-flex', alignItems: 'center', gap: 6 }}><Square size={14} /> Parar</button>
           )}
           {textoLivre && <p className="empty-hint" style={{ marginTop: 8 }}>Ouvi: &ldquo;{textoLivre}&rdquo;</p>}
         </div>

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { CreditCard, ArrowUp, ChevronDown, ChevronRight } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import {
   formatarMoeda, calcularMesFaturaCompra, avancarMeses,
@@ -331,13 +332,13 @@ export default function CardCartoes({ entidadeAtual, contas, cartoes, onAtualiza
   return (
     <div className="card">
       <div className="card-header">
-        <span className="card-title-group"><span className="card-icon">💳</span><p className="card-title">Cartões de crédito</p></span>
+        <span className="card-title-group"><span className="card-icon"><CreditCard size={16} /></span><p className="card-title">Cartões de crédito</p></span>
         <div className="card-header-actions">
           {aberto && cartoes.length > 0 && (
-            <button onClick={() => setMostrarImportarFatura((v) => !v)} className="btn btn-ghost">⬆ Importar fatura</button>
+            <button onClick={() => setMostrarImportarFatura((v) => !v)} className="btn btn-ghost" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><ArrowUp size={14} /> Importar fatura</button>
           )}
           {aberto && <button onClick={() => setMostrarNovoCartao((v) => !v)} className="btn btn-ghost">+ Novo cartão</button>}
-          <button onClick={onAlternarAberto} className="collapse-btn">{aberto ? '▾' : '▸'}</button>
+          <button onClick={onAlternarAberto} className="collapse-btn">{aberto ? <ChevronDown size={16} /> : <ChevronRight size={16} />}</button>
         </div>
       </div>
 
@@ -404,24 +405,43 @@ export default function CardCartoes({ entidadeAtual, contas, cartoes, onAtualiza
             <p className="row-subtitle">fecha dia {cartao.dia_fechamento} · vence dia {cartao.dia_vencimento}{contaPagamento ? ` · ${contaPagamento.nome}` : ''}</p>
 
             {info && (
-              <div style={{ display: 'flex', gap: 16, marginTop: 8, flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', gap: 20, marginTop: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+                <div>
+                  <p className="row-subtitle" style={{ margin: 0 }}>Fatura fechada</p>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                    <span className="amount amount-hero">{formatarMoeda(info.fechada.total)}</span>
+                    {info.fechada.total > 0 && (
+                      info.fechada.paga ? (
+                        <span className="badge badge-confirmed">Paga</span>
+                      ) : (
+                        <button onClick={() => pagarFatura(cartao)} className="btn btn-primary" style={{ padding: '4px 10px', fontSize: 12 }}>Pagar fatura</button>
+                      )
+                    )}
+                  </div>
+                </div>
                 <div>
                   <p className="row-subtitle" style={{ margin: 0 }}>Fatura aberta</p>
                   <span className="amount">{formatarMoeda(info.aberta.total)}</span>
                 </div>
-                <div>
-                  <p className="row-subtitle" style={{ margin: 0 }}>Fatura fechada</p>
-                  <span className="amount">{formatarMoeda(info.fechada.total)}</span>
-                  {info.fechada.total > 0 && (
-                    info.fechada.paga ? (
-                      <span className="badge badge-confirmed" style={{ marginLeft: 8 }}>Paga</span>
-                    ) : (
-                      <button onClick={() => pagarFatura(cartao)} className="btn btn-primary" style={{ marginLeft: 8, padding: '4px 10px', fontSize: 12 }}>Pagar fatura</button>
-                    )
-                  )}
-                </div>
               </div>
             )}
+
+            {info && cartao.limite != null && Number(cartao.limite) > 0 && (() => {
+              const usado = (info.aberta.total || 0) + (info.fechada.paga ? 0 : (info.fechada.total || 0));
+              const limite = Number(cartao.limite);
+              const pct = Math.max(0, Math.min(100, (usado / limite) * 100));
+              const cor = pct >= 100 ? 'var(--negative)' : pct >= 80 ? 'var(--accent)' : 'var(--primary)';
+              return (
+                <div style={{ marginTop: 12 }}>
+                  <div style={{ height: 8, borderRadius: 999, background: 'var(--surface-alt)', overflow: 'hidden' }}>
+                    <div style={{ width: `${pct}%`, height: '100%', background: cor }} />
+                  </div>
+                  <p className="row-subtitle" style={{ marginTop: 4 }}>
+                    {formatarMoeda(usado)} de {formatarMoeda(limite)} do limite usado ({pct.toFixed(0)}%)
+                  </p>
+                </div>
+              );
+            })()}
 
             {comprasCartaoVisivelId === cartao.id && (
               <div style={{ marginTop: 10, background: 'var(--surface-alt)', borderRadius: 'var(--radius-sm)', padding: '4px 10px' }}>

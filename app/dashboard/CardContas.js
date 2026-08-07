@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { Landmark, ChevronDown, ChevronRight, Star, ArrowLeftRight, ArrowUp } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { formatarMoeda } from '../../lib/financeiro';
 import { recalcularSaldoConta } from '../../lib/saldos';
@@ -123,12 +124,12 @@ export default function CardContas({ entidadeAtual, contas, aberto, onAlternarAb
   return (
     <div className="card card-contas">
       <div className="card-header">
-        <span className="card-title-group"><span className="card-icon">🏦</span><p className="card-title">Contas</p></span>
+        <span className="card-title-group"><span className="card-icon"><Landmark size={16} /></span><p className="card-title">Contas</p></span>
         <div className="card-header-actions">
-          {contas.length >= 2 && <button onClick={() => setMostrarTransferencia((v) => !v)} className="btn btn-ghost">⇄ Transferir</button>}
-          <button onClick={() => setMostrarImportar((v) => !v)} className="btn btn-ghost">⬆ Importar extrato</button>
+          {contas.length >= 2 && <button onClick={() => setMostrarTransferencia((v) => !v)} className="btn btn-ghost" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><ArrowLeftRight size={14} /> Transferir</button>}
+          <button onClick={() => setMostrarImportar((v) => !v)} className="btn btn-ghost" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><ArrowUp size={14} /> Importar extrato</button>
           <button onClick={() => setMostrarNovaConta((v) => !v)} className="btn btn-ghost">+ Nova conta</button>
-          <button onClick={onAlternarAberto} className="collapse-btn">{aberto ? '▾' : '▸'}</button>
+          <button onClick={onAlternarAberto} className="collapse-btn">{aberto ? <ChevronDown size={16} /> : <ChevronRight size={16} />}</button>
         </div>
       </div>
 
@@ -186,11 +187,11 @@ export default function CardContas({ entidadeAtual, contas, aberto, onAlternarAb
                 style={c.id === contaFoco ? { outline: '2px solid var(--primary)', outlineOffset: 2, borderRadius: 'var(--radius-sm)' } : undefined}
               >
                 <span style={{ fontSize: 14, display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <button onClick={() => alternarPrincipal(c)} className={`star-btn ${c.principal ? 'is-principal' : ''}`} title="Definir como conta principal">★</button>
+                  <button onClick={() => alternarPrincipal(c)} className={`star-btn ${c.principal ? 'is-principal' : ''}`} title="Definir como conta principal"><Star size={14} fill={c.principal ? 'currentColor' : 'none'} /></button>
                   {c.nome}
                 </span>
                 <div className="row-actions">
-                  <span className={`amount ${Number(c.saldo_atual) < 0 ? 'amount-negative' : ''}`}>{formatarMoeda(c.saldo_atual)}</span>
+                  <span className={`amount amount-lg ${Number(c.saldo_atual) < 0 ? 'amount-negative' : ''}`}>{formatarMoeda(c.saldo_atual)}</span>
                   <button onClick={() => iniciarEdicaoConta(c)} className="btn-link">editar</button>
                   <button onClick={() => excluirConta(c.id)} className="btn-link">excluir</button>
                 </div>

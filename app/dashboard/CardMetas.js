@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { Target, ChevronDown, ChevronRight } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { formatarMoeda } from '../../lib/financeiro';
 
@@ -111,10 +112,10 @@ export default function CardMetas({ entidadeAtual, contas, aberto, onAlternarAbe
   return (
     <div className="card">
       <div className="card-header">
-        <span className="card-title-group"><span className="card-icon">🎯</span><p className="card-title">Metas financeiras</p></span>
+        <span className="card-title-group"><span className="card-icon"><Target size={16} /></span><p className="card-title">Metas financeiras</p></span>
         <div className="card-header-actions">
           <button onClick={() => setMostrarNovaMeta((v) => !v)} className="btn btn-ghost">+ Nova meta</button>
-          <button onClick={onAlternarAberto} className="collapse-btn">{aberto ? '▾' : '▸'}</button>
+          <button onClick={onAlternarAberto} className="collapse-btn">{aberto ? <ChevronDown size={16} /> : <ChevronRight size={16} />}</button>
         </div>
       </div>
 

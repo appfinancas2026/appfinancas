@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { ChevronDown, ChevronRight, ArrowDown, Check } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { formatarMoeda } from '../../lib/financeiro';
 
@@ -39,7 +40,7 @@ function Linha({ label, valor, valorAnt, nivel = 0, destaque = false, tipo = 'no
         onClick={expandivel ? onToggle : undefined}
       >
         <td className="dre-label">
-          {expandivel && <span className="dre-chevron">{expandido ? '▾' : '▸'}</span>}
+          {expandivel && <span className="dre-chevron">{expandido ? <ChevronDown size={12} /> : <ChevronRight size={12} />}</span>}
           <span style={{ paddingLeft: nivel * 16 }}>{label}</span>
         </td>
         <td className="dre-valor" style={{ color: cor, fontWeight: destaque ? 'var(--weight-semibold)' : 'inherit' }}>
@@ -200,10 +201,10 @@ export default function AbaDRE({ entidadeAtual, entidades }) {
           </p>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <button onClick={() => setComparar((v) => !v)} className={`btn ${comparar ? 'btn-primary' : 'btn-ghost'}`} style={{ fontSize: 'var(--text-sm)' }}>
-            {comparar ? '✓ Comparativo' : 'Comparativo'}
+          <button onClick={() => setComparar((v) => !v)} className={`btn ${comparar ? 'btn-primary' : 'btn-ghost'}`} style={{ fontSize: 'var(--text-sm)', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            {comparar ? <><Check size={14} /> Comparativo</> : 'Comparativo'}
           </button>
-          <button onClick={exportarDRE} className="btn btn-ghost" style={{ fontSize: 'var(--text-sm)' }}>⬇ CSV</button>
+          <button onClick={exportarDRE} className="btn btn-ghost" style={{ fontSize: 'var(--text-sm)', display: 'inline-flex', alignItems: 'center', gap: 6 }}><ArrowDown size={13} /> CSV</button>
         </div>
       </div>
 

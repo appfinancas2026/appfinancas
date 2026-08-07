@@ -1,5 +1,7 @@
 'use client';
 
+import { Delete } from 'lucide-react';
+
 const TECLAS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', '⌫'];
 
 export default function TelaPin({ titulo, subtitulo, logoUrl, pinDigitado, onTecla, onCancelar }) {
@@ -20,7 +22,9 @@ export default function TelaPin({ titulo, subtitulo, logoUrl, pinDigitado, onTec
 
         <div className="pin-keypad">
           {TECLAS.map((t, i) => (t === '' ? <span key={i} /> : (
-            <button key={i} type="button" className="pin-key" onClick={() => onTecla(t)}>{t}</button>
+            <button key={i} type="button" className="pin-key" onClick={() => onTecla(t)}>
+              {t === '⌫' ? <Delete size={18} style={{ display: 'inline-flex' }} /> : t}
+            </button>
           )))}
         </div>
 

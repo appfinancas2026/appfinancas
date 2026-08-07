@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { Loader2, Sparkles } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { formatarMoeda, parseOFX, parseCSVExtrato, calcularMesFaturaCompra } from '../../lib/financeiro';
 import { recalcularSaldoConta } from '../../lib/saldos';
@@ -183,8 +184,8 @@ export default function ImportadorExtrato({ modo, entidadeAtual, contas, cartoes
           <option value="">{ehFatura ? 'Importar para o cartão...' : 'Importar para a conta...'}</option>
           {lista.map((item) => (<option key={item.id} value={item.id}>{item.nome}</option>))}
         </select>
-        <label className={`btn btn-ghost ${processandoPDF ? 'disabled' : ''}`} style={{ cursor: processandoPDF ? 'default' : 'pointer' }}>
-          {processandoPDF ? '⏳ Lendo extrato...' : (nomeArquivo || (ehFatura ? 'Escolher arquivo .csv ou .ofx' : 'Escolher arquivo .ofx, .csv ou .pdf'))}
+        <label className={`btn btn-ghost ${processandoPDF ? 'disabled' : ''}`} style={{ cursor: processandoPDF ? 'default' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          {processandoPDF ? <><Loader2 size={14} className="spin" /> Lendo extrato...</> : (nomeArquivo || (ehFatura ? 'Escolher arquivo .csv ou .ofx' : 'Escolher arquivo .ofx, .csv ou .pdf'))}
           <input
             type="file"
             accept={ehFatura ? '.ofx,.csv' : '.ofx,.csv,.pdf'}
@@ -196,7 +197,7 @@ export default function ImportadorExtrato({ modo, entidadeAtual, contas, cartoes
       </div>
 
       {processandoPDF && (
-        <p className="empty-hint" style={{ margin: '8px 0 0' }}>✨ A IA está lendo o extrato... pode levar alguns segundos.</p>
+        <p className="empty-hint" style={{ margin: '8px 0 0', display: 'flex', alignItems: 'center', gap: 6 }}><Sparkles size={13} /> A IA está lendo o extrato... pode levar alguns segundos.</p>
       )}
 
       {erroPDF && <p style={{ margin: '8px 0 0', fontSize: 13, color: 'var(--negative)' }}>{erroPDF}</p>}

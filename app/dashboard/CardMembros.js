@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { Users, ChevronDown, ChevronRight, Check, AlertTriangle } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { linkDeConvite } from '../../lib/urls';
 
@@ -134,10 +135,10 @@ export default function CardMembros({ entidadeAtual, usuarioId, aberto, onAltern
   return (
     <div className="card">
       <div className="card-header">
-        <span className="card-title-group"><span className="card-icon">👥</span><p className="card-title">Quem tem acesso</p></span>
+        <span className="card-title-group"><span className="card-icon"><Users size={16} /></span><p className="card-title">Quem tem acesso</p></span>
         <div className="card-header-actions">
           {souDono && <button onClick={() => setMostrarConvidar((v) => !v)} className="btn btn-ghost">+ Convidar</button>}
-          <button onClick={onAlternarAberto} className="collapse-btn">{aberto ? '▾' : '▸'}</button>
+          <button onClick={onAlternarAberto} className="collapse-btn">{aberto ? <ChevronDown size={16} /> : <ChevronRight size={16} />}</button>
         </div>
       </div>
 
@@ -171,11 +172,14 @@ export default function CardMembros({ entidadeAtual, usuarioId, aberto, onAltern
 
               {ultimoEmail && (
                 <div>
-                  <p style={{ fontSize: 13, margin: '0 0 8px', color: 'var(--primary)' }}>
-                    ✓ <strong>{ultimoEmail.email}</strong> cadastrado.{' '}
-                    {ultimoEmail.temConta
-                      ? 'Como já tem conta, o acesso aparece no próximo login.'
-                      : 'Assim que criar a conta com esse email, o acesso é liberado.'}
+                  <p style={{ fontSize: 13, margin: '0 0 8px', color: 'var(--primary)', display: 'flex', alignItems: 'flex-start', gap: 6 }}>
+                    <Check size={14} style={{ flexShrink: 0, marginTop: 2 }} />
+                    <span>
+                      <strong>{ultimoEmail.email}</strong> cadastrado.{' '}
+                      {ultimoEmail.temConta
+                        ? 'Como já tem conta, o acesso aparece no próximo login.'
+                        : 'Assim que criar a conta com esse email, o acesso é liberado.'}
+                    </span>
                   </p>
 
                   <button onClick={() => setMostrarLink((v) => !v)} className="btn-link">
@@ -185,8 +189,8 @@ export default function CardMembros({ entidadeAtual, usuarioId, aberto, onAltern
                   {mostrarLink && (
                     <div style={{ marginTop: 8 }}>
                       {avisoDominio && (
-                        <p style={{ fontSize: 12, margin: '0 0 6px', color: 'var(--negative)' }}>
-                          ⚠ Você está acessando o app por um endereço de teste. Confira se este link abre normalmente antes de enviar.
+                        <p style={{ fontSize: 12, margin: '0 0 6px', color: 'var(--negative)', display: 'flex', alignItems: 'flex-start', gap: 6 }}>
+                          <AlertTriangle size={13} style={{ flexShrink: 0, marginTop: 2 }} /> Você está acessando o app por um endereço de teste. Confira se este link abre normalmente antes de enviar.
                         </p>
                       )}
                       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>

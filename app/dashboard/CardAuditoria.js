@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { History, ChevronDown, ChevronRight, RefreshCw } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
 const LIMITE_INICIAL = 15;
@@ -62,12 +63,12 @@ export default function CardAuditoria({ entidadeAtual, aberto, onAlternarAberto 
   return (
     <div className="card">
       <div className="card-header">
-        <span className="card-title-group"><span className="card-icon">📜</span><p className="card-title">Atividade recente</p></span>
+        <span className="card-title-group"><span className="card-icon"><History size={16} /></span><p className="card-title">Atividade recente</p></span>
         <div className="card-header-actions">
-          <button onClick={() => carregar(entidadeAtual)} className="btn btn-ghost" disabled={carregando}>
-            {carregando ? 'Atualizando...' : '↻ Atualizar'}
+          <button onClick={() => carregar(entidadeAtual)} className="btn btn-ghost" disabled={carregando} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            {carregando ? 'Atualizando...' : <><RefreshCw size={14} /> Atualizar</>}
           </button>
-          <button onClick={onAlternarAberto} className="collapse-btn">{aberto ? '▾' : '▸'}</button>
+          <button onClick={onAlternarAberto} className="collapse-btn">{aberto ? <ChevronDown size={16} /> : <ChevronRight size={16} />}</button>
         </div>
       </div>
 

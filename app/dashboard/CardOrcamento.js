@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { ClipboardList, Loader2, Sparkles, X, BarChart3, CheckCircle2, AlertTriangle, ChevronDown, ChevronRight } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { formatarMoeda } from '../../lib/financeiro';
 import CampoCategoria from './CampoCategoria';
@@ -223,22 +224,22 @@ export default function CardOrcamento({ entidadeAtual, transacoesDoMes, ano, mes
   return (
     <div className="card">
       <div className="card-header">
-        <span className="card-title-group"><span className="card-icon">📋</span><p className="card-title">Orçamento por categoria</p></span>
+        <span className="card-title-group"><span className="card-icon"><ClipboardList size={16} /></span><p className="card-title">Orçamento por categoria</p></span>
         <div className="card-header-actions">
           {aberto && !analise && (
             <>
-              <button onClick={gerarOrcamento} disabled={analisando} className="btn btn-ghost" style={{ gap: 6 }}>
-                {analisando ? '⏳ Analisando...' : '✨ Gerar inteligente'}
+              <button onClick={gerarOrcamento} disabled={analisando} className="btn btn-ghost" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                {analisando ? <><Loader2 size={14} className="spin" /> Analisando...</> : <><Sparkles size={14} /> Gerar inteligente</>}
               </button>
               <button onClick={() => setMostrarNovoOrcamento((v) => !v)} className="btn btn-ghost">+ Novo</button>
             </>
           )}
           {analise && (
-            <button onClick={() => { setAnalise(null); setSugestoesEditaveis([]); setModoAplicar(null); }} className="btn btn-ghost">
-              ✕ Fechar análise
+            <button onClick={() => { setAnalise(null); setSugestoesEditaveis([]); setModoAplicar(null); }} className="btn btn-ghost" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <X size={14} /> Fechar análise
             </button>
           )}
-          <button onClick={onAlternarAberto} className="collapse-btn">{aberto ? '▾' : '▸'}</button>
+          <button onClick={onAlternarAberto} className="collapse-btn">{aberto ? <ChevronDown size={16} /> : <ChevronRight size={16} />}</button>
         </div>
       </div>
 
@@ -251,8 +252,8 @@ export default function CardOrcamento({ entidadeAtual, transacoesDoMes, ano, mes
               {/* Resumo */}
               <div style={{ background: 'var(--surface-alt)', borderRadius: 'var(--radius-sm)', padding: '12px 16px', marginBottom: 16 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 4 }}>
-                  <p style={{ fontSize: 'var(--text-md)', margin: 0, fontWeight: 'var(--weight-semibold)' }}>
-                    📊 Análise baseada em {analise.mesesReais} {analise.mesesReais === 1 ? 'mês' : 'meses'} de histórico
+                  <p style={{ fontSize: 'var(--text-md)', margin: 0, fontWeight: 'var(--weight-semibold)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <BarChart3 size={14} /> Análise baseada em {analise.mesesReais} {analise.mesesReais === 1 ? 'mês' : 'meses'} de histórico
                   </p>
                   {analise.mesesReais < 3 && (
                     <span style={{ fontSize: 'var(--text-xs)', padding: '2px 8px', borderRadius: 999, background: 'var(--accent-tint)', color: 'var(--accent-text)', fontWeight: 'var(--weight-semibold)' }}>
@@ -271,8 +272,8 @@ export default function CardOrcamento({ entidadeAtual, transacoesDoMes, ano, mes
               {analise.alertas?.length > 0 && (
                 <div style={{ marginBottom: 16 }}>
                   {analise.alertas.map((a, i) => (
-                    <p key={i} style={{ fontSize: 'var(--text-md)', margin: '0 0 6px', paddingLeft: 12, borderLeft: '3px solid var(--negative)', color: 'var(--text)' }}>
-                      ⚠️ {a}
+                    <p key={i} style={{ fontSize: 'var(--text-md)', margin: '0 0 6px', paddingLeft: 12, borderLeft: '3px solid var(--negative)', color: 'var(--text)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <AlertTriangle size={14} /> {a}
                     </p>
                   ))}
                 </div>
@@ -328,10 +329,10 @@ export default function CardOrcamento({ entidadeAtual, transacoesDoMes, ano, mes
               </div>
 
               {analise.sobra_sugerida !== undefined && (
-                <p style={{ fontSize: 'var(--text-sm)', margin: '10px 0 0', color: analise.sobra_sugerida >= 0 ? 'var(--primary)' : 'var(--negative)' }}>
+                <p style={{ fontSize: 'var(--text-sm)', margin: '10px 0 0', color: analise.sobra_sugerida >= 0 ? 'var(--primary)' : 'var(--negative)', display: 'flex', alignItems: 'center', gap: 6 }}>
                   {analise.sobra_sugerida >= 0
-                    ? `✅ Com esse orçamento, sobraria ${formatarMoeda(analise.sobra_sugerida)}/mês para reserva ou investimento.`
-                    : `⚠️ Mesmo com esse orçamento, os gastos superam a renda em ${formatarMoeda(Math.abs(analise.sobra_sugerida))}/mês.`}
+                    ? <><CheckCircle2 size={14} /> Com esse orçamento, sobraria {formatarMoeda(analise.sobra_sugerida)}/mês para reserva ou investimento.</>
+                    : <><AlertTriangle size={14} /> Mesmo com esse orçamento, os gastos superam a renda em {formatarMoeda(Math.abs(analise.sobra_sugerida))}/mês.</>}
                 </p>
               )}
 
@@ -394,7 +395,7 @@ export default function CardOrcamento({ entidadeAtual, transacoesDoMes, ano, mes
                 )}
 
                 {orcamentos.length === 0 && !mostrarNovoOrcamento && (
-                  <p className="empty-hint">Nenhum orçamento cadastrado. Use "✨ Gerar inteligente" para o sistema analisar seu histórico — funciona com qualquer quantidade de dados, mas fica mais preciso com 3 meses de lançamentos.</p>
+                  <p className="empty-hint">Nenhum orçamento cadastrado. Use "Gerar inteligente" para o sistema analisar seu histórico — funciona com qualquer quantidade de dados, mas fica mais preciso com 3 meses de lançamentos.</p>
                 )}
 
                 {(expandir ? orcamentos : orcamentos.slice(0, LIMITE_LISTA)).map((o) => {

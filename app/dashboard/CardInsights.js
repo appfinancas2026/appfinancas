@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { Lightbulb } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { gerarInsights, projetarSaldoDiario } from '../../lib/insights';
 import { primeiroDiaDoMes, ultimoDiaDoMes, subtrairMeses, calcularPeriodoFaturaAberta, mesReferenciaStr } from '../../lib/financeiro';
@@ -117,7 +118,7 @@ export default function CardInsights({ entidadeAtual, contas, cartoes, lancament
     <div className="card" style={{ marginBottom: 24 }}>
       <div className="card-header" style={{ marginBottom: 12 }}>
         <span className="card-title-group">
-          <span className="card-icon">💡</span>
+          <span className="card-icon"><Lightbulb size={16} /></span>
           <p className="card-title">Insights da semana</p>
         </span>
       </div>

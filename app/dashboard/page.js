@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, Suspense } from 'react';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
+import { Menu, ChevronLeft, ChevronRight, Sparkles, Landmark, BarChart3 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { TEMAS_CORES } from '../../lib/temas';
 import {
@@ -1397,7 +1398,7 @@ function DashboardConteudo() {
       <div className="topbar">
         <div className="topbar-row">
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-            <button onClick={alternarSidebar} className="mobile-menu-btn" title="Menu">☰</button>
+            <button onClick={alternarSidebar} className="mobile-menu-btn" title="Menu"><Menu size={18} /></button>
             <div className="entity-row" style={{ margin: 0 }}>
               {entidades.map((ent) => (
                 <div key={ent.id} className="entity-pill-group">
@@ -1432,16 +1433,16 @@ function DashboardConteudo() {
         <div className="month-row">
           {['home', 'lancamentos', 'contas-fixas', 'planejamento', 'relatorios'].includes(view) && (
             <div className="month-nav">
-              <button onClick={mesAnterior} className="btn-icon">‹</button>
+              <button onClick={mesAnterior} className="btn-icon"><ChevronLeft size={16} /></button>
               <span className="month-label">{NOMES_MESES[dataAtual.mes]} de {dataAtual.ano}</span>
-              <button onClick={mesProximo} className="btn-icon">›</button>
+              <button onClick={mesProximo} className="btn-icon"><ChevronRight size={16} /></button>
               <button onClick={irParaHoje} className="btn btn-ghost">Hoje</button>
             </div>
           )}
           <div className="tabs">
             <button onClick={() => setView('home')} className={`tab ${view === 'home' ? 'tab-active' : ''}`}>Painel</button>
             <button onClick={() => setView('relatorios')} className={`tab ${view === 'relatorios' ? 'tab-active' : ''}`}>Relatórios</button>
-            <button onClick={() => setView('assistente')} className={`tab ${view === 'assistente' ? 'tab-active' : ''}`}>✨ Assistente</button>
+            <button onClick={() => setView('assistente')} className={`tab ${view === 'assistente' ? 'tab-active' : ''}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><Sparkles size={14} /> Assistente</button>
           </div>
         </div>
       </div>
@@ -1771,7 +1772,7 @@ function DashboardConteudo() {
                     style={{ cursor: 'pointer' }}
                   >
                     <span style={{ fontSize: 'var(--text-md)' }}>{c.nome}</span>
-                    <span className={`amount ${Number(c.saldo_atual) < 0 ? 'amount-negative' : ''}`}>{formatarMoeda(c.saldo_atual)}</span>
+                    <span className={`amount amount-lg ${Number(c.saldo_atual) < 0 ? 'amount-negative' : ''}`}>{formatarMoeda(c.saldo_atual)}</span>
                   </div>
                 ))}
               </div>
@@ -1794,15 +1795,15 @@ function DashboardConteudo() {
               Novo lançamento
             </button>
             <button onClick={() => { setView('lancamentos'); setMostrarCapturaRapida(true); }} className="acao-rapida">
-              <span className="acao-rapida-icone">✨</span>
+              <span className="acao-rapida-icone"><Sparkles size={18} /></span>
               Capturar com IA
             </button>
             <button onClick={() => setView('contas-cartoes')} className="acao-rapida">
-              <span className="acao-rapida-icone">🏦</span>
+              <span className="acao-rapida-icone"><Landmark size={18} /></span>
               Contas
             </button>
             <button onClick={() => setView('relatorios')} className="acao-rapida">
-              <span className="acao-rapida-icone">📊</span>
+              <span className="acao-rapida-icone"><BarChart3 size={18} /></span>
               Relatórios
             </button>
           </div>
@@ -1819,7 +1820,7 @@ function DashboardConteudo() {
           className="assistente-fab"
           title="Assistente IA"
         >
-          ✨
+          <Sparkles size={22} />
         </button>
       )}
     </div>

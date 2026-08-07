@@ -1,5 +1,6 @@
 'use client';
 
+import { ArrowDown, ChevronDown, ChevronRight } from 'lucide-react';
 import CampoCategoria from './CampoCategoria';
 import ListaFixos from './ListaFixos';
 
@@ -59,14 +60,14 @@ export default function CardReceitasFixas({
   return (
     <div className="card card-receitas">
       <div className="card-header">
-        <span className="card-title-group"><span className="card-icon">⬇</span><p className="card-title">Receitas fixas</p></span>
+        <span className="card-title-group"><span className="card-icon"><ArrowDown size={16} /></span><p className="card-title">Receitas fixas</p></span>
         <div className="card-header-actions">
           <select className="input" style={{ padding: '5px 8px', fontSize: 12 }} value={ordenarReceitasPor} onChange={(e) => setOrdenarReceitasPor(e.target.value)}>
             <option value="data">Ordenar: dia</option>
             <option value="alfabetica">Ordenar: A-Z</option>
           </select>
           <button onClick={() => setMostrarNovaReceitaFixa((v) => !v)} className="btn btn-ghost">+ Nova receita fixa</button>
-          <button onClick={onAlternarAberto} className="collapse-btn">{aberto ? '▾' : '▸'}</button>
+          <button onClick={onAlternarAberto} className="collapse-btn">{aberto ? <ChevronDown size={16} /> : <ChevronRight size={16} />}</button>
         </div>
       </div>
 

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { Sparkles, Mic, Square } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { formatarMoeda } from '../../lib/financeiro';
 
@@ -100,7 +101,7 @@ DESPESAS FIXAS: ${fixosDespesa.map((f) => `${f.nome} R$${f.valor_padrao} dia${f.
     <div className="assistente-root">
       <div className="assistente-header">
         <div>
-          <p className="assistente-titulo">✨ Assistente financeiro</p>
+          <p className="assistente-titulo" style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Sparkles size={20} /> Assistente financeiro</p>
           <p className="assistente-subtitulo">Pergunte sobre seus gastos, receitas ou peça uma análise. Texto ou voz.</p>
         </div>
         {conversa.length > 0 && (
@@ -124,7 +125,7 @@ DESPESAS FIXAS: ${fixosDespesa.map((f) => `${f.nome} R$${f.valor_padrao} dia${f.
 
         {conversa.map((msg, i) => (
           <div key={i} className={`assistente-balao ${msg.papel}`}>
-            {msg.papel === 'assistant' && <span className="assistente-avatar">✨</span>}
+            {msg.papel === 'assistant' && <span className="assistente-avatar"><Sparkles size={16} /></span>}
             <div className="assistente-texto">
               {msg.texto.split('\n').map((l, j) => <p key={j} style={{ margin: j === 0 ? 0 : '6px 0 0' }}>{l}</p>)}
             </div>
@@ -133,7 +134,7 @@ DESPESAS FIXAS: ${fixosDespesa.map((f) => `${f.nome} R$${f.valor_padrao} dia${f.
 
         {pensando && (
           <div className="assistente-balao assistant">
-            <span className="assistente-avatar">✨</span>
+            <span className="assistente-avatar"><Sparkles size={16} /></span>
             <div className="assistente-texto assistente-pensando"><span /><span /><span /></div>
           </div>
         )}
@@ -159,7 +160,7 @@ DESPESAS FIXAS: ${fixosDespesa.map((f) => `${f.nome} R$${f.valor_padrao} dia${f.
           title={gravando ? 'Parar gravação' : 'Falar pergunta'}
           className={`btn assistente-mic ${gravando ? 'gravando' : ''}`}
         >
-          {gravando ? '⏹' : '🎤'}
+          {gravando ? <Square size={16} /> : <Mic size={16} />}
         </button>
         <button
           onClick={() => enviar()}

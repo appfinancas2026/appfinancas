@@ -1,5 +1,6 @@
 'use client';
 
+import { Receipt, Sparkles } from 'lucide-react';
 import { formatarMoeda } from '../../lib/financeiro';
 import CampoDescricao from './CampoDescricao';
 import CampoCategoria from './CampoCategoria';
@@ -35,9 +36,9 @@ export default function CardNovoLancamento({
   return (
     <div className="card card-lancamentos">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, flexWrap: 'wrap', gap: 8 }}>
-        <span className="card-title-group" style={{ marginBottom: 0 }}><span className="card-icon">🧾</span><p className="card-title">Novo lançamento</p></span>
+        <span className="card-title-group" style={{ marginBottom: 0 }}><span className="card-icon"><Receipt size={16} /></span><p className="card-title">Novo lançamento</p></span>
         {!mostrarCapturaRapida && (
-          <button onClick={() => setMostrarCapturaRapida(true)} className="btn btn-ghost">✨ Capturar com IA</button>
+          <button onClick={() => setMostrarCapturaRapida(true)} className="btn btn-ghost" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><Sparkles size={14} /> Capturar com IA</button>
         )}
       </div>
       {mostrarCapturaRapida && (

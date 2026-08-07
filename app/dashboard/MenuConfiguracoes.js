@@ -1,5 +1,6 @@
 'use client';
 
+import { Settings, Bell } from 'lucide-react';
 import { TEMAS_CORES } from '../../lib/temas';
 import NotificacoesPush from './NotificacoesPush';
 
@@ -21,7 +22,7 @@ export default function MenuConfiguracoes({
   return (
     <div className="card">
       <div className="card-header">
-        <span className="card-title-group"><span className="card-icon">⚙</span><p className="card-title">Preferências</p></span>
+        <span className="card-title-group"><span className="card-icon"><Settings size={16} /></span><p className="card-title">Preferências</p></span>
       </div>
       <div className="settings-item">
         <span>Modo escuro</span>
@@ -39,7 +40,7 @@ export default function MenuConfiguracoes({
       <div className="settings-divider" />
 
       <div className="settings-item" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 6 }}>
-        <span style={{ fontWeight: 'var(--weight-medium)' }}>🔔 Notificações</span>
+        <span style={{ fontWeight: 'var(--weight-medium)', display: 'inline-flex', alignItems: 'center', gap: 6 }}><Bell size={15} /> Notificações</span>
         <NotificacoesPush entidadeAtual={entidadeAtual} />
       </div>
 

@@ -1,5 +1,6 @@
 'use client';
 
+import { ArrowUp, ChevronDown, ChevronRight } from 'lucide-react';
 import CampoCategoria from './CampoCategoria';
 import ListaFixos from './ListaFixos';
 
@@ -67,14 +68,14 @@ export default function CardDespesasFixas({
   return (
     <div className="card card-despesas">
       <div className="card-header">
-        <span className="card-title-group"><span className="card-icon">⬆</span><p className="card-title">Despesas fixas</p></span>
+        <span className="card-title-group"><span className="card-icon"><ArrowUp size={16} /></span><p className="card-title">Despesas fixas</p></span>
         <div className="card-header-actions">
           <select className="input" style={{ padding: '5px 8px', fontSize: 12 }} value={ordenarDespesasPor} onChange={(e) => setOrdenarDespesasPor(e.target.value)}>
             <option value="data">Ordenar: dia</option>
             <option value="alfabetica">Ordenar: A-Z</option>
           </select>
           <button onClick={() => setMostrarNovaDespesaFixa((v) => !v)} className="btn btn-ghost">+ Nova despesa fixa</button>
-          <button onClick={onAlternarAberto} className="collapse-btn">{aberto ? '▾' : '▸'}</button>
+          <button onClick={onAlternarAberto} className="collapse-btn">{aberto ? <ChevronDown size={16} /> : <ChevronRight size={16} />}</button>
         </div>
       </div>
 

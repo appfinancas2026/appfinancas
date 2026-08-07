@@ -317,6 +317,9 @@ button, input, select { font-family: var(--font-body); }
   font-size: var(--text-lg);
   cursor: pointer;
   color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .btn-icon:hover { background: var(--surface-alt); color: var(--text); }
@@ -609,8 +612,10 @@ button, input, select { font-family: var(--font-body); }
   border: none;
   cursor: pointer;
   color: var(--text-muted);
-  font-size: var(--text-md);
   padding: 2px 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .show-more-row { text-align: center; padding-top: 12px; }
@@ -654,10 +659,12 @@ button, input, select { font-family: var(--font-body); }
   background: none;
   border: none;
   cursor: pointer;
-  font-size: var(--text-lg);
   color: var(--text-muted);
   padding: 6px;
   flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   transition: color 0.15s;
 }
 
@@ -687,7 +694,7 @@ button, input, select { font-family: var(--font-body); }
 .sidebar-link:hover { background: var(--surface-alt); color: var(--text); }
 .sidebar-link.active { background: var(--surface-alt); color: var(--text); font-weight: var(--weight-semibold); }
 
-.sidebar-icon { font-size: var(--text-lg); width: 20px; text-align: center; flex-shrink: 0; }
+.sidebar-icon { width: 20px; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; }
 
 .sidebar.collapsed .sidebar-label,
 .sidebar.collapsed .sidebar-brand span.brand-text { display: none; }
@@ -853,7 +860,20 @@ button, input, select { font-family: var(--font-body); }
 .amount { font-variant-numeric: tabular-nums; font-weight: var(--weight-semibold); font-size: var(--text-md); }
 .amount-positive { color: var(--primary); }
 .amount-negative { color: var(--negative); }
-.amount-hero { font-size: 34px; }
+
+/* Número protagonista dentro de um card — o único que deve saltar aos
+ * olhos (ex: fatura fechada do cartão). Mesma linguagem do saldo-hero. */
+.amount-hero {
+  font-family: var(--font-display);
+  font-size: 32px;
+  font-weight: var(--weight-bold);
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+/* Ênfase moderada para números repetidos em lista (saldo por conta) — mais
+ * legível que o padrão, sem competir com o número protagonista do card. */
+.amount-lg { font-size: var(--text-xl); font-weight: var(--weight-semibold); }
 
 .badge {
   font-size: var(--text-xs);
@@ -1060,6 +1080,10 @@ table.report-table td { padding: 12px 0; border-top: 1px solid var(--border); }
   0%, 80%, 100% { opacity: 0.3; transform: scale(0.8); }
   40% { opacity: 1; transform: scale(1); }
 }
+
+/* Ícone de carregamento (Loader2 do lucide-react) — girando. */
+@keyframes spin { to { transform: rotate(360deg); } }
+.spin { animation: spin 1s linear infinite; }
 
 .assistente-input-row {
   display: flex;

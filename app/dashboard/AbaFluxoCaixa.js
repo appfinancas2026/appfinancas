@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { AlertTriangle, CheckCircle2, ChevronDown, ChevronRight, Check } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { supabase } from '../../lib/supabase';
 import { formatarMoeda } from '../../lib/financeiro';
@@ -156,12 +157,12 @@ export default function AbaFluxoCaixa({ entidadeAtual, contas, lancamentosFixos 
           <p style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)', margin: 0 }}>Evolução do saldo e projeção com base nos lançamentos fixos.</p>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <button onClick={() => setMostrarProjecao((v) => !v)} className={`btn ${mostrarProjecao ? 'btn-primary' : 'btn-ghost'}`} style={{ fontSize: 'var(--text-sm)' }}>
-            {mostrarProjecao ? '✓ Projeção ativa' : 'Mostrar projeção'}
+          <button onClick={() => setMostrarProjecao((v) => !v)} className={`btn ${mostrarProjecao ? 'btn-primary' : 'btn-ghost'}`} style={{ fontSize: 'var(--text-sm)', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            {mostrarProjecao ? <><Check size={14} /> Projeção ativa</> : 'Mostrar projeção'}
           </button>
           {mostrarProjecao && (
-            <button onClick={() => setIncluirVariaveis((v) => !v)} className={`btn ${incluirVariaveis ? 'btn-primary' : 'btn-ghost'}`} style={{ fontSize: 'var(--text-sm)' }}>
-              {incluirVariaveis ? '✓ Com gastos do dia a dia' : 'Só contas fixas'}
+            <button onClick={() => setIncluirVariaveis((v) => !v)} className={`btn ${incluirVariaveis ? 'btn-primary' : 'btn-ghost'}`} style={{ fontSize: 'var(--text-sm)', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              {incluirVariaveis ? <><Check size={14} /> Com gastos do dia a dia</> : 'Só contas fixas'}
             </button>
           )}
         </div>
@@ -203,7 +204,9 @@ export default function AbaFluxoCaixa({ entidadeAtual, contas, lancamentosFixos 
               <p className="relatorio-kpi-valor">{formatarMoeda(fluxo.totalSaidas)}</p>
             </div>
             <div className={`relatorio-kpi ${fluxo.diasNegativos.length > 0 ? '' : 'destaque'}`}>
-              <p className="relatorio-kpi-label">{fluxo.diasNegativos.length > 0 ? '⚠️ Menor saldo' : '✅ Menor saldo'}</p>
+              <p className="relatorio-kpi-label" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                {fluxo.diasNegativos.length > 0 ? <AlertTriangle size={12} /> : <CheckCircle2 size={12} />} Menor saldo
+              </p>
               <p className={`relatorio-kpi-valor ${fluxo.menorSaldo < 0 ? 'negativo' : 'positivo'}`}>{formatarMoeda(fluxo.menorSaldo)}</p>
               {fluxo.diasNegativos.length > 0 && <p className="relatorio-kpi-var" style={{ color: 'var(--negative)' }}>{fluxo.diasNegativos.length} dia(s) no vermelho</p>}
             </div>
@@ -254,7 +257,7 @@ export default function AbaFluxoCaixa({ entidadeAtual, contas, lancamentosFixos 
                   style={{ cursor: dia.itens.length > 0 ? 'pointer' : 'default' }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    {dia.itens.length > 0 && <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>{expandido[dia.data] ? '▾' : '▸'}</span>}
+                    {dia.itens.length > 0 && <span style={{ color: 'var(--text-muted)', display: 'inline-flex' }}>{expandido[dia.data] ? <ChevronDown size={12} /> : <ChevronRight size={12} />}</span>}
                     <span style={{ fontSize: 'var(--text-md)', fontWeight: dia.ehHoje ? 'var(--weight-semibold)' : 'inherit' }}>{formatarDataCompleta(dia.data)}</span>
                     {dia.ehHoje && <span style={{ fontSize: 'var(--text-xs)', background: 'var(--primary)', color: '#fff', padding: '1px 6px', borderRadius: 999 }}>hoje</span>}
                     {dia.ehProjecao && <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>projeção</span>}

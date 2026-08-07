@@ -5,8 +5,8 @@ const ITENS_MENU = [
   { view: 'home', Icone: Home, label: 'Painel' },
   { view: 'relatorios', Icone: BarChart3, label: 'Relatórios' },
   { view: 'contas-cartoes', Icone: Landmark, label: 'Contas & Cartões' },
-  { view: 'lancamentos', Icone: Receipt, label: 'Lançamentos' },
   { view: 'contas-fixas', Icone: CalendarDays, label: 'Contas fixas' },
+  { view: 'lancamentos', Icone: Receipt, label: 'Lançamentos' },
   { view: 'planejamento', Icone: Target, label: 'Planejamento' },
 ];
 export default function Sidebar({

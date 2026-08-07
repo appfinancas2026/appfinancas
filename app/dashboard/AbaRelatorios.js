@@ -576,7 +576,7 @@ export default function AbaRelatorios({
                   { chave: 'quitado', titulo: contasView.totais.labelQuitado, valor: contasView.totais.quitado, sub: null },
                 ].map((c) => {
                   const ativo = contasSituacao === c.chave;
-                  const corValor = c.chave === 'atraso' ? 'var(--negative)' : c.chave === 'quitado' ? 'var(--primary)' : 'inherit';
+                  const corValor = c.chave === 'atraso' ? 'var(--negative)' : c.chave === 'quitado' ? 'var(--primary)' : 'var(--text)';
                   return (
                     <button
                       key={c.chave}
@@ -585,6 +585,7 @@ export default function AbaRelatorios({
                         display: 'flex', flexDirection: 'column', alignItems: 'flex-start',
                         padding: 12, borderRadius: 'var(--radius-sm)', textAlign: 'left', cursor: 'pointer',
                         background: 'var(--surface)',
+                        color: 'var(--text)',
                         border: `1px solid ${ativo ? (c.chave === 'atraso' ? 'var(--negative)' : 'var(--primary)') : 'var(--border)'}`,
                         boxShadow: ativo ? `0 0 0 2px ${c.chave === 'atraso' ? 'var(--negative-tint)' : 'var(--primary-tint)'}` : 'none',
                       }}

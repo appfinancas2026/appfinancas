@@ -38,11 +38,17 @@ const PERIODOS = [
   { label: 'Personalizado', de: null, ate: null },
 ];
 
+// Parseia 'YYYY-MM-DD' como data local (evita o deslocamento UTC → local de new Date(string)).
+function parseDateLocal(s) {
+  const [y, m, d] = s.split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
+
 // Deriva a lista de meses de referência (YYYY-MM-01) que caem no período.
 function mesesReferenciaNoPeriodo(inicio, fim) {
   const meses = [];
-  const dIni = new Date(inicio);
-  const dFim = new Date(fim);
+  const dIni = parseDateLocal(inicio);
+  const dFim = parseDateLocal(fim);
   let ano = dIni.getFullYear();
   let mes = dIni.getMonth();
   while (ano < dFim.getFullYear() || (ano === dFim.getFullYear() && mes <= dFim.getMonth())) {

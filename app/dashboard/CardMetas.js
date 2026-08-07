@@ -160,7 +160,11 @@ export default function CardMetas({ entidadeAtual, contas, aberto, onAlternarAbe
 
             let prazoTexto = null;
             if (m.data_alvo) {
-              const dias = Math.ceil((new Date(m.data_alvo) - new Date()) / (1000 * 60 * 60 * 24));
+              const [ay, am, ad] = m.data_alvo.split('-').map(Number);
+              const hoje = new Date();
+              const venc = new Date(ay, am - 1, ad);
+              const base = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate());
+              const dias = Math.round((venc - base) / 86400000);
               prazoTexto = dias < 0 ? `prazo vencido há ${Math.abs(dias)}d` : dias === 0 ? 'prazo é hoje' : `${dias}d restantes`;
             }
 

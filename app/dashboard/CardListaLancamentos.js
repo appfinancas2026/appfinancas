@@ -68,12 +68,12 @@ export default function CardListaLancamentos({
                       <button type="button" onClick={() => setEdicaoTransacaoId(null)} className="btn-link">Cancelar</button>
                     </form>
                   ) : (
-                    <div className="row row-main">
-                      <div>
+                    <div className="row row-lancamento">
+                      <div className="lancamento-info">
                         <p className="row-title" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>{t.transferencia_id && <ArrowLeftRight size={13} />}{t.descricao || t.categoria}</p>
                         <p className="row-subtitle">{t.transferencia_id ? 'transferência entre contas' : t.categoria}</p>
                       </div>
-                      <div className="row-actions">
+                      <div className="row-actions lancamento-actions">
                         {t.tipo === 'saida' && !t.transferencia_id && !t.essencialidade && (
                           <select
                             className="input"

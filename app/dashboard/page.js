@@ -605,7 +605,6 @@ function DashboardConteudo() {
       setCriandoPin(true);
       setPinDigitado('');
       setPinNovoPrimeiraEtapa('');
-      setMostrarConfiguracoes(false);
     }
   }
 
@@ -1399,36 +1398,33 @@ function DashboardConteudo() {
         <div className="topbar-row">
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
             <button onClick={alternarSidebar} className="mobile-menu-btn" title="Menu"><Menu size={18} /></button>
+            <button
+              onClick={() => setView('home')}
+              className={`topbar-logo-btn${sidebarAberta ? ' sb-aberta' : ''}`}
+              title="Início"
+            >
+              {perfil.logo_url
+                ? <img src={perfil.logo_url} alt="Logo" className="brand-logo" />
+                : <img src="/logo.png" alt="AppFinançasBr" className="brand-logo" />
+              }
+            </button>
             <div className="entity-row" style={{ margin: 0 }}>
               {entidades.map((ent) => (
                 <div key={ent.id} className="entity-pill-group">
                   <button
                     onClick={() => setEntidadeAtual(ent.id)}
                     className={`pill ${entidadeAtual === ent.id ? 'pill-active' : ''}`}
-                    style={ent.tipo === 'PJ' ? { borderRadius: '999px 0 0 999px' } : undefined}
                   >
                     {ent.nome_entidade}
                   </button>
-                  {ent.tipo === 'PJ' && (
-                    <button onClick={() => excluirEntidade(ent)} title="Remover empresa" className="pill-remove">×</button>
-                  )}
                 </div>
               ))}
-              <button onClick={() => setMostrarNovaEntidade((v) => !v)} className="btn btn-ghost">+ Adicionar CNPJ</button>
             </div>
           </div>
           <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
-            <button onClick={sair} className="btn-link">Sair</button>
+            <button onClick={sair} className="btn-link topbar-sair">Sair</button>
           </div>
         </div>
-
-        {mostrarNovaEntidade && (
-          <form onSubmit={adicionarEntidadePJ} className="form-row" style={{ marginBottom: 14 }}>
-            <input className="input" placeholder="Nome da empresa" value={nomeEmpresa} onChange={(e) => setNomeEmpresa(e.target.value)} required autoFocus />
-            <input className="input" placeholder="CNPJ" value={cnpj} onChange={(e) => setCnpj(e.target.value)} required />
-            <button type="submit" className="btn btn-primary">Salvar</button>
-          </form>
-        )}
 
         <div className="month-row">
           {['home', 'lancamentos', 'contas-fixas', 'planejamento', 'relatorios'].includes(view) && (
@@ -1688,6 +1684,15 @@ function DashboardConteudo() {
             salvarNomeExibicao={salvarNomeExibicao}
             selecionarTema={selecionarTema}
             entidadeAtual={entidadeAtual}
+            entidades={entidades}
+            adicionarEntidadePJ={adicionarEntidadePJ}
+            excluirEntidade={excluirEntidade}
+            cnpj={cnpj}
+            setCnpj={setCnpj}
+            nomeEmpresa={nomeEmpresa}
+            setNomeEmpresa={setNomeEmpresa}
+            mostrarNovaEntidade={mostrarNovaEntidade}
+            setMostrarNovaEntidade={setMostrarNovaEntidade}
           />
           <CardMembros
             entidadeAtual={entidadeAtual}
@@ -1753,6 +1758,16 @@ function DashboardConteudo() {
             </div>
           )}
 
+          <CardInsights
+            entidadeAtual={entidadeAtual}
+            contas={contas}
+            cartoes={cartoes}
+            lancamentosFixos={lancamentosFixos}
+            dataAtual={dataAtual}
+            transacoesMes={transacoes}
+            onNavegar={(destino, subaba) => navegarComQuery(destino, subaba ? { subaba } : {})}
+          />
+
           <div className={`saldo-hero ${saldoConsolidado < 0 ? 'saldo-hero-negativo' : ''}`}>
             <p className="saldo-hero-label">Disponível hoje</p>
             <p className="saldo-hero-valor">{formatarMoeda(saldoConsolidado)}</p>
@@ -1778,16 +1793,6 @@ function DashboardConteudo() {
               </div>
             )}
           </div>
-
-          <CardInsights
-            entidadeAtual={entidadeAtual}
-            contas={contas}
-            cartoes={cartoes}
-            lancamentosFixos={lancamentosFixos}
-            dataAtual={dataAtual}
-            transacoesMes={transacoes}
-            onNavegar={(destino, subaba) => navegarComQuery(destino, subaba ? { subaba } : {})}
-          />
 
           <div className="acoes-rapidas">
             <button onClick={() => setView('lancamentos')} className="acao-rapida acao-rapida-principal">

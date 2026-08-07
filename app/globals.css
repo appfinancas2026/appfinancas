@@ -1520,3 +1520,120 @@ table.report-table td { padding: 12px 0; border-top: 1px solid var(--border); }
 }
 
 .onboarding-bolinha.ativa { background: var(--text); }
+
+/* ---------- Logo na topbar (item 8) ---------- */
+
+.topbar-logo-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+/* Desktop: oculta quando a sidebar está aberta (classe sb-aberta adicionada via JS) */
+@media (min-width: 621px) {
+  .topbar-logo-btn.sb-aberta { display: none; }
+}
+
+/* Mobile: sempre visível — sidebar é overlay, nunca fica fixa aberta */
+@media (max-width: 620px) {
+  .topbar-logo-btn { display: flex; }
+  .topbar-logo-btn.sb-aberta { display: flex; }
+}
+
+/* ---------- Mobile UX fixes ---------- */
+
+/* 5. "Sair" não pertence à topbar mobile — fica só no menu lateral */
+@media (max-width: 620px) {
+  .topbar-sair { display: none; }
+}
+
+/* 1. KPIs de Relatórios: 2 colunas no mobile com fonte adaptável */
+@media (max-width: 620px) {
+  .relatorio-kpis {
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .relatorio-kpi { padding: 14px 12px; }
+  .relatorio-kpi-valor { font-size: clamp(20px, 5.5vw, 36px); }
+}
+
+/* 3. Badge cortado: row-actions envolve em mobile */
+@media (max-width: 620px) {
+  .row-actions {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+}
+
+/* 2. Tabela de lançamentos → layout card-like em mobile */
+.row-lancamento {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 14px 2px;
+  border-bottom: 1px solid var(--border);
+}
+
+.row-lancamento:last-child { border-bottom: none; }
+
+.lancamento-info { min-width: 0; flex: 1; }
+
+@media (max-width: 620px) {
+  .row-lancamento {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-rows: auto auto;
+    gap: 4px 12px;
+    align-items: start;
+    padding: 12px 2px;
+  }
+  .lancamento-info {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .lancamento-actions {
+    grid-column: 2;
+    grid-row: 1 / 3;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 6px;
+    justify-content: center;
+    flex-wrap: nowrap;
+    width: auto;
+  }
+  .lancamento-actions .amount { font-size: var(--text-lg); font-weight: var(--weight-semibold); }
+}
+
+/* 4. FAB cobre último item — aumentar padding inferior em mobile */
+@media (max-width: 620px) {
+  .app-shell { padding-bottom: 150px; }
+}
+
+/* 7. Cards da Home menores em mobile para caber mais sem scroll */
+@media (max-width: 620px) {
+  .atencao-card {
+    padding: 12px 14px;
+    margin-bottom: 16px;
+  }
+  .atencao-header { margin-bottom: 10px; }
+  .atencao-linha { padding: 10px 0; }
+  .atencao-btn { padding: 5px 10px; font-size: 11px; }
+
+  .saldo-hero {
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+  .saldo-hero-valor { font-size: 28px; }
+  .saldo-hero-detalhe { margin-top: 8px; }
+
+  /* CardInsights compacto na home */
+  .card { margin-bottom: 16px; }
+}

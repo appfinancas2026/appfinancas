@@ -18,7 +18,18 @@ export default function MenuConfiguracoes({
   salvarNomeExibicao,
   selecionarTema,
   entidadeAtual,
+  entidades,
+  adicionarEntidadePJ,
+  excluirEntidade,
+  cnpj,
+  setCnpj,
+  nomeEmpresa,
+  setNomeEmpresa,
+  mostrarNovaEntidade,
+  setMostrarNovaEntidade,
 }) {
+  const entidadesPJ = (entidades || []).filter((e) => e.tipo === 'PJ');
+
   return (
     <div className="card">
       <div className="card-header">
@@ -85,6 +96,33 @@ export default function MenuConfiguracoes({
             />
           ))}
         </div>
+      </div>
+
+      <div className="settings-divider" />
+
+      <div style={{ paddingBottom: 4 }}>
+        <p style={{ fontSize: 'var(--text-sm)', fontWeight: 'var(--weight-semibold)', color: 'var(--text-muted)', margin: '0 0 10px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Empresas (CNPJ)</p>
+        {entidadesPJ.length === 0 && (
+          <p className="empty-hint" style={{ marginBottom: 10 }}>Nenhuma empresa cadastrada.</p>
+        )}
+        {entidadesPJ.map((ent) => (
+          <div key={ent.id} className="settings-item" style={{ padding: '6px 0' }}>
+            <span style={{ fontSize: 'var(--text-md)' }}>{ent.nome_entidade}</span>
+            <button onClick={() => excluirEntidade(ent)} className="btn-link" style={{ color: 'var(--negative)', fontSize: 'var(--text-sm)' }}>Remover</button>
+          </div>
+        ))}
+        {mostrarNovaEntidade ? (
+          <form onSubmit={adicionarEntidadePJ} style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10 }}>
+            <input className="input" placeholder="Nome da empresa" value={nomeEmpresa} onChange={(e) => setNomeEmpresa(e.target.value)} required autoFocus />
+            <input className="input" placeholder="CNPJ" value={cnpj} onChange={(e) => setCnpj(e.target.value)} required />
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>Salvar</button>
+              <button type="button" onClick={() => setMostrarNovaEntidade(false)} className="btn btn-ghost">Cancelar</button>
+            </div>
+          </form>
+        ) : (
+          <button onClick={() => setMostrarNovaEntidade(true)} className="btn btn-ghost" style={{ marginTop: 8, width: '100%' }}>+ Adicionar empresa</button>
+        )}
       </div>
     </div>
   );

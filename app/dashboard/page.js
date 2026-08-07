@@ -1359,9 +1359,7 @@ function DashboardConteudo() {
     .reduce((soma, f) => soma + pendenteNaOcorrencia(ocorrenciasDoMes[f.id]), 0);
   const saldoConsolidado = saldoContas - despesasFixasPendentes;
 
-  const totalEntMes = transacoes.filter((t) => t.tipo === 'entrada' && !t.transferencia_id).reduce((s, t) => s + Number(t.valor), 0);
   const totalSaiMes = transacoes.filter((t) => t.tipo === 'saida' && !t.transferencia_id).reduce((s, t) => s + Number(t.valor), 0);
-  const varEnt = totaisMesAnt.ent > 0 ? ((totalEntMes - totaisMesAnt.ent) / totaisMesAnt.ent) * 100 : null;
   const varSai = totaisMesAnt.sai > 0 ? ((totalSaiMes - totaisMesAnt.sai) / totaisMesAnt.sai) * 100 : null;
 
   // Soma do que falta pagar nas contas que estão vencendo ou atrasadas.
@@ -1879,8 +1877,16 @@ function DashboardConteudo() {
               {receitasFixasPendentes > 0 && <> · <span className="saldo-hero-mais">+{formatarMoeda(receitasFixasPendentes)}</span> a receber</>}
             </p>
 
+            {varSai !== null && totalSaiMes > 0 && (
+              <p className="saldo-hero-var-mes">
+                <span className={varSai <= 0 ? 'var-pos' : 'var-neg'}>
+                  {varSai >= 0 ? '▲' : '▼'} {Math.abs(varSai).toFixed(1)}% em despesas vs mês ant.
+                </span>
+              </p>
+            )}
+
             {contas.length > 0 && (
-              <div style={{ marginTop: 16, paddingTop: 4 }}>
+              <div style={{ marginTop: 12, paddingTop: 4 }}>
                 {contas.map((c) => (
                   <div
                     key={c.id}
@@ -1892,29 +1898,6 @@ function DashboardConteudo() {
                     <span className={`amount amount-lg ${Number(c.saldo_atual) < 0 ? 'amount-negative' : ''}`}>{formatarMoeda(c.saldo_atual)}</span>
                   </div>
                 ))}
-              </div>
-            )}
-
-            {(totalEntMes > 0 || totalSaiMes > 0) && (
-              <div className="home-mes-stats">
-                <div className="home-mes-stat">
-                  <span className="home-mes-stat-label">Receitas</span>
-                  <span className="home-mes-stat-valor positivo">{formatarMoeda(totalEntMes)}</span>
-                  {varEnt !== null && (
-                    <span className={`home-mes-stat-var ${varEnt >= 0 ? 'pos' : 'neg'}`}>
-                      {varEnt >= 0 ? '▲' : '▼'} {Math.abs(varEnt).toFixed(1)}%
-                    </span>
-                  )}
-                </div>
-                <div className="home-mes-stat">
-                  <span className="home-mes-stat-label">Despesas</span>
-                  <span className="home-mes-stat-valor">{formatarMoeda(totalSaiMes)}</span>
-                  {varSai !== null && (
-                    <span className={`home-mes-stat-var ${varSai <= 0 ? 'pos' : 'neg'}`}>
-                      {varSai >= 0 ? '▲' : '▼'} {Math.abs(varSai).toFixed(1)}%
-                    </span>
-                  )}
-                </div>
               </div>
             )}
 

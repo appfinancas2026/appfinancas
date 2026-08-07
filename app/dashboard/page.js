@@ -29,6 +29,7 @@ import dynamic from 'next/dynamic';
 const AbaAssistente = dynamic(() => import('./AbaAssistente'), { ssr: false });
 import CardContas from './CardContas';
 import CardCartoes from './CardCartoes';
+import Sparkline from './Sparkline';
 import SimuladorRotativo from './SimuladorRotativo';
 import CardReceitasFixas from './CardReceitasFixas';
 import CardDespesasFixas from './CardDespesasFixas';
@@ -96,6 +97,7 @@ function DashboardConteudo() {
   );
   const [comparativoPFPJ, setComparativoPFPJ] = useState([]);
   const [evolucaoPatrimonio, setEvolucaoPatrimonio] = useState([]);
+  const [totaisMesAnt, setTotaisMesAnt] = useState({ ent: 0, sai: 0 });
   const [pendenciasVencidas, setPendenciasVencidas] = useState([]);
   const [primeiroMovimento, setPrimeiroMovimento] = useState(null);
 
@@ -289,6 +291,22 @@ function DashboardConteudo() {
       .order('data', { ascending: false });
 
     setTransacoes(data || []);
+  }, []);
+
+  const carregarTotaisMesAnterior = useCallback(async (entidadeId, ano, mes) => {
+    if (!entidadeId) return;
+    const ant = subtrairMeses(ano, mes, 1);
+    const { data } = await supabase
+      .from('transacoes')
+      .select('valor, tipo')
+      .eq('entidade_id', entidadeId)
+      .is('transferencia_id', null)
+      .or('cartao_id.is.null,origem.eq.fatura')
+      .gte('data', primeiroDiaDoMes(ant.ano, ant.mes))
+      .lte('data', ultimoDiaDoMes(ant.ano, ant.mes));
+    const ent = (data || []).filter((t) => t.tipo === 'entrada').reduce((s, t) => s + Number(t.valor), 0);
+    const sai = (data || []).filter((t) => t.tipo === 'saida').reduce((s, t) => s + Number(t.valor), 0);
+    setTotaisMesAnt({ ent, sai });
   }, []);
 
   const carregarResumoAnual = useCallback(async (entidadeId, ano) => {
@@ -721,17 +739,21 @@ function DashboardConteudo() {
     if (entidadeAtual) {
       garantirOcorrenciasDoMes(entidadeAtual, lancamentosFixos, dataAtual.ano, dataAtual.mes);
       carregarTransacoesDoMes(entidadeAtual, dataAtual.ano, dataAtual.mes);
+      carregarTotaisMesAnterior(entidadeAtual, dataAtual.ano, dataAtual.mes);
       carregarAlertas(entidadeAtual, lancamentosFixos, cartoes);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [entidadeAtual, lancamentosFixos, dataAtual.ano, dataAtual.mes]);
 
   useEffect(() => {
+    if (entidadeAtual && (view === 'relatorios' || view === 'home')) {
+      const entidadeObj = entidades.find((e) => e.id === entidadeAtual);
+      carregarEvolucaoPatrimonio(entidadeAtual, contas, dataAtual.ano, entidadeObj?.mes_inicio_controle);
+    }
     if (entidadeAtual && view === 'relatorios') {
       const entidadeObj = entidades.find((e) => e.id === entidadeAtual);
       carregarResumoAnual(entidadeAtual, dataAtual.ano);
       carregarComparativoPFPJ(entidades, dataAtual.ano, dataAtual.mes);
-      carregarEvolucaoPatrimonio(entidadeAtual, contas, dataAtual.ano, entidadeObj?.mes_inicio_controle);
       carregarPendenciasVencidas(entidadeAtual, entidadeObj?.mes_inicio_controle);
       carregarPrimeiroMovimento(entidadeAtual);
     }
@@ -1337,6 +1359,11 @@ function DashboardConteudo() {
     .reduce((soma, f) => soma + pendenteNaOcorrencia(ocorrenciasDoMes[f.id]), 0);
   const saldoConsolidado = saldoContas - despesasFixasPendentes;
 
+  const totalEntMes = transacoes.filter((t) => t.tipo === 'entrada' && !t.transferencia_id).reduce((s, t) => s + Number(t.valor), 0);
+  const totalSaiMes = transacoes.filter((t) => t.tipo === 'saida' && !t.transferencia_id).reduce((s, t) => s + Number(t.valor), 0);
+  const varEnt = totaisMesAnt.ent > 0 ? ((totalEntMes - totaisMesAnt.ent) / totaisMesAnt.ent) * 100 : null;
+  const varSai = totaisMesAnt.sai > 0 ? ((totalSaiMes - totaisMesAnt.sai) / totaisMesAnt.sai) * 100 : null;
+
   // Soma do que falta pagar nas contas que estão vencendo ou atrasadas.
   // Usa o pendente real, não o valor cheio: uma conta parcialmente paga
   // deve entrar só com o que resta.
@@ -1865,6 +1892,35 @@ function DashboardConteudo() {
                     <span className={`amount amount-lg ${Number(c.saldo_atual) < 0 ? 'amount-negative' : ''}`}>{formatarMoeda(c.saldo_atual)}</span>
                   </div>
                 ))}
+              </div>
+            )}
+
+            {(totalEntMes > 0 || totalSaiMes > 0) && (
+              <div className="home-mes-stats">
+                <div className="home-mes-stat">
+                  <span className="home-mes-stat-label">Receitas</span>
+                  <span className="home-mes-stat-valor positivo">{formatarMoeda(totalEntMes)}</span>
+                  {varEnt !== null && (
+                    <span className={`home-mes-stat-var ${varEnt >= 0 ? 'pos' : 'neg'}`}>
+                      {varEnt >= 0 ? '▲' : '▼'} {Math.abs(varEnt).toFixed(1)}%
+                    </span>
+                  )}
+                </div>
+                <div className="home-mes-stat">
+                  <span className="home-mes-stat-label">Despesas</span>
+                  <span className="home-mes-stat-valor">{formatarMoeda(totalSaiMes)}</span>
+                  {varSai !== null && (
+                    <span className={`home-mes-stat-var ${varSai <= 0 ? 'pos' : 'neg'}`}>
+                      {varSai >= 0 ? '▲' : '▼'} {Math.abs(varSai).toFixed(1)}%
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {evolucaoPatrimonio.length >= 2 && (
+              <div style={{ marginTop: 8, opacity: 0.7 }}>
+                <Sparkline data={evolucaoPatrimonio.slice(-6)} dataKey="Patrimônio" width={200} height={40} />
               </div>
             )}
           </div>

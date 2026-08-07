@@ -1662,6 +1662,39 @@ table.report-table td { padding: 12px 0; border-top: 1px solid var(--border); }
   .relatorio-contas-card { padding-bottom: 90px; }
 }
 
+/* Home: stats de receitas/despesas do mês com comparativo vs. mês anterior */
+.home-mes-stats {
+  display: flex;
+  gap: 20px;
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+.home-mes-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 90px;
+}
+.home-mes-stat-label {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.home-mes-stat-valor {
+  font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
+  color: var(--text);
+}
+.home-mes-stat-valor.positivo { color: var(--primary); }
+.home-mes-stat-var {
+  font-size: var(--text-xs);
+}
+.home-mes-stat-var.pos { color: var(--primary); }
+.home-mes-stat-var.neg { color: var(--negative); }
+
 /* 7. Cards da Home menores em mobile para caber mais sem scroll */
 @media (max-width: 620px) {
   .atencao-card {

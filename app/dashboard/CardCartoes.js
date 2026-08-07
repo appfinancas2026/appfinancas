@@ -11,6 +11,7 @@ import { recalcularSaldoConta } from '../../lib/saldos';
 import { calcularFaturasCartao } from '../../lib/faturas';
 import CampoCategoria from './CampoCategoria';
 import ImportadorExtrato from './ImportadorExtrato';
+import Sparkline from './Sparkline';
 
 export default function CardCartoes({ entidadeAtual, contas, cartoes, onAtualizar, aberto, onAlternarAberto }) {
   const [faturasPorCartao, setFaturasPorCartao] = useState({});
@@ -41,6 +42,7 @@ export default function CardCartoes({ entidadeAtual, contas, cartoes, onAtualiza
   const [formCompraCartao, setFormCompraCartao] = useState({ valor: '', categoria: '', descricao: '', data: '', essencialidade: '' });
 
   const [alturaCheiaCartoes, setAlturaCheiaCartoes] = useState(false);
+  const [historicoPorCartao, setHistoricoPorCartao] = useState({});
 
   const carregarFaturas = useCallback(async (listaCartoes) => {
     if (!entidadeAtual || !listaCartoes || listaCartoes.length === 0) { setFaturasPorCartao({}); return; }
@@ -68,9 +70,39 @@ export default function CardCartoes({ entidadeAtual, contas, cartoes, onAtualiza
     setFaturasPorCartao(resultado);
   }, [entidadeAtual]);
 
+  const carregarHistoricoFaturas = useCallback(async (listaCartoes) => {
+    if (!entidadeAtual || !listaCartoes || listaCartoes.length === 0) { setHistoricoPorCartao({}); return; }
+    const hoje = new Date();
+    const mesRefs = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = subtrairMeses(hoje.getFullYear(), hoje.getMonth(), i);
+      mesRefs.push(mesReferenciaStr(d.ano, d.mes));
+    }
+    const { data } = await supabase
+      .from('transacoes')
+      .select('cartao_id, valor, mes_fatura, origem')
+      .eq('entidade_id', entidadeAtual)
+      .in('cartao_id', listaCartoes.map((c) => c.id))
+      .in('mes_fatura', mesRefs)
+      .neq('origem', 'fatura');
+
+    const resultado = {};
+    listaCartoes.forEach((cartao) => {
+      const txs = (data || []).filter((t) => t.cartao_id === cartao.id);
+      resultado[cartao.id] = mesRefs.map((ref) => ({
+        mes: ref.slice(5, 7) + '/' + ref.slice(2, 4),
+        total: txs.filter((t) => t.mes_fatura === ref).reduce((s, t) => s + Number(t.valor), 0),
+      }));
+    });
+    setHistoricoPorCartao(resultado);
+  }, [entidadeAtual]);
+
   useEffect(() => {
-    if (entidadeAtual) carregarFaturas(cartoes);
-  }, [entidadeAtual, cartoes, carregarFaturas]);
+    if (entidadeAtual) {
+      carregarFaturas(cartoes);
+      carregarHistoricoFaturas(cartoes);
+    }
+  }, [entidadeAtual, cartoes, carregarFaturas, carregarHistoricoFaturas]);
 
   // Sugestão de categoria/essencialidade com base no histórico de descrições parecidas.
   useEffect(() => {
@@ -442,6 +474,13 @@ export default function CardCartoes({ entidadeAtual, contas, cartoes, onAtualiza
                 </div>
               );
             })()}
+
+            {historicoPorCartao[cartao.id] && historicoPorCartao[cartao.id].some((p) => p.total > 0) && (
+              <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 12 }}>
+                <Sparkline data={historicoPorCartao[cartao.id]} dataKey="total" width={80} height={32} />
+                <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>últimas 6 faturas</span>
+              </div>
+            )}
 
             {comprasCartaoVisivelId === cartao.id && (
               <div style={{ marginTop: 10, background: 'var(--surface-alt)', borderRadius: 'var(--radius-sm)', padding: '4px 10px' }}>

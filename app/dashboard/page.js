@@ -496,7 +496,13 @@ function DashboardConteudo() {
         if (fechada.total <= 0 || fechada.paga) return;
 
         const aberta = calcularPeriodoFaturaAberta(c, hoje);
-        const venc = new Date(aberta.ano, aberta.mes, c.dia_vencimento);
+        // Quando dia_vencimento > dia_fechamento, o vencimento cai no mesmo mês
+        // do fechamento (ex: fecha dia 2, vence dia 7 do mesmo mês).
+        // Quando dia_vencimento <= dia_fechamento, vence no mês seguinte (= aberta).
+        const mesFechVenc = c.dia_vencimento > c.dia_fechamento
+          ? { ano: parseInt(fechada.mesRef.slice(0, 4), 10), mes: parseInt(fechada.mesRef.slice(5, 7), 10) - 1 }
+          : aberta;
+        const venc = new Date(mesFechVenc.ano, mesFechVenc.mes, c.dia_vencimento);
         const diasRestantes = Math.ceil((venc - base) / 86400000);
         if (diasRestantes <= 5) {
           alertasCartao.push({ tipo: 'cartao', cartao: c, diasRestantes, total: fechada.total });

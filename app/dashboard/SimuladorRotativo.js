@@ -89,13 +89,13 @@ export default function SimuladorRotativo() {
     <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div>
         <p className="card-title" style={{ marginBottom: 4 }}>Simulador de rotativo do cartão</p>
-        <p className="empty-hint" style={{ margin: 0 }}>
+        <p className="empty-hint simulador-subtitulo" style={{ margin: 0 }}>
           Veja quanto custa deixar parte da fatura para o mês seguinte.
         </p>
       </div>
 
       {/* Entradas */}
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+      <div className="simulador-campos" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-end' }}>
         <div>
           <label style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>
             Valor da fatura

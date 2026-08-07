@@ -1662,6 +1662,54 @@ table.report-table td { padding: 12px 0; border-top: 1px solid var(--border); }
   .relatorio-contas-card { padding-bottom: 90px; }
 }
 
+/* ---------- Cartões: desktop inline / mobile menu ··· ---------- */
+.cartao-acoes-desktop { display: flex; gap: 10px; flex-wrap: wrap; }
+.cartao-menu-mobile { display: none; }
+
+.cartao-menu-btn { font-size: 18px; letter-spacing: 2px; padding: 2px 4px; line-height: 1; }
+
+.cartao-dropdown {
+  position: absolute;
+  right: 0;
+  top: 100%;
+  min-width: 160px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  z-index: 50;
+  overflow: hidden;
+}
+
+.cartao-dropdown-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 10px 14px;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  background: none;
+  color: var(--text);
+  font-size: var(--text-md);
+  cursor: pointer;
+}
+.cartao-dropdown-item:last-child { border-bottom: none; }
+.cartao-dropdown-item:hover { background: var(--surface-alt); }
+
+@media (max-width: 620px) {
+  .cartao-acoes-desktop { display: none; }
+  .cartao-menu-mobile { display: block; }
+}
+
+/* ---------- Contas: layout de linha ---------- */
+.conta-linha-principal { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.conta-nome { display: flex; align-items: center; gap: 6px; font-size: 14px; min-width: 0; }
+.conta-direita { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.conta-acoes { display: flex; gap: 10px; }
+
+/* SimuladorRotativo: subtitle não cortado */
+.simulador-subtitulo { word-break: break-word; overflow-wrap: break-word; }
+
 /* Home: variação de despesas vs. mês anterior (linha compacta abaixo do detalhe) */
 .saldo-hero-var-mes {
   font-size: var(--text-xs);
@@ -1681,7 +1729,7 @@ table.report-table td { padding: 12px 0; border-top: 1px solid var(--border); }
   .atencao-btn { padding: 5px 10px; font-size: 11px; }
 
   .saldo-hero {
-    padding: 16px;
+    padding: 16px 16px 80px;
     margin-bottom: 16px;
   }
   .saldo-hero-valor { font-size: 28px; }
@@ -1689,4 +1737,13 @@ table.report-table td { padding: 12px 0; border-top: 1px solid var(--border); }
 
   /* CardInsights compacto na home */
   .card { margin-bottom: 16px; }
+
+  /* Contas: ações em segunda linha discreta */
+  .conta-direita { flex-direction: column; align-items: flex-end; gap: 2px; }
+  .conta-acoes .btn-link { font-size: 11px; color: var(--text-muted); }
+
+  /* SimuladorRotativo: inputs ocupam largura disponível */
+  .simulador-campos { flex-direction: column; }
+  .simulador-campos > div { width: 100%; }
+  .simulador-campos input.input { width: 100% !important; max-width: none !important; box-sizing: border-box; }
 }

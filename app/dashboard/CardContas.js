@@ -183,17 +183,21 @@ export default function CardContas({ entidadeAtual, contas, aberto, onAlternarAb
               <div
                 key={c.id}
                 id={`conta-${c.id}`}
-                className="row-main row"
+                className="row conta-item"
                 style={c.id === contaFoco ? { outline: '2px solid var(--primary)', outlineOffset: 2, borderRadius: 'var(--radius-sm)' } : undefined}
               >
-                <span style={{ fontSize: 14, display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <button onClick={() => alternarPrincipal(c)} className={`star-btn ${c.principal ? 'is-principal' : ''}`} title="Definir como conta principal"><Star size={14} fill={c.principal ? 'currentColor' : 'none'} /></button>
-                  {c.nome}
-                </span>
-                <div className="row-actions">
-                  <span className={`amount amount-lg ${Number(c.saldo_atual) < 0 ? 'amount-negative' : ''}`}>{formatarMoeda(c.saldo_atual)}</span>
-                  <button onClick={() => iniciarEdicaoConta(c)} className="btn-link">editar</button>
-                  <button onClick={() => excluirConta(c.id)} className="btn-link">excluir</button>
+                <div className="conta-linha-principal">
+                  <span className="conta-nome">
+                    <button onClick={() => alternarPrincipal(c)} className={`star-btn ${c.principal ? 'is-principal' : ''}`} title="Definir como conta principal"><Star size={14} fill={c.principal ? 'currentColor' : 'none'} /></button>
+                    {c.nome}
+                  </span>
+                  <div className="conta-direita">
+                    <span className={`amount amount-lg ${Number(c.saldo_atual) < 0 ? 'amount-negative' : ''}`}>{formatarMoeda(c.saldo_atual)}</span>
+                    <div className="conta-acoes">
+                      <button onClick={() => iniciarEdicaoConta(c)} className="btn-link">editar</button>
+                      <button onClick={() => excluirConta(c.id)} className="btn-link">excluir</button>
+                    </div>
+                  </div>
                 </div>
               </div>
             )

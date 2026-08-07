@@ -43,6 +43,7 @@ export default function CardCartoes({ entidadeAtual, contas, cartoes, onAtualiza
 
   const [alturaCheiaCartoes, setAlturaCheiaCartoes] = useState(false);
   const [historicoPorCartao, setHistoricoPorCartao] = useState({});
+  const [menuCartaoAberto, setMenuCartaoAberto] = useState(null);
 
   const carregarFaturas = useCallback(async (listaCartoes) => {
     if (!entidadeAtual || !listaCartoes || listaCartoes.length === 0) { setFaturasPorCartao({}); return; }
@@ -399,6 +400,10 @@ export default function CardCartoes({ entidadeAtual, contas, cartoes, onAtualiza
         </form>
       )}
 
+      {menuCartaoAberto && (
+        <div onClick={() => setMenuCartaoAberto(null)} style={{ position: 'fixed', inset: 0, zIndex: 49 }} />
+      )}
+
       {cartoes.length === 0 && <p className="empty-hint">Nenhum cartão cadastrado ainda.</p>}
       {cartoes.map((cartao) => {
         if (edicaoCartaoId === cartao.id) {
@@ -425,13 +430,31 @@ export default function CardCartoes({ entidadeAtual, contas, cartoes, onAtualiza
           <div key={cartao.id} style={{ padding: '10px 0', borderBottom: '1px solid var(--surface-alt)' }}>
             <div className="row-main">
               <span className="row-title">{cartao.nome}</span>
-              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              {/* Desktop: botões inline */}
+              <div className="cartao-acoes-desktop">
                 <button onClick={() => alternarComprasCartao(cartao.id)} className="btn-link">
                   {comprasCartaoVisivelId === cartao.id ? 'ocultar compras' : 'ver compras'}
                 </button>
                 <button onClick={() => setMostrarCompraCartaoId(mostrarCompraCartaoId === cartao.id ? null : cartao.id)} className="btn-link">+ compra</button>
                 <button onClick={() => iniciarEdicaoCartao(cartao)} className="btn-link">editar cartão</button>
                 <button onClick={() => excluirCartao(cartao.id)} className="btn-link">excluir</button>
+              </div>
+              {/* Mobile: menu ··· */}
+              <div className="cartao-menu-mobile" style={{ position: 'relative' }}>
+                <button
+                  className="btn-link cartao-menu-btn"
+                  onClick={(e) => { e.stopPropagation(); setMenuCartaoAberto(menuCartaoAberto === cartao.id ? null : cartao.id); }}
+                >···</button>
+                {menuCartaoAberto === cartao.id && (
+                  <div className="cartao-dropdown">
+                    <button onClick={() => { alternarComprasCartao(cartao.id); setMenuCartaoAberto(null); }} className="cartao-dropdown-item">
+                      {comprasCartaoVisivelId === cartao.id ? 'Ocultar compras' : 'Ver compras'}
+                    </button>
+                    <button onClick={() => { setMostrarCompraCartaoId(mostrarCompraCartaoId === cartao.id ? null : cartao.id); setMenuCartaoAberto(null); }} className="cartao-dropdown-item">+ Compra</button>
+                    <button onClick={() => { iniciarEdicaoCartao(cartao); setMenuCartaoAberto(null); }} className="cartao-dropdown-item">Editar cartão</button>
+                    <button onClick={() => { excluirCartao(cartao.id); setMenuCartaoAberto(null); }} className="cartao-dropdown-item">Excluir</button>
+                  </div>
+                )}
               </div>
             </div>
             <p className="row-subtitle">fecha dia {cartao.dia_fechamento} · vence dia {cartao.dia_vencimento}{contaPagamento ? ` · ${contaPagamento.nome}` : ''}</p>

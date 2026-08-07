@@ -12,6 +12,7 @@ import {
   vencimentoOcorrencia, diasAteVencimento,
 } from '../../lib/financeiro';
 import { recalcularSaldoConta } from '../../lib/saldos';
+import { calcularFaturasCartao } from '../../lib/faturas';
 import TelaPin from './TelaPin';
 import CompletarCadastro from './CompletarCadastro';
 import Sidebar from './Sidebar';
@@ -419,7 +420,7 @@ function DashboardConteudo() {
     setEvolucaoPatrimonio(pontos);
   }, []);
 
-  const carregarAlertas = useCallback(async (entidadeId, fixos) => {
+  const carregarAlertas = useCallback(async (entidadeId, fixos, cartoes) => {
     if (!entidadeId || !fixos || fixos.length === 0) { setAlertas([]); return; }
 
     const hoje = new Date();
@@ -467,7 +468,44 @@ function DashboardConteudo() {
       .filter((item) => item.diasRestantes <= 5)
       .sort((a, b) => a.diasRestantes - b.diasRestantes);
 
-    setAlertas(lista);
+    // Alertas de fatura de cartão: fatura fechada não paga com vencimento em até 5 dias.
+    const cartoesComFatura = (cartoes || []).filter((c) => c.dia_vencimento && c.dia_fechamento);
+    let alertasCartao = [];
+    if (cartoesComFatura.length > 0) {
+      const mesRefsNecessarios = new Set();
+      cartoesComFatura.forEach((c) => {
+        const aberta = calcularPeriodoFaturaAberta(c, hoje);
+        const fechada = subtrairMeses(aberta.ano, aberta.mes, 1);
+        mesRefsNecessarios.add(mesReferenciaStr(aberta.ano, aberta.mes));
+        mesRefsNecessarios.add(mesReferenciaStr(fechada.ano, fechada.mes));
+      });
+
+      const { data: txsCartoes } = await supabase
+        .from('transacoes')
+        .select('cartao_id, valor, origem, mes_fatura')
+        .eq('entidade_id', entidadeId)
+        .in('cartao_id', cartoesComFatura.map((c) => c.id))
+        .in('mes_fatura', [...mesRefsNecessarios]);
+
+      const base = new Date(hoje);
+      base.setHours(0, 0, 0, 0);
+
+      cartoesComFatura.forEach((c) => {
+        const txs = (txsCartoes || []).filter((t) => t.cartao_id === c.id);
+        const { fechada } = calcularFaturasCartao(c, txs, hoje);
+        if (fechada.total <= 0 || fechada.paga) return;
+
+        const aberta = calcularPeriodoFaturaAberta(c, hoje);
+        const venc = new Date(aberta.ano, aberta.mes, c.dia_vencimento);
+        const diasRestantes = Math.ceil((venc - base) / 86400000);
+        if (diasRestantes <= 5) {
+          alertasCartao.push({ tipo: 'cartao', cartao: c, diasRestantes, total: fechada.total });
+        }
+      });
+      alertasCartao.sort((a, b) => a.diasRestantes - b.diasRestantes);
+    }
+
+    setAlertas([...lista, ...alertasCartao]);
   }, []);
 
   function recarregarTudo() {
@@ -475,7 +513,7 @@ function DashboardConteudo() {
     carregarContas(entidadeAtual);
     carregarLancamentosFixos(entidadeAtual);
     carregarTransacoesDoMes(entidadeAtual, dataAtual.ano, dataAtual.mes);
-    carregarAlertas(entidadeAtual, lancamentosFixos);
+    carregarAlertas(entidadeAtual, lancamentosFixos, cartoes);
   }
 
   useEffect(() => {
@@ -677,7 +715,7 @@ function DashboardConteudo() {
     if (entidadeAtual) {
       garantirOcorrenciasDoMes(entidadeAtual, lancamentosFixos, dataAtual.ano, dataAtual.mes);
       carregarTransacoesDoMes(entidadeAtual, dataAtual.ano, dataAtual.mes);
-      carregarAlertas(entidadeAtual, lancamentosFixos);
+      carregarAlertas(entidadeAtual, lancamentosFixos, cartoes);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [entidadeAtual, lancamentosFixos, dataAtual.ano, dataAtual.mes]);
@@ -1056,7 +1094,7 @@ function DashboardConteudo() {
     carregarContas(entidadeAtual);
     carregarTransacoesDoMes(entidadeAtual, dataAtual.ano, dataAtual.mes);
     garantirOcorrenciasDoMes(entidadeAtual, lancamentosFixos, dataAtual.ano, dataAtual.mes);
-    carregarAlertas(entidadeAtual, lancamentosFixos);
+    carregarAlertas(entidadeAtual, lancamentosFixos, cartoes);
     carregarPendenciasVencidas(entidadeAtual, entidades.find((e) => e.id === entidadeAtual)?.mes_inicio_controle);
   }
 
@@ -1079,7 +1117,7 @@ function DashboardConteudo() {
     carregarContas(entidadeAtual);
     carregarTransacoesDoMes(entidadeAtual, dataAtual.ano, dataAtual.mes);
     garantirOcorrenciasDoMes(entidadeAtual, lancamentosFixos, dataAtual.ano, dataAtual.mes);
-    carregarAlertas(entidadeAtual, lancamentosFixos);
+    carregarAlertas(entidadeAtual, lancamentosFixos, cartoes);
     carregarPendenciasVencidas(entidadeAtual, entidades.find((e) => e.id === entidadeAtual)?.mes_inicio_controle);
   }
 
@@ -1147,7 +1185,7 @@ function DashboardConteudo() {
     carregarContas(entidadeAtual);
     carregarTransacoesDoMes(entidadeAtual, dataAtual.ano, dataAtual.mes);
     garantirOcorrenciasDoMes(entidadeAtual, lancamentosFixos, dataAtual.ano, dataAtual.mes);
-    carregarAlertas(entidadeAtual, lancamentosFixos);
+    carregarAlertas(entidadeAtual, lancamentosFixos, cartoes);
   }
 
 
@@ -1296,7 +1334,7 @@ function DashboardConteudo() {
   // Soma do que falta pagar nas contas que estão vencendo ou atrasadas.
   // Usa o pendente real, não o valor cheio: uma conta parcialmente paga
   // deve entrar só com o que resta.
-  const totalEmAberto = alertas.reduce((s, a) => s + pendenteNaOcorrencia(a.ocorrencia), 0);
+  const totalEmAberto = alertas.reduce((s, a) => s + (a.tipo === 'cartao' ? a.total : pendenteNaOcorrencia(a.ocorrencia)), 0);
 
   const despesasPorCategoria = Object.values(
     transacoes.filter((t) => t.tipo === 'saida' && !t.transferencia_id).reduce((acc, t) => {
@@ -1717,7 +1755,38 @@ function DashboardConteudo() {
                 )}
               </div>
 
-              {alertas.map(({ fixo, ocorrencia, diasRestantes }) => {
+              {alertas.map((alerta) => {
+                if (alerta.tipo === 'cartao') {
+                  const { cartao, diasRestantes, total } = alerta;
+                  return (
+                    <div key={`cartao-${cartao.id}`} className="atencao-linha">
+                      <div className="atencao-linha-info">
+                        <span
+                          className="atencao-nome"
+                          onClick={() => navegarComQuery('contas-cartoes')}
+                          style={{ cursor: 'pointer' }}
+                          title="Ver em Contas & Cartões"
+                        >
+                          Fatura {cartao.nome}
+                        </span>
+                        <span className={`atencao-prazo ${diasRestantes < 0 ? 'atrasado' : ''}`}>
+                          {diasRestantes < 0
+                            ? `vencida há ${Math.abs(diasRestantes)} dia${Math.abs(diasRestantes) > 1 ? 's' : ''}`
+                            : diasRestantes === 0
+                              ? 'vence hoje'
+                              : `vence em ${diasRestantes} dia${diasRestantes > 1 ? 's' : ''}`}
+                        </span>
+                      </div>
+                      <div className="atencao-linha-acao">
+                        <span className="atencao-valor">{formatarMoeda(total)}</span>
+                        <button onClick={() => navegarComQuery('contas-cartoes')} className="btn btn-primary atencao-btn">
+                          Ver
+                        </button>
+                      </div>
+                    </div>
+                  );
+                }
+                const { fixo, ocorrencia, diasRestantes } = alerta;
                 const pendente = pendenteNaOcorrencia(ocorrencia);
                 const ehParcial = ocorrencia.status === 'parcial';
                 return (

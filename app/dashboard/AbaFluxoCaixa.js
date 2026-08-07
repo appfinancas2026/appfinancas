@@ -157,11 +157,11 @@ export default function AbaFluxoCaixa({ entidadeAtual, contas, lancamentosFixos 
           <p style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)', margin: 0 }}>Evolução do saldo e projeção com base nos lançamentos fixos.</p>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <button onClick={() => setMostrarProjecao((v) => !v)} className={`btn ${mostrarProjecao ? 'btn-primary' : 'btn-ghost'}`} style={{ fontSize: 'var(--text-sm)', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          <button onClick={() => setMostrarProjecao((v) => !v)} className={`btn ${mostrarProjecao ? 'btn-primary' : 'btn-ghost'}`} style={{ fontSize: 'var(--text-sm)', display: 'inline-flex', alignItems: 'center', gap: 6, ...(mostrarProjecao ? { color: 'var(--btn-primary-text)', background: 'var(--btn-primary-bg)' } : {}) }}>
             {mostrarProjecao ? <><Check size={14} /> Projeção ativa</> : 'Mostrar projeção'}
           </button>
           {mostrarProjecao && (
-            <button onClick={() => setIncluirVariaveis((v) => !v)} className={`btn ${incluirVariaveis ? 'btn-primary' : 'btn-ghost'}`} style={{ fontSize: 'var(--text-sm)', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <button onClick={() => setIncluirVariaveis((v) => !v)} className={`btn ${incluirVariaveis ? 'btn-primary' : 'btn-ghost'}`} style={{ fontSize: 'var(--text-sm)', display: 'inline-flex', alignItems: 'center', gap: 6, ...(incluirVariaveis ? { color: 'var(--btn-primary-text)', background: 'var(--btn-primary-bg)' } : {}) }}>
               {incluirVariaveis ? <><Check size={14} /> Com gastos do dia a dia</> : 'Só contas fixas'}
             </button>
           )}

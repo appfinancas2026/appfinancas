@@ -1617,6 +1617,51 @@ table.report-table td { padding: 12px 0; border-top: 1px solid var(--border); }
   .app-shell { padding-bottom: 150px; }
 }
 
+/* Tabela de lançamentos (AbaRelatorios): desktop vs mobile */
+.lancamentos-lista-mobile { display: none; }
+.lancamentos-tabela-desktop { overflow-x: auto; }
+
+@media (max-width: 620px) {
+  .lancamentos-tabela-desktop { display: none; }
+  .lancamentos-lista-mobile { display: block; }
+
+  .lancamento-mobile-item {
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .lancamento-mobile-item:last-child { border-bottom: none; }
+
+  .lancamento-mobile-linha1 {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin-bottom: 4px;
+  }
+  .lancamento-mobile-data {
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .lancamento-mobile-desc {
+    font-weight: var(--weight-semibold);
+    font-size: var(--text-md);
+    color: var(--text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .lancamento-mobile-linha2 {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  /* FAB cobrindo contas (AbaRelatorios aba contas) */
+  .relatorio-contas-card { padding-bottom: 90px; }
+}
+
 /* 7. Cards da Home menores em mobile para caber mais sem scroll */
 @media (max-width: 620px) {
   .atencao-card {

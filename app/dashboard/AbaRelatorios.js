@@ -559,7 +559,7 @@ export default function AbaRelatorios({
 
           {/* ── Aba Contas (aberto / atraso / pagas-recebidas) ── */}
           {abaAtiva === 'contas' && contasView && (
-            <div className="card">
+            <div className="card relatorio-contas-card">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 14 }}>
                 <p className="card-title" style={{ margin: 0 }}>Contas do período</p>
                 <select className="input" value={contasTipo} onChange={(e) => setContasTipo(e.target.value)} style={{ width: 160 }}>
@@ -665,36 +665,61 @@ export default function AbaRelatorios({
               {dados.lista.length === 0
                 ? <p className="empty-hint">Nenhum lançamento no período com os filtros aplicados.</p>
                 : (
-                  <div style={{ overflowX: 'auto' }}>
-                    <table className="report-table">
-                      <thead>
-                        <tr>
-                          <th>Data</th>
-                          <th>Descrição</th>
-                          <th>Categoria</th>
-                          <th>Tipo</th>
-                          <th>Valor</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {dados.lista.map((t) => (
-                          <tr key={t.id}>
-                            <td style={{ whiteSpace: 'nowrap' }}>{t.data}</td>
-                            <td>{t.descricao || '—'}</td>
-                            <td>{t.categoria || '—'}</td>
-                            <td>
+                  <>
+                    {/* Desktop: tabela */}
+                    <div className="lancamentos-tabela-desktop">
+                      <table className="report-table">
+                        <thead>
+                          <tr>
+                            <th>Data</th>
+                            <th>Descrição</th>
+                            <th>Categoria</th>
+                            <th>Tipo</th>
+                            <th>Valor</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {dados.lista.map((t) => (
+                            <tr key={t.id}>
+                              <td style={{ whiteSpace: 'nowrap' }}>{t.data}</td>
+                              <td>{t.descricao || '—'}</td>
+                              <td>{t.categoria || '—'}</td>
+                              <td>
+                                <span style={{ fontSize: 'var(--text-xs)', padding: '2px 6px', borderRadius: 999, background: t.tipo === 'entrada' ? 'var(--primary-tint)' : 'var(--negative-tint)', color: t.tipo === 'entrada' ? 'var(--primary-dark)' : 'var(--negative)' }}>
+                                  {t.tipo === 'entrada' ? 'Entrada' : 'Saída'}
+                                </span>
+                              </td>
+                              <td style={{ fontWeight: 600, color: t.tipo === 'entrada' ? 'var(--primary)' : 'var(--text)', whiteSpace: 'nowrap' }}>
+                                {t.tipo === 'entrada' ? '+' : '−'} {formatarMoeda(t.valor)}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    {/* Mobile: lista card-like */}
+                    <div className="lancamentos-lista-mobile">
+                      {dados.lista.map((t) => (
+                        <div key={t.id} className="lancamento-mobile-item">
+                          <div className="lancamento-mobile-linha1">
+                            <span className="lancamento-mobile-data">{t.data}</span>
+                            <span className="lancamento-mobile-desc">{t.descricao || t.categoria || '—'}</span>
+                          </div>
+                          <div className="lancamento-mobile-linha2">
+                            <span style={{ color: 'var(--text-muted)', fontSize: 'var(--text-xs)' }}>{t.categoria || '—'}</span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                               <span style={{ fontSize: 'var(--text-xs)', padding: '2px 6px', borderRadius: 999, background: t.tipo === 'entrada' ? 'var(--primary-tint)' : 'var(--negative-tint)', color: t.tipo === 'entrada' ? 'var(--primary-dark)' : 'var(--negative)' }}>
                                 {t.tipo === 'entrada' ? 'Entrada' : 'Saída'}
                               </span>
-                            </td>
-                            <td style={{ fontWeight: 600, color: t.tipo === 'entrada' ? 'var(--primary)' : 'inherit', whiteSpace: 'nowrap' }}>
-                              {t.tipo === 'entrada' ? '+' : '−'} {formatarMoeda(t.valor)}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                              <span style={{ fontWeight: 600, color: t.tipo === 'entrada' ? 'var(--primary)' : 'var(--text)', fontSize: 'var(--text-md)' }}>
+                                {t.tipo === 'entrada' ? '+' : '−'} {formatarMoeda(t.valor)}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </>
                 )
               }
             </div>

@@ -251,8 +251,8 @@ describe('parseOFX', () => {
     assert.equal(parseOFX(ofx)[0].data, '2026-07-05');
   });
 
-  test('guarda o FITID (usado para não duplicar na importação)', () => {
-    assert.equal(parseOFX(ofx)[0].referencia_externa, 'ABC123');
+  test('guarda o FITID composto com a data (garante unicidade entre meses)', () => {
+    assert.equal(parseOFX(ofx)[0].referencia_externa, 'ABC123:2026-07-05');
   });
 
   test('usa o MEMO como descrição', () => {
@@ -280,6 +280,38 @@ describe('parseOFX', () => {
   test('sem MEMO nem NAME usa descrição padrão', () => {
     const semDesc = '<STMTTRN><DTPOSTED>20260705<TRNAMT>-10.00</STMTTRN>';
     assert.equal(parseOFX(semDesc)[0].descricao, 'Importado do extrato');
+  });
+
+  test('DTPOSTED com sufixo de timezone é parseado corretamente', () => {
+    const comTz = '<STMTTRN><DTPOSTED>20260705120000[-3:BRT]<TRNAMT>-10.00<MEMO>X</STMTTRN>';
+    assert.equal(parseOFX(comTz)[0].data, '2026-07-05');
+  });
+
+  test('TRNAMT com vírgula decimal (formato br) é aceito', () => {
+    const comVirgula = '<STMTTRN><DTPOSTED>20260705<TRNAMT>-45,90<MEMO>X</STMTTRN>';
+    const [t] = parseOFX(comVirgula);
+    assert.equal(t.tipo, 'saida');
+    assert.equal(t.valor, 45.9);
+  });
+
+  test('mesmo FITID em meses diferentes gera chaves distintas (caso Santander)', () => {
+    const ofxDupFitid = `
+<STMTTRN>
+<DTPOSTED>20260705
+<TRNAMT>-10.00
+<FITID>SAMEKEY
+<MEMO>JULHO
+</STMTTRN>
+<STMTTRN>
+<DTPOSTED>20260805
+<TRNAMT>-20.00
+<FITID>SAMEKEY
+<MEMO>AGOSTO
+</STMTTRN>`;
+    const [t1, t2] = parseOFX(ofxDupFitid);
+    assert.equal(t1.referencia_externa, 'SAMEKEY:2026-07-05');
+    assert.equal(t2.referencia_externa, 'SAMEKEY:2026-08-05');
+    assert.notEqual(t1.referencia_externa, t2.referencia_externa);
   });
 });
 

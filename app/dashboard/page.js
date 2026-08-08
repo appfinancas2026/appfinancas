@@ -35,6 +35,8 @@ import CardReceitasFixas from './CardReceitasFixas';
 import CardDespesasFixas from './CardDespesasFixas';
 import CardNovoLancamento from './CardNovoLancamento';
 import CardListaLancamentos from './CardListaLancamentos';
+import AbaDividas from './AbaDividas';
+import { calcularProximoVencimento } from '../../lib/dividas';
 
 
 const NOMES_MESES = [
@@ -130,6 +132,7 @@ function DashboardConteudo() {
   const [valorParcial, setValorParcial] = useState('');
 
   const [cartoes, setCartoes] = useState([]);
+  const [dividas, setDividas] = useState([]);
 
   const [tipo, setTipo] = useState('saida');
   const [valor, setValor] = useState('');
@@ -231,6 +234,16 @@ function DashboardConteudo() {
       .order('created_at', { ascending: true });
 
     setCartoes(data || []);
+  }, []);
+
+  const carregarDividas = useCallback(async (entidadeId) => {
+    if (!entidadeId) return;
+    const { data } = await supabase
+      .from('dividas')
+      .select('*')
+      .eq('entidade_id', entidadeId)
+      .order('data_inicio', { ascending: true });
+    setDividas(data || []);
   }, []);
 
   const garantirOcorrenciasDoMes = useCallback(async (entidadeId, fixos, ano, mes) => {
@@ -438,55 +451,57 @@ function DashboardConteudo() {
     setEvolucaoPatrimonio(pontos);
   }, []);
 
-  const carregarAlertas = useCallback(async (entidadeId, fixos, cartoes) => {
-    if (!entidadeId || !fixos || fixos.length === 0) { setAlertas([]); return; }
+  const carregarAlertas = useCallback(async (entidadeId, fixos, cartoes, dividasAtivas = []) => {
+    if (!entidadeId) { setAlertas([]); return; }
 
     const hoje = new Date();
     const anoReal = hoje.getFullYear();
     const mesReal = hoje.getMonth();
-    const diaReal = hoje.getDate();
+    const base = new Date(anoReal, mesReal, hoje.getDate());
 
-    const despesas = fixos.filter((f) => f.tipo === 'saida' && (!f.parcelado || calcularParcela(f, anoReal, mesReal) !== null));
-    if (despesas.length === 0) { setAlertas([]); return; }
+    // --- Lançamentos fixos ---
+    let lista = [];
+    const despesas = (fixos || []).filter((f) => f.tipo === 'saida' && (!f.parcelado || calcularParcela(f, anoReal, mesReal) !== null));
+    if (despesas.length > 0) {
+      const mesRef = mesReferenciaStr(anoReal, mesReal);
+      const { data: existentes } = await supabase
+        .from('lancamentos_fixos_mensal')
+        .select('*')
+        .eq('entidade_id', entidadeId)
+        .eq('mes_referencia', mesRef);
 
-    const mesRef = mesReferenciaStr(anoReal, mesReal);
-    const { data: existentes } = await supabase
-      .from('lancamentos_fixos_mensal')
-      .select('*')
-      .eq('entidade_id', entidadeId)
-      .eq('mes_referencia', mesRef);
+      const mapa = {};
+      (existentes || []).forEach((o) => { mapa[o.lancamento_fixo_id] = o; });
 
-    const mapa = {};
-    (existentes || []).forEach((o) => { mapa[o.lancamento_fixo_id] = o; });
+      const faltantes = despesas.filter((f) => !mapa[f.id]);
+      if (faltantes.length > 0) {
+        const novos = faltantes.map((f) => ({
+          lancamento_fixo_id: f.id,
+          entidade_id: entidadeId,
+          mes_referencia: mesRef,
+          valor: f.valor_padrao,
+          conta_id: f.conta_padrao_id,
+          status: 'pendente',
+          parcela_numero: calcularParcela(f, anoReal, mesReal),
+        }));
+        const { data: inseridos } = await supabase.from('lancamentos_fixos_mensal').insert(novos).select();
+        (inseridos || []).forEach((o) => { mapa[o.lancamento_fixo_id] = o; });
+      }
 
-    const faltantes = despesas.filter((f) => !mapa[f.id]);
-    if (faltantes.length > 0) {
-      const novos = faltantes.map((f) => ({
-        lancamento_fixo_id: f.id,
-        entidade_id: entidadeId,
-        mes_referencia: mesRef,
-        valor: f.valor_padrao,
-        conta_id: f.conta_padrao_id,
-        status: 'pendente',
-        parcela_numero: calcularParcela(f, anoReal, mesReal),
-      }));
-      const { data: inseridos } = await supabase.from('lancamentos_fixos_mensal').insert(novos).select();
-      (inseridos || []).forEach((o) => { mapa[o.lancamento_fixo_id] = o; });
+      lista = despesas
+        .map((f) => ({ fixo: f, ocorrencia: mapa[f.id] }))
+        .filter((item) => item.ocorrencia && item.ocorrencia.status !== 'confirmado')
+        // Vencimento real = mes_referencia + dia_referencia, não só o dia do mês.
+        .map((item) => ({
+          ...item,
+          diasRestantes: diasAteVencimento(item.ocorrencia.mes_referencia, item.fixo.dia_referencia),
+        }))
+        // Mostra o que vence nos próximos 5 dias E o que já está atrasado (dias negativos).
+        .filter((item) => item.diasRestantes <= 5)
+        .sort((a, b) => a.diasRestantes - b.diasRestantes);
     }
 
-    const lista = despesas
-      .map((f) => ({ fixo: f, ocorrencia: mapa[f.id] }))
-      .filter((item) => item.ocorrencia && item.ocorrencia.status !== 'confirmado')
-      // Vencimento real = mes_referencia + dia_referencia, não só o dia do mês.
-      .map((item) => ({
-        ...item,
-        diasRestantes: diasAteVencimento(item.ocorrencia.mes_referencia, item.fixo.dia_referencia),
-      }))
-      // Mostra o que vence nos próximos 5 dias E o que já está atrasado (dias negativos).
-      .filter((item) => item.diasRestantes <= 5)
-      .sort((a, b) => a.diasRestantes - b.diasRestantes);
-
-    // Alertas de fatura de cartão: fatura fechada não paga com vencimento em até 5 dias.
+    // --- Alertas de fatura de cartão ---
     const cartoesComFatura = (cartoes || []).filter((c) => c.dia_vencimento && c.dia_fechamento);
     let alertasCartao = [];
     if (cartoesComFatura.length > 0) {
@@ -504,9 +519,6 @@ function DashboardConteudo() {
         .eq('entidade_id', entidadeId)
         .in('cartao_id', cartoesComFatura.map((c) => c.id))
         .in('mes_fatura', [...mesRefsNecessarios]);
-
-      const base = new Date(hoje);
-      base.setHours(0, 0, 0, 0);
 
       cartoesComFatura.forEach((c) => {
         const txs = (txsCartoes || []).filter((t) => t.cartao_id === c.id);
@@ -529,7 +541,18 @@ function DashboardConteudo() {
       alertasCartao.sort((a, b) => a.diasRestantes - b.diasRestantes);
     }
 
-    setAlertas([...lista, ...alertasCartao]);
+    // --- Alertas de dívidas ---
+    const alertasDividas = (dividasAtivas || [])
+      .filter((d) => d.status === 'ativa')
+      .map((d) => {
+        const prox = calcularProximoVencimento(d, hoje);
+        const dias = Math.round((prox - base) / 86400000);
+        return { tipo: 'divida', divida: d, diasRestantes: dias, parcela_valor: Number(d.parcela_valor) };
+      })
+      .filter((a) => a.diasRestantes <= 5)
+      .sort((a, b) => a.diasRestantes - b.diasRestantes);
+
+    setAlertas([...lista, ...alertasCartao, ...alertasDividas]);
   }, []);
 
   function recarregarTudo() {
@@ -537,7 +560,8 @@ function DashboardConteudo() {
     carregarContas(entidadeAtual);
     carregarLancamentosFixos(entidadeAtual);
     carregarTransacoesDoMes(entidadeAtual, dataAtual.ano, dataAtual.mes);
-    carregarAlertas(entidadeAtual, lancamentosFixos, cartoes);
+    carregarDividas(entidadeAtual);
+    carregarAlertas(entidadeAtual, lancamentosFixos, cartoes, dividas);
   }
 
   useEffect(() => {
@@ -732,15 +756,16 @@ function DashboardConteudo() {
       carregarContas(entidadeAtual);
       carregarLancamentosFixos(entidadeAtual);
       carregarCartoes(entidadeAtual);
+      carregarDividas(entidadeAtual);
     }
-  }, [entidadeAtual, carregarContas, carregarLancamentosFixos, carregarCartoes]);
+  }, [entidadeAtual, carregarContas, carregarLancamentosFixos, carregarCartoes, carregarDividas]);
 
   useEffect(() => {
     if (entidadeAtual) {
       garantirOcorrenciasDoMes(entidadeAtual, lancamentosFixos, dataAtual.ano, dataAtual.mes);
       carregarTransacoesDoMes(entidadeAtual, dataAtual.ano, dataAtual.mes);
       carregarTotaisMesAnterior(entidadeAtual, dataAtual.ano, dataAtual.mes);
-      carregarAlertas(entidadeAtual, lancamentosFixos, cartoes);
+      carregarAlertas(entidadeAtual, lancamentosFixos, cartoes, dividas);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [entidadeAtual, lancamentosFixos, dataAtual.ano, dataAtual.mes]);
@@ -1122,7 +1147,7 @@ function DashboardConteudo() {
     carregarContas(entidadeAtual);
     carregarTransacoesDoMes(entidadeAtual, dataAtual.ano, dataAtual.mes);
     garantirOcorrenciasDoMes(entidadeAtual, lancamentosFixos, dataAtual.ano, dataAtual.mes);
-    carregarAlertas(entidadeAtual, lancamentosFixos, cartoes);
+    carregarAlertas(entidadeAtual, lancamentosFixos, cartoes, dividas);
     carregarPendenciasVencidas(entidadeAtual, entidades.find((e) => e.id === entidadeAtual)?.mes_inicio_controle);
   }
 
@@ -1145,7 +1170,7 @@ function DashboardConteudo() {
     carregarContas(entidadeAtual);
     carregarTransacoesDoMes(entidadeAtual, dataAtual.ano, dataAtual.mes);
     garantirOcorrenciasDoMes(entidadeAtual, lancamentosFixos, dataAtual.ano, dataAtual.mes);
-    carregarAlertas(entidadeAtual, lancamentosFixos, cartoes);
+    carregarAlertas(entidadeAtual, lancamentosFixos, cartoes, dividas);
     carregarPendenciasVencidas(entidadeAtual, entidades.find((e) => e.id === entidadeAtual)?.mes_inicio_controle);
   }
 
@@ -1213,7 +1238,7 @@ function DashboardConteudo() {
     carregarContas(entidadeAtual);
     carregarTransacoesDoMes(entidadeAtual, dataAtual.ano, dataAtual.mes);
     garantirOcorrenciasDoMes(entidadeAtual, lancamentosFixos, dataAtual.ano, dataAtual.mes);
-    carregarAlertas(entidadeAtual, lancamentosFixos, cartoes);
+    carregarAlertas(entidadeAtual, lancamentosFixos, cartoes, dividas);
   }
 
 
@@ -1365,7 +1390,11 @@ function DashboardConteudo() {
   // Soma do que falta pagar nas contas que estão vencendo ou atrasadas.
   // Usa o pendente real, não o valor cheio: uma conta parcialmente paga
   // deve entrar só com o que resta.
-  const totalEmAberto = alertas.reduce((s, a) => s + (a.tipo === 'cartao' ? a.total : pendenteNaOcorrencia(a.ocorrencia)), 0);
+  const totalEmAberto = alertas.reduce((s, a) => {
+    if (a.tipo === 'cartao') return s + a.total;
+    if (a.tipo === 'divida') return s + a.parcela_valor;
+    return s + pendenteNaOcorrencia(a.ocorrencia);
+  }, 0);
 
   const despesasPorCategoria = Object.values(
     transacoes.filter((t) => t.tipo === 'saida' && !t.transferencia_id).reduce((acc, t) => {
@@ -1532,8 +1561,11 @@ function DashboardConteudo() {
           confirmarOcorrencia={confirmarOcorrencia}
           contas={contas}
           lancamentosFixos={lancamentosFixos}
+          dividas={dividas}
           subabaInicial={subabaParam}
         />
+      ) : view === 'dividas' ? (
+        <AbaDividas entidadeAtual={entidadeAtual} contas={contas} />
       ) : view === 'contas-cartoes' ? (
         <>
           <div className="cards-grid">
@@ -1812,6 +1844,36 @@ function DashboardConteudo() {
                         <span className="atencao-valor">{formatarMoeda(total)}</span>
                         <button onClick={() => navegarComQuery('contas-cartoes')} className="btn btn-primary atencao-btn">
                           Ver
+                        </button>
+                      </div>
+                    </div>
+                  );
+                }
+                if (alerta.tipo === 'divida') {
+                  const { divida, diasRestantes, parcela_valor } = alerta;
+                  return (
+                    <div key={`divida-${divida.id}`} className="atencao-linha">
+                      <div className="atencao-linha-info">
+                        <span
+                          className="atencao-nome"
+                          onClick={() => navegarComQuery('dividas')}
+                          style={{ cursor: 'pointer' }}
+                          title="Ver em Dívidas"
+                        >
+                          {divida.nome}
+                        </span>
+                        <span className={`atencao-prazo ${diasRestantes < 0 ? 'atrasado' : ''}`}>
+                          {diasRestantes < 0
+                            ? `atrasada há ${Math.abs(diasRestantes)} dia${Math.abs(diasRestantes) > 1 ? 's' : ''}`
+                            : diasRestantes === 0
+                              ? 'vence hoje'
+                              : `vence em ${diasRestantes} dia${diasRestantes > 1 ? 's' : ''}`}
+                        </span>
+                      </div>
+                      <div className="atencao-linha-acao">
+                        <span className="atencao-valor">{formatarMoeda(parcela_valor)}</span>
+                        <button onClick={() => navegarComQuery('dividas')} className="btn btn-primary atencao-btn">
+                          Pagar
                         </button>
                       </div>
                     </div>

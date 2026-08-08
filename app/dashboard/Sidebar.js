@@ -1,10 +1,11 @@
 'use client';
-import { Home, BarChart3, Landmark, Receipt, CalendarDays, Target, FileText, Settings, LogOut, Menu } from 'lucide-react';
+import { Home, BarChart3, Landmark, Receipt, CalendarDays, Target, FileText, Settings, LogOut, Menu, TrendingDown } from 'lucide-react';
 
 const ITENS_MENU = [
   { view: 'home', Icone: Home, label: 'Painel' },
   { view: 'relatorios', Icone: BarChart3, label: 'Relatórios' },
   { view: 'contas-cartoes', Icone: Landmark, label: 'Contas & Cartões' },
+  { view: 'dividas', Icone: TrendingDown, label: 'Dívidas' },
   { view: 'contas-fixas', Icone: CalendarDays, label: 'Contas fixas' },
   { view: 'lancamentos', Icone: Receipt, label: 'Lançamentos' },
   { view: 'planejamento', Icone: Target, label: 'Planejamento' },

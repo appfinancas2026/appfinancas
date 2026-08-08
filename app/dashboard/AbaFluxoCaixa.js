@@ -25,7 +25,7 @@ function formatarDataCompleta(dataStr) {
   return `${dia}/${mes}/${ano}`;
 }
 
-export default function AbaFluxoCaixa({ entidadeAtual, contas, lancamentosFixos }) {
+export default function AbaFluxoCaixa({ entidadeAtual, contas, lancamentosFixos, dividas = [] }) {
   const [diasHistorico, setDiasHistorico] = useState(30);
   const [diasProjecao, setDiasProjecao]   = useState(60);
   const [mostrarProjecao, setMostrarProjecao] = useState(true);
@@ -107,9 +107,23 @@ export default function AbaFluxoCaixa({ entidadeAtual, contas, lancamentosFixos 
     // lib/insights.js (projetarSaldoDiario), reutilizada pelo Card de insights.
     // Aqui montamos a versão "esparsa" para o gráfico: só entram os dias com
     // movimento ou a cada 7 dias, e a média de variáveis é somada às saídas.
+    //
+    // Dívidas ativas entram como saídas fixas no dia de vencimento de cada mês
+    // (mesmo dia de data_inicio), usando a parcela_valor como valor.
+    const dividasComoFixos = (dividas || [])
+      .filter((d) => d.status === 'ativa')
+      .map((d) => ({
+        dia_referencia: parseInt(d.data_inicio.split('-')[2], 10),
+        tipo: 'saida',
+        valor_padrao: Number(d.parcela_valor),
+        nome: d.nome,
+        parcelado: false,
+      }));
+    const todosFixos = [...(lancamentosFixos || []), ...dividasComoFixos];
+
     const projecao = [];
-    if (mostrarProjecao && lancamentosFixos?.length > 0) {
-      const diaria = projetarSaldoDiario({ saldoInicial, lancamentosFixos, dias: diasProjecao, mediaDiariaVariavel, hoje });
+    if (mostrarProjecao && todosFixos.length > 0) {
+      const diaria = projetarSaldoDiario({ saldoInicial, lancamentosFixos: todosFixos, dias: diasProjecao, mediaDiariaVariavel, hoje });
       diaria.forEach((d, idx) => {
         const i = idx + 1;
         if (d.entradas > 0 || d.saidas > 0 || i % 7 === 0) {
@@ -143,7 +157,7 @@ export default function AbaFluxoCaixa({ entidadeAtual, contas, lancamentosFixos 
       mediaDiariaVariavel,
     });
     setCarregando(false);
-  }, [entidadeAtual, contas, lancamentosFixos, diasHistorico, diasProjecao, mostrarProjecao, incluirVariaveis]);
+  }, [entidadeAtual, contas, lancamentosFixos, dividas, diasHistorico, diasProjecao, mostrarProjecao, incluirVariaveis]);
 
   useEffect(() => { calcularFluxo(); }, [calcularFluxo]);
 
@@ -286,7 +300,7 @@ export default function AbaFluxoCaixa({ entidadeAtual, contas, lancamentosFixos 
             ))}
           </div>
 
-          {mostrarProjecao && (!lancamentosFixos || lancamentosFixos.length === 0) && (
+          {mostrarProjecao && (!lancamentosFixos || lancamentosFixos.length === 0) && !(dividas || []).some((d) => d.status === 'ativa') && (
             <div className="card" style={{ textAlign: 'center', padding: 24 }}>
               <p className="empty-hint">Cadastre receitas e despesas fixas no Painel para ver a projeção de fluxo.</p>
             </div>

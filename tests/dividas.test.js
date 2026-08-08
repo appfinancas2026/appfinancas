@@ -7,6 +7,7 @@ import {
   calcularProximoVencimento,
   calcularTotalJurosFuturos,
   calcularProgressoPct,
+  calcularJurosCiclo,
 } from '../lib/dividas.js';
 
 // ─── fixtures ────────────────────────────────────────────────────────────────
@@ -222,6 +223,28 @@ describe('calcularTotalJurosFuturos', () => {
     const juros = calcularTotalJurosFuturos({ ...dividaB, parcela_valor: 40, valor_atual: 1000 });
     // loop interrompe imediatamente (principal ≤ 0)
     assert.equal(juros, 0);
+  });
+});
+
+// ─── calcularJurosCiclo ───────────────────────────────────────────────────────
+
+describe('calcularJurosCiclo', () => {
+  it('retorna saldo * taxa (caso base)', () => {
+    assert.ok(Math.abs(calcularJurosCiclo(1000, 0.05) - 50) < 0.001);
+  });
+
+  it('retorna 0 quando taxa é 0', () => {
+    assert.equal(calcularJurosCiclo(1000, 0), 0);
+  });
+
+  it('retorna 0 quando saldo é 0 (dívida quitada)', () => {
+    assert.equal(calcularJurosCiclo(0, 0.05), 0);
+  });
+
+  it('consistente com o ciclo interno de calcularSaldoDevedor', () => {
+    // Após 1 pagamento de dividaB: juros do 1.º ciclo = 1000 * 5% = 50
+    const juros = calcularJurosCiclo(1000, 0.05);
+    assert.ok(Math.abs(juros - 50) < 0.001);
   });
 });
 

@@ -69,6 +69,7 @@ export default function AbaRelatorios({
   pendenciasVencidas,
   contas,
   lancamentosFixos,
+  dividas,
   subabaInicial,
 }) {
   const [periodoPre, setPeriodoPre] = useState(0);
@@ -776,7 +777,7 @@ export default function AbaRelatorios({
 
           {/* ── Aba Fluxo de Caixa ── */}
           {abaAtiva === 'fluxo' && (
-            <AbaFluxoCaixa entidadeAtual={entidadeAtual} contas={contas} lancamentosFixos={lancamentosFixos} />
+            <AbaFluxoCaixa entidadeAtual={entidadeAtual} contas={contas} lancamentosFixos={lancamentosFixos} dividas={dividas} />
           )}
 
           {/* ── Aba DRE (só PJ) ── */}

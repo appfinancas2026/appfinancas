@@ -639,9 +639,18 @@ button, input, select { font-family: var(--font-body); }
   align-self: flex-start;
   height: 100vh;
   height: 100dvh;
-  overflow-y: auto;
+  overflow: hidden;
   transition: width 0.15s ease;
   z-index: 40;
+}
+
+.sidebar-nav {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
 .sidebar.collapsed { width: 60px; padding: 20px 8px; }
@@ -1122,8 +1131,8 @@ table.report-table td { padding: 12px 0; border-top: 1px solid var(--border); }
 /* ---------- Feedback ---------- */
 .feedback-fab {
   position: fixed;
-  bottom: 96px;
-  left: 20px;
+  bottom: 72px;
+  left: 12px;
   width: 40px;
   height: 40px;
   border-radius: 50%;

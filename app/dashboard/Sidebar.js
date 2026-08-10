@@ -39,16 +39,18 @@ export default function Sidebar({
           </div>
           <button onClick={alternarSidebar} className="sidebar-toggle" title="Recolher/expandir menu"><Menu size={18} /></button>
         </div>
-        {ITENS_MENU.map((item) => (
-          <button key={item.view} onClick={() => irPara(item.view)} className={`sidebar-link ${view === item.view ? 'active' : ''}`}>
-            <span className="sidebar-icon"><item.Icone size={18} /></span><span className="sidebar-label">{item.label}</span>
-          </button>
-        ))}
-        {tipoEntidade === 'PJ' && (
-          <button onClick={() => irPara('relatorios')} className={`sidebar-link ${view === 'relatorios' ? 'active' : ''}`}>
-            <span className="sidebar-icon"><FileText size={18} /></span><span className="sidebar-label">DRE</span>
-          </button>
-        )}
+        <div className="sidebar-nav">
+          {ITENS_MENU.map((item) => (
+            <button key={item.view} onClick={() => irPara(item.view)} className={`sidebar-link ${view === item.view ? 'active' : ''}`}>
+              <span className="sidebar-icon"><item.Icone size={18} /></span><span className="sidebar-label">{item.label}</span>
+            </button>
+          ))}
+          {tipoEntidade === 'PJ' && (
+            <button onClick={() => irPara('relatorios')} className={`sidebar-link ${view === 'relatorios' ? 'active' : ''}`}>
+              <span className="sidebar-icon"><FileText size={18} /></span><span className="sidebar-label">DRE</span>
+            </button>
+          )}
+        </div>
         <div className="sidebar-footer">
           <div className="sidebar-divider" />
           <button onClick={() => irPara('configuracoes')} className={`sidebar-link ${view === 'configuracoes' ? 'active' : ''}`}>

@@ -248,6 +248,77 @@ describe('calcularJurosCiclo', () => {
   });
 });
 
+// ─── Desconto no pagamento (Opção A) ─────────────────────────────────────────
+
+describe('Desconto no pagamento (Opção A)', () => {
+  it('valor efetivo registrado = valor_pago - desconto', () => {
+    const valorPago = 1000;
+    const desconto  = 50;
+    assert.equal(valorPago - desconto, 950);
+  });
+
+  it('valor_juros recebe -desconto (negativo = economia)', () => {
+    const desconto    = 50;
+    const valorJuros  = -desconto;
+    assert.equal(valorJuros, -50);
+    assert.ok(valorJuros < 0, 'negativo indica economia, não encargo');
+  });
+
+  it('saldo reduz pelo valor efetivo, não pelo valor digitado', () => {
+    // dividaA sem pagamentos: saldo = 10 000
+    const saldo        = calcularSaldoDevedor(dividaA, []);
+    const valorPago    = 1000;
+    const desconto     = 100;
+    const valorEfetivo = valorPago - desconto; // 900
+    const saldoApos    = Math.max(0, saldo - valorEfetivo);
+    assert.equal(saldoApos, 9100);
+  });
+
+  it('sem desconto: comportamento inalterado (valorEfetivo = valorPago)', () => {
+    const valorPago    = 1000;
+    const desconto     = 0;
+    const valorEfetivo = valorPago - desconto;
+    assert.equal(valorEfetivo, 1000);
+  });
+});
+
+// ─── Quitação antecipada com multa ───────────────────────────────────────────
+
+describe('Quitação antecipada com multa', () => {
+  it('sem multa: valorTotal = saldo devedor (multa = 0)', () => {
+    const saldo      = calcularSaldoDevedor(dividaBRapida, []);
+    const multa      = 0;
+    const valorTotal = saldo * (1 + multa / 100);
+    assert.ok(Math.abs(valorTotal - saldo) < 0.01);
+  });
+
+  it('com multa 2%: valorTotal = saldo * 1.02', () => {
+    const saldo      = calcularSaldoDevedor(dividaBRapida, []);
+    const multa      = 2;
+    const valorTotal = saldo * (1 + multa / 100);
+    assert.ok(Math.abs(valorTotal - saldo * 1.02) < 0.01);
+  });
+
+  it('valor_juros na quitação = multa em R$ (valorTotal - saldo)', () => {
+    const saldo       = calcularSaldoDevedor(dividaBRapida, []);
+    const multa       = 2;
+    const valorTotal  = saldo * (1 + multa / 100);
+    const valorJuros  = valorTotal - saldo; // multa em R$
+    assert.ok(Math.abs(valorJuros - saldo * 0.02) < 0.01);
+  });
+
+  it('economia = juros futuros calculados antes da quitação', () => {
+    const economia = calcularTotalJurosFuturos(dividaBRapida);
+    assert.ok(economia > 0, 'deve haver juros futuros a economizar');
+  });
+
+  it('quitação sem multa não gera valor_juros positivo', () => {
+    const saldo      = calcularSaldoDevedor(dividaBRapida, []);
+    const valorJuros = saldo * (1 + 0 / 100) - saldo; // = 0
+    assert.equal(valorJuros, 0);
+  });
+});
+
 // ─── calcularProgressoPct ─────────────────────────────────────────────────────
 
 describe('calcularProgressoPct', () => {

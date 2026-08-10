@@ -14,7 +14,7 @@ const COR_TIPO = {
   oportunidade: 'var(--primary)',  // verde — oportunidade
 };
 
-export default function CardInsights({ entidadeAtual, contas, cartoes, lancamentosFixos, dataAtual, transacoesMes, onNavegar }) {
+export default function CardInsights({ entidadeAtual, contas, cartoes, lancamentosFixos, dataAtual, transacoesMes, onNavegar, dividas }) {
   const [insights, setInsights] = useState([]);
 
   useEffect(() => {
@@ -103,6 +103,7 @@ export default function CardInsights({ entidadeAtual, contas, cartoes, lancament
         dataAtual,
         cartoes: infoCartoes,
         saldoEmConta: saldoInicial,
+        dividas: dividas || [],
       });
 
       if (!cancelado) setInsights(resultado);

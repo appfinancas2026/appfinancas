@@ -342,3 +342,126 @@ describe('gerarInsights — regra limite comprometido', () => {
     assert.equal(res.length, 0);
   });
 });
+
+describe('gerarInsights — regras de dívidas', () => {
+  test('divida_comprometimento: dispara quando parcelas >= 30% da renda', () => {
+    const res = gerarInsights({
+      ...vazio,
+      transacoesMes: [{ data: '2026-07-01', tipo: 'entrada', valor: 1000 }],
+      dividas: [
+        { status: 'ativa', parcela_valor: 400 },
+        { status: 'ativa', parcela_valor: 100 },
+      ],
+    });
+    assert.equal(res.length, 1);
+    assert.equal(res[0].destino, 'dividas');
+    assert.equal(res[0].tipo, 'risco');
+    assert.match(res[0].texto, /50%/); // 500/1000
+    assert.match(res[0].texto, /500,00/);
+  });
+
+  test('BLINDAGEM divida_comprometimento: abaixo de 30% não dispara', () => {
+    const res = gerarInsights({
+      ...vazio,
+      transacoesMes: [{ data: '2026-07-01', tipo: 'entrada', valor: 1000 }],
+      dividas: [{ status: 'ativa', parcela_valor: 200 }],
+    });
+    assert.equal(res.length, 0); // 200/1000 = 20% < 30%
+  });
+
+  test('BLINDAGEM divida_comprometimento: sem entradas não dispara', () => {
+    const res = gerarInsights({
+      ...vazio,
+      dividas: [{ status: 'ativa', parcela_valor: 500 }],
+    });
+    assert.equal(res.length, 0);
+  });
+
+  test('BLINDAGEM divida_comprometimento: dividas null não dispara', () => {
+    const res = gerarInsights({ ...vazio, transacoesMes: [{ data: '2026-07-01', tipo: 'entrada', valor: 1000 }], dividas: null });
+    assert.equal(res.length, 0);
+  });
+
+  test('divida_juros_cara: dispara para a dívida com taxa >= 3%', () => {
+    const res = gerarInsights({
+      ...vazio,
+      dividas: [
+        { status: 'ativa', nome: 'Crédito Pessoal', taxa_juros_mensal: '3.5', parcela_valor: '500', valor_atual: '5000' },
+      ],
+    });
+    assert.equal(res.length, 1);
+    assert.equal(res[0].destino, 'dividas');
+    assert.equal(res[0].tipo, 'risco');
+    assert.match(res[0].texto, /Crédito Pessoal/);
+    assert.match(res[0].texto, /3\.5%/);
+  });
+
+  test('divida_juros_cara: escolhe a mais cara entre várias', () => {
+    const res = gerarInsights({
+      ...vazio,
+      dividas: [
+        { status: 'ativa', nome: 'Barata', taxa_juros_mensal: '3', parcela_valor: '200', valor_atual: '2000' },
+        { status: 'ativa', nome: 'Cara', taxa_juros_mensal: '5', parcela_valor: '300', valor_atual: '3000' },
+      ],
+    });
+    assert.equal(res.length, 1);
+    assert.match(res[0].texto, /Cara/);
+    assert.match(res[0].texto, /5%/);
+  });
+
+  test('BLINDAGEM divida_juros_cara: taxa abaixo de 3% não dispara', () => {
+    const res = gerarInsights({
+      ...vazio,
+      dividas: [{ status: 'ativa', nome: 'Financiamento', taxa_juros_mensal: '1.5', parcela_valor: '300', valor_atual: '3000' }],
+    });
+    assert.equal(res.length, 0);
+  });
+
+  test('BLINDAGEM divida_juros_cara: dividas null não dispara', () => {
+    const res = gerarInsights({ ...vazio, dividas: null });
+    assert.equal(res.length, 0);
+  });
+
+  test('dividas_quitadas: dispara quando >= 30% das dívidas foram quitadas', () => {
+    const res = gerarInsights({
+      ...vazio,
+      dividas: [
+        { status: 'quitada' },
+        { status: 'quitada' },
+        { status: 'ativa' },
+        { status: 'ativa' },
+      ],
+    });
+    assert.equal(res.length, 1);
+    assert.equal(res[0].tipo, 'oportunidade');
+    assert.equal(res[0].destino, 'dividas');
+    assert.match(res[0].texto, /2 de 4/);
+    assert.match(res[0].texto, /50%/);
+  });
+
+  test('BLINDAGEM dividas_quitadas: menos de 30% não dispara', () => {
+    const res = gerarInsights({
+      ...vazio,
+      dividas: [
+        { status: 'quitada' },
+        { status: 'ativa' },
+        { status: 'ativa' },
+        { status: 'ativa' },
+      ],
+    });
+    assert.equal(res.length, 0); // 1/4 = 25% < 30%
+  });
+
+  test('BLINDAGEM dividas_quitadas: nenhuma quitada não dispara', () => {
+    const res = gerarInsights({
+      ...vazio,
+      dividas: [{ status: 'ativa' }, { status: 'ativa' }],
+    });
+    assert.equal(res.length, 0);
+  });
+
+  test('BLINDAGEM dividas_quitadas: array vazio não dispara', () => {
+    const res = gerarInsights({ ...vazio, dividas: [] });
+    assert.equal(res.length, 0);
+  });
+});

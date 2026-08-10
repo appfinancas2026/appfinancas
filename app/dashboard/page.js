@@ -768,7 +768,7 @@ function DashboardConteudo() {
       carregarAlertas(entidadeAtual, lancamentosFixos, cartoes, dividas);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [entidadeAtual, lancamentosFixos, dataAtual.ano, dataAtual.mes]);
+  }, [entidadeAtual, lancamentosFixos, dataAtual.ano, dataAtual.mes, dividas]);
 
   useEffect(() => {
     if (entidadeAtual && (view === 'relatorios' || view === 'home')) {
@@ -1934,6 +1934,7 @@ function DashboardConteudo() {
             lancamentosFixos={lancamentosFixos}
             dataAtual={dataAtual}
             transacoesMes={transacoes}
+            dividas={dividas}
             onNavegar={(destino, subaba) => navegarComQuery(destino, subaba ? { subaba } : {})}
           />
 

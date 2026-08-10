@@ -2,7 +2,7 @@
 
 import CardDividas from './CardDividas';
 
-export default function AbaDividas({ entidadeAtual, contas }) {
+export default function AbaDividas({ entidadeAtual, contas, onTransacaoCriada }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div>
@@ -11,7 +11,7 @@ export default function AbaDividas({ entidadeAtual, contas }) {
           Acompanhe empréstimos, financiamentos e dívidas de cartão.
         </p>
       </div>
-      <CardDividas entidadeAtual={entidadeAtual} contas={contas} />
+      <CardDividas entidadeAtual={entidadeAtual} contas={contas} onTransacaoCriada={onTransacaoCriada} />
     </div>
   );
 }

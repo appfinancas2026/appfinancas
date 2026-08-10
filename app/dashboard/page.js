@@ -1565,7 +1565,14 @@ function DashboardConteudo() {
           subabaInicial={subabaParam}
         />
       ) : view === 'dividas' ? (
-        <AbaDividas entidadeAtual={entidadeAtual} contas={contas} />
+        <AbaDividas
+          entidadeAtual={entidadeAtual}
+          contas={contas}
+          onTransacaoCriada={() => {
+            carregarContas(entidadeAtual);
+            carregarTransacoesDoMes(entidadeAtual, dataAtual.ano, dataAtual.mes);
+          }}
+        />
       ) : view === 'contas-cartoes' ? (
         <>
           <div className="cards-grid">

@@ -70,7 +70,7 @@ const FORM_NOVO_VAZIO = {
 
 const labelSx = { fontSize: 'var(--text-xs)', color: 'var(--text-muted)', display: 'block', marginBottom: 3 };
 
-export default function CardDividas({ entidadeAtual, contas }) {
+export default function CardDividas({ entidadeAtual, contas, onTransacaoCriada }) {
   const [dividas, setDividas] = useState([]);
   const [carregando, setCarregando] = useState(false);
   const [expandida, setExpandida] = useState(null);
@@ -250,7 +250,7 @@ export default function CardDividas({ entidadeAtual, contas }) {
     // transacao_id é armazenado no registro para possibilitar o desfazer.
     let transacaoId = null;
     if (divida.conta_debito_id) {
-      const { data: txData } = await supabase.from('transacoes').insert({
+      const { data: txData, error: txError } = await supabase.from('transacoes').insert({
         entidade_id: entidadeAtual,
         conta_id: divida.conta_debito_id,
         tipo: 'saida',
@@ -282,7 +282,10 @@ export default function CardDividas({ entidadeAtual, contas }) {
         status: novoStatus,
       }).eq('id', divida.id);
 
-      if (transacaoId) await recalcularSaldoConta(divida.conta_debito_id);
+      if (transacaoId) {
+        await recalcularSaldoConta(divida.conta_debito_id);
+        onTransacaoCriada?.();
+      }
 
       setFormPag({ data: '', valor_pago: '', desconto: '' });
       setMostrarFormPag(null);

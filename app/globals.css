@@ -1119,6 +1119,118 @@ table.report-table td { padding: 12px 0; border-top: 1px solid var(--border); }
   .assistente-fab { bottom: 28px; }
 }
 
+/* ---------- Feedback ---------- */
+.feedback-fab {
+  position: fixed;
+  bottom: 96px;
+  left: 20px;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.10);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 90;
+  transition: color 0.15s, box-shadow 0.15s;
+}
+
+.feedback-fab:hover { color: var(--text); box-shadow: 0 4px 14px rgba(0,0,0,0.14); }
+
+@media (min-width: 900px) {
+  .feedback-fab { bottom: 28px; }
+}
+
+.feedback-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.40);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  padding: 16px;
+}
+
+.feedback-modal {
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  width: 100%;
+  max-width: 440px;
+  padding: 20px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+}
+
+.feedback-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.feedback-modal-titulo {
+  font: var(--weight-semibold) var(--text-md) var(--font-display);
+}
+
+.feedback-fechar {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  display: flex;
+  padding: 4px;
+}
+
+.feedback-fechar:hover { color: var(--text); }
+
+.feedback-textarea {
+  width: 100%;
+  min-height: 110px;
+  resize: vertical;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+  color: var(--text);
+  font-size: var(--text-sm);
+  padding: 10px 12px;
+  font-family: inherit;
+  line-height: 1.5;
+  box-sizing: border-box;
+}
+
+.feedback-textarea:focus { outline: none; border-color: var(--primary); }
+
+.feedback-acoes {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.feedback-toast {
+  position: fixed;
+  bottom: 96px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 8px 16px;
+  font-size: var(--text-sm);
+  color: var(--positive);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+  z-index: 210;
+  white-space: nowrap;
+}
+
+@media (min-width: 900px) {
+  .feedback-toast { bottom: 76px; }
+}
+
 .assistente-mic {
   width: 42px;
   height: 42px;

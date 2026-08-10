@@ -36,6 +36,7 @@ import CardDespesasFixas from './CardDespesasFixas';
 import CardNovoLancamento from './CardNovoLancamento';
 import CardListaLancamentos from './CardListaLancamentos';
 import AbaDividas from './AbaDividas';
+import FeedbackModal from './FeedbackModal';
 import { calcularProximoVencimento } from '../../lib/dividas';
 
 
@@ -2001,6 +2002,8 @@ function DashboardConteudo() {
     </div>
       </div>
       <BottomNav view={view} setView={setView} onAbrirMenu={() => setSidebarMobileAberta(true)} />
+
+      <FeedbackModal entidadeAtualObj={entidadeAtualObj} perfil={perfil} />
 
       {/* Botão flutuante do Assistente — fixo no canto inferior direito */}
       {view !== 'assistente' && (

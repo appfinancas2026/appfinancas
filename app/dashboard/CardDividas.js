@@ -94,7 +94,7 @@ export default function CardDividas({ entidadeAtual, contas }) {
 
   // quitação antecipada
   const [mostrarFormAntecip, setMostrarFormAntecip] = useState(null);
-  const [formAntecip, setFormAntecip] = useState({ valor: '', multa: '', data: '' });
+  const [formAntecip, setFormAntecip] = useState({ valor: '', desconto: '', multa: '', data: '' });
   const [salvandoAntecip, setSalvandoAntecip] = useState(false);
   const [ultimaQuitacao, setUltimaQuitacao] = useState(null); // { id, economiaJuros }
 
@@ -272,17 +272,20 @@ export default function CardDividas({ entidadeAtual, contas }) {
     e.preventDefault();
     setSalvandoAntecip(true);
 
+    const descontoAnt = parseFloat(String(formAntecip.desconto || '0').replace(',', '.')) || 0;
     const multaPct    = parseFloat(String(formAntecip.multa || '0').replace(',', '.')) || 0;
     const valorSaldo  = parseFloat(String(formAntecip.valor).replace(',', '.')) || saldoDevedor;
-    const valorTotal  = valorSaldo * (1 + multaPct / 100);
-    const valorMultaR = valorTotal - valorSaldo;
+    const valorBase   = valorSaldo - descontoAnt;          // saldo após desconto negociado
+    const valorTotal  = valorBase * (1 + multaPct / 100);  // aplica multa sobre valor com desconto
+    const valorMultaR = valorTotal - valorBase;
 
     const { error } = await supabase.from('dividas_pagamentos').insert({
       divida_id: divida.id,
       data: formAntecip.data,
       valor_pago: valorTotal,
-      valor_principal: valorSaldo,
-      valor_juros: valorMultaR,   // multa em R$ (0 se sem multa)
+      valor_principal: valorBase,
+      // multa em R$ positivo; desconto aparece implícito em valorBase < valorSaldo
+      valor_juros: valorMultaR,
       saldo_apos: 0,
     });
 
@@ -502,11 +505,13 @@ export default function CardDividas({ entidadeAtual, contas }) {
           }
         }
 
-        // Pré-visualização da multa no form de antecipação
-        const valorAntecipNum = parseFloat(formAntecip.valor) || saldoCalculado;
-        const multaAntecipPct = parseFloat(formAntecip.multa) || 0;
-        const multaAntecipR   = valorAntecipNum * (multaAntecipPct / 100);
-        const totalAntecip    = valorAntecipNum + multaAntecipR;
+        // Pré-visualização do form de antecipação
+        const valorAntecipNum  = parseFloat(formAntecip.valor) || saldoCalculado;
+        const descontoAntecipN = parseFloat(formAntecip.desconto) || 0;
+        const valorBaseAntecip = valorAntecipNum - descontoAntecipN;
+        const multaAntecipPct  = parseFloat(formAntecip.multa) || 0;
+        const multaAntecipR    = valorBaseAntecip * (multaAntecipPct / 100);
+        const totalAntecip     = valorBaseAntecip + multaAntecipR;
 
         let corBorda = 'var(--surface-alt)';
         if (quitada) corBorda = 'var(--positive)';
@@ -817,6 +822,13 @@ export default function CardDividas({ entidadeAtual, contas }) {
                                 required style={{ width: 150 }} autoFocus />
                             </div>
                             <div>
+                              <label style={labelSx}>Desconto obtido (R$)</label>
+                              <input className="input" type="number" step="0.01" placeholder="0,00"
+                                value={formAntecip.desconto}
+                                onChange={(e) => setFormAntecip({ ...formAntecip, desconto: e.target.value })}
+                                style={{ width: 130 }} />
+                            </div>
+                            <div>
                               <label style={labelSx}>Multa % (opcional)</label>
                               <input className="input" type="number" step="0.01" placeholder="0"
                                 value={formAntecip.multa}
@@ -832,11 +844,16 @@ export default function CardDividas({ entidadeAtual, contas }) {
                             </div>
                           </div>
 
-                          {/* Preview multa */}
-                          {multaAntecipPct > 0 && (
-                            <p style={{ margin: 0, fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>
-                              Multa: <strong style={{ color: 'var(--negative)' }}>{formatarMoeda(multaAntecipR)}</strong>
-                              {' · '}Total a pagar: <strong>{formatarMoeda(totalAntecip)}</strong>
+                          {/* Preview desconto / multa / total */}
+                          {(descontoAntecipN > 0 || multaAntecipPct > 0) && (
+                            <p style={{ margin: 0, fontSize: 'var(--text-sm)', color: 'var(--text-muted)', display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+                              {descontoAntecipN > 0 && (
+                                <span>Desconto: <strong style={{ color: 'var(--positive)' }}>−{formatarMoeda(descontoAntecipN)}</strong></span>
+                              )}
+                              {multaAntecipPct > 0 && (
+                                <span>Multa: <strong style={{ color: 'var(--negative)' }}>{formatarMoeda(multaAntecipR)}</strong></span>
+                              )}
+                              <span>Total a pagar: <strong>{formatarMoeda(totalAntecip)}</strong></span>
                             </p>
                           )}
 
@@ -852,7 +869,7 @@ export default function CardDividas({ entidadeAtual, contas }) {
                           onClick={() => {
                             setMostrarFormAntecip(d.id);
                             setMostrarFormPag(null);
-                            setFormAntecip({ valor: saldoCalculado.toFixed(2), multa: '', data: HOJE });
+                            setFormAntecip({ valor: saldoCalculado.toFixed(2), desconto: '', multa: '', data: HOJE });
                           }}
                           className="btn-link"
                           style={{ alignSelf: 'flex-start', fontSize: 'var(--text-sm)' }}

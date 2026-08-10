@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { ChevronDown, ChevronRight, Wallet, Edit2 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { formatarMoeda } from '../../lib/financeiro';
+import { recalcularSaldoConta } from '../../lib/saldos';
 import {
   calcularSaldoDevedor,
   calcularDataQuitacao,
@@ -245,6 +246,24 @@ export default function CardDividas({ entidadeAtual, contas }) {
 
     const saldoApos = Math.max(0, saldoAtual - valorPrincipal);
 
+    // Se há conta vinculada, cria a transação antes de registrar o pagamento.
+    // transacao_id é armazenado no registro para possibilitar o desfazer.
+    let transacaoId = null;
+    if (divida.conta_debito_id) {
+      const { data: txData } = await supabase.from('transacoes').insert({
+        entidade_id: entidadeAtual,
+        conta_id: divida.conta_debito_id,
+        tipo: 'saida',
+        valor: valorParaBD,
+        descricao: `Pagamento dívida: ${divida.nome}`,
+        categoria: 'Dívidas',
+        data: formPag.data,
+        origem: 'divida',
+        status: 'pago',
+      }).select('id').single();
+      transacaoId = txData?.id ?? null;
+    }
+
     const { error } = await supabase.from('dividas_pagamentos').insert({
       divida_id: divida.id,
       data: formPag.data,
@@ -252,6 +271,7 @@ export default function CardDividas({ entidadeAtual, contas }) {
       valor_principal: valorPrincipal,
       valor_juros: valorJuros,
       saldo_apos: saldoApos,
+      transacao_id: transacaoId,
     });
 
     if (!error) {
@@ -262,10 +282,15 @@ export default function CardDividas({ entidadeAtual, contas }) {
         status: novoStatus,
       }).eq('id', divida.id);
 
+      if (transacaoId) await recalcularSaldoConta(divida.conta_debito_id);
+
       setFormPag({ data: '', valor_pago: '', desconto: '' });
       setMostrarFormPag(null);
       await carregarPagamentosDivida(divida.id);
       carregar();
+    } else if (transacaoId) {
+      // Rollback: remove a transação se o registro do pagamento falhou
+      await supabase.from('transacoes').delete().eq('id', transacaoId);
     }
     setSalvandoPag(false);
   }
@@ -322,9 +347,15 @@ export default function CardDividas({ entidadeAtual, contas }) {
     await supabase.from('dividas_pagamentos').delete().eq('id', ultimo.id);
     await supabase.from('dividas').update({
       valor_atual: saldoAnterior,
-      parcelas_pagas: Math.max(0, (Number(divida.parcelas_pagas) || 0) - 1),
+      parcelas_pagas: Math.max(0, pags.length - 1),
       status: 'ativa',
     }).eq('id', divida.id);
+
+    // Desfaz a transação associada e recalcula o saldo da conta
+    if (ultimo.transacao_id) {
+      await supabase.from('transacoes').delete().eq('id', ultimo.transacao_id);
+      if (divida.conta_debito_id) await recalcularSaldoConta(divida.conta_debito_id);
+    }
 
     if (ultimaQuitacao?.id === divida.id) setUltimaQuitacao(null);
     await carregarPagamentosDivida(divida.id);
@@ -775,6 +806,13 @@ export default function CardDividas({ entidadeAtual, contas }) {
                               </button>
                             </div>
                           </div>
+
+                          {/* Aviso: sem conta vinculada */}
+                          {!d.conta_debito_id && (
+                            <p style={{ margin: 0, fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
+                              Sem conta vinculada — pagamento não reflete no saldo
+                            </p>
+                          )}
 
                           {/* Feedback desconto (Opção A e B) */}
                           {(parseFloat(formPag.desconto) || 0) > 0 && (

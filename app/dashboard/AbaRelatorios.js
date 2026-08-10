@@ -78,6 +78,7 @@ export default function AbaRelatorios({
   const [filtroTipo, setFiltroTipo] = useState('todos');
   const [filtroCategoria, setFiltroCategoria] = useState('');
   const [filtroEssencialidade, setFiltroEssencialidade] = useState('');
+  const [filtroContaId, setFiltroContaId] = useState('');
   const [carregando, setCarregando] = useState(false);
   const [dados, setDados] = useState(null);
   const [contasData, setContasData] = useState(null);
@@ -111,6 +112,7 @@ export default function AbaRelatorios({
     if (filtroTipo !== 'todos') query = query.eq('tipo', filtroTipo);
     if (filtroCategoria) query = query.eq('categoria', filtroCategoria);
     if (filtroEssencialidade) query = query.eq('essencialidade', filtroEssencialidade);
+    if (filtroContaId) query = query.eq('conta_id', filtroContaId);
 
     const { data: txs } = await query;
     const lista = txs || [];
@@ -182,7 +184,7 @@ export default function AbaRelatorios({
     setDados({ lista, totalE, totalS, resultado, margem, despesasPorCategoria, dadosMensais, ess, maiores, variacaoE, variacaoS });
 
     setCarregando(false);
-  }, [entidadeAtual, dataInicio, dataFim, filtroTipo, filtroCategoria, filtroEssencialidade]);
+  }, [entidadeAtual, dataInicio, dataFim, filtroTipo, filtroCategoria, filtroEssencialidade, filtroContaId]);
 
   // ── Busca das contas do período — separada dos filtros de tipo/categoria/
   //    essencialidade, que não afetam as contas. Só refaz quando muda a
@@ -417,8 +419,12 @@ export default function AbaRelatorios({
             <option value="desejavel">Desejável</option>
             <option value="superfluo">Supérfluo</option>
           </select>
-          {(filtroTipo !== 'todos' || filtroCategoria || filtroEssencialidade) && (
-            <button onClick={() => { setFiltroTipo('todos'); setFiltroCategoria(''); setFiltroEssencialidade(''); }} className="btn-link">
+          <select className="input" value={filtroContaId} onChange={(e) => setFiltroContaId(e.target.value)} style={{ width: 180 }}>
+            <option value="">Todas as contas</option>
+            {(contas || []).map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
+          </select>
+          {(filtroTipo !== 'todos' || filtroCategoria || filtroEssencialidade || filtroContaId) && (
+            <button onClick={() => { setFiltroTipo('todos'); setFiltroCategoria(''); setFiltroEssencialidade(''); setFiltroContaId(''); }} className="btn-link">
               Limpar filtros
             </button>
           )}

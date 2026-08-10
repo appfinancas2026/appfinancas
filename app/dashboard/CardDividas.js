@@ -227,12 +227,14 @@ export default function CardDividas({ entidadeAtual, contas }) {
     let valorParaBD;   // o que entra em dividas_pagamentos.valor_pago
 
     if (divida.taxa_juros_mensal) {
-      // Opção B: desconto não se aplica ao campo manual; usa valor digitado integralmente
+      // Opção B (Price): desconto reduz o valor efetivo pago; juros calculados sobre saldo atual.
+      // Se há desconto → valor_juros negativo (economia em verde no histórico, igual à Opção A).
       const taxa = Number(divida.taxa_juros_mensal) / 100;
+      const valorEfetivo = valorDigitado - descontoNum;
       valorJuros     = calcularJurosCiclo(saldoAtual, taxa);
-      valorPrincipal = Math.min(Math.max(0, valorDigitado - valorJuros), saldoAtual);
-      valorJuros     = valorDigitado - valorPrincipal; // ajuste por arredondamento
-      valorParaBD    = valorDigitado;
+      valorPrincipal = Math.min(Math.max(0, valorEfetivo - valorJuros), saldoAtual);
+      valorJuros     = descontoNum > 0 ? -descontoNum : (valorEfetivo - valorPrincipal);
+      valorParaBD    = valorEfetivo;
     } else {
       // Opção A: aplica desconto — só o valor efetivo (pago − desconto) reduz o saldo
       const valorEfetivo = valorDigitado - descontoNum;
@@ -256,7 +258,7 @@ export default function CardDividas({ entidadeAtual, contas }) {
       const novoStatus = saldoApos <= 0.01 ? 'quitada' : 'ativa';
       await supabase.from('dividas').update({
         valor_atual: saldoApos,
-        parcelas_pagas: (Number(divida.parcelas_pagas) || 0) + 1,
+        parcelas_pagas: pags.length + 1,
         status: novoStatus,
       }).eq('id', divida.id);
 
@@ -758,15 +760,12 @@ export default function CardDividas({ entidadeAtual, contas }) {
                                 value={formPag.valor_pago} onChange={(e) => setFormPag({ ...formPag, valor_pago: e.target.value })}
                                 required style={{ width: 130 }} />
                             </div>
-                            {/* Desconto só para Opção A */}
-                            {!d.taxa_juros_mensal && (
-                              <div>
-                                <label style={labelSx}>Desconto obtido (R$)</label>
-                                <input className="input" type="number" step="0.01" placeholder="0,00"
-                                  value={formPag.desconto} onChange={(e) => setFormPag({ ...formPag, desconto: e.target.value })}
-                                  style={{ width: 130 }} />
-                              </div>
-                            )}
+                            <div>
+                              <label style={labelSx}>Desconto obtido (R$)</label>
+                              <input className="input" type="number" step="0.01" placeholder="0,00"
+                                value={formPag.desconto} onChange={(e) => setFormPag({ ...formPag, desconto: e.target.value })}
+                                style={{ width: 130 }} />
+                            </div>
                             <div style={{ display: 'flex', gap: 8 }}>
                               <button type="submit" className="btn btn-primary" disabled={salvandoPag}>
                                 {salvandoPag ? 'Salvando…' : 'Registrar'}
@@ -777,8 +776,8 @@ export default function CardDividas({ entidadeAtual, contas }) {
                             </div>
                           </div>
 
-                          {/* Feedback Opção A: desconto */}
-                          {!d.taxa_juros_mensal && (parseFloat(formPag.desconto) || 0) > 0 && (
+                          {/* Feedback desconto (Opção A e B) */}
+                          {(parseFloat(formPag.desconto) || 0) > 0 && (
                             <p style={{ margin: 0, fontSize: 'var(--text-sm)', color: 'var(--positive)' }}>
                               Você economizou {formatarMoeda(parseFloat(formPag.desconto) || 0)} com o desconto.
                             </p>

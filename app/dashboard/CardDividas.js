@@ -526,18 +526,31 @@ export default function CardDividas({ entidadeAtual, contas, onTransacaoCriada }
         const dataQuitSim   = dividaSim ? calcularDataQuitacao(dividaSim) : null;
         const jurosFutSim   = dividaSim ? calcularTotalJurosFuturos(dividaSim) : null;
 
-        // Pré-visualização da economia ao digitar valor no form de pagamento (Opção B)
-        let economiaDigitada = 0;
-        let extraDigitado    = 0;
-        if (mostrarFormPag === d.id && d.taxa_juros_mensal) {
+        // Feedback automático ao digitar valor no form de pagamento
+        let feedbackPag = null;
+        if (mostrarFormPag === d.id) {
           const valorDig = parseFloat(formPag.valor_pago) || 0;
-          extraDigitado  = valorDig - Number(d.parcela_valor);
-          if (extraDigitado > 0) {
-            const taxa       = Number(d.taxa_juros_mensal) / 100;
-            const jurosEste  = calcularJurosCiclo(saldoCalculado, taxa);
-            const princPago  = Math.max(0, valorDig - jurosEste);
-            const saldoAposT = Math.max(0, saldoCalculado - princPago);
-            economiaDigitada = Math.max(0, jurosFuturos - calcularTotalJurosFuturos({ ...dividaComSaldo, valor_atual: saldoAposT }));
+          const parcela  = Number(d.parcela_valor);
+          if (valorDig > 0 && Math.abs(valorDig - parcela) > 0.005) {
+            if (valorDig < parcela) {
+              feedbackPag = { tipo: 'desconto', valor: parcela - valorDig };
+            } else {
+              const extra = valorDig - parcela;
+              let meses = null;
+              if (d.taxa_juros_mensal && dataQuitPanel) {
+                const taxa       = Number(d.taxa_juros_mensal) / 100;
+                const jurosEste  = calcularJurosCiclo(saldoCalculado, taxa);
+                const princPago  = Math.max(0, valorDig - jurosEste);
+                const saldoAposT = Math.max(0, saldoCalculado - princPago);
+                const dataExtra  = calcularDataQuitacao({ ...dividaComSaldo, valor_atual: saldoAposT });
+                if (dataExtra) {
+                  const diff = (dataQuitPanel.getFullYear() * 12 + dataQuitPanel.getMonth())
+                             - (dataExtra.getFullYear()      * 12 + dataExtra.getMonth());
+                  if (diff > 0) meses = diff;
+                }
+              }
+              feedbackPag = { tipo: 'extra', valor: extra, meses };
+            }
           }
         }
 
@@ -791,7 +804,16 @@ export default function CardDividas({ entidadeAtual, contas, onTransacaoCriada }
                             <div>
                               <label style={labelSx}>Valor pago</label>
                               <input className="input" type="number" step="0.01" placeholder={String(d.parcela_valor)}
-                                value={formPag.valor_pago} onChange={(e) => setFormPag({ ...formPag, valor_pago: e.target.value })}
+                                value={formPag.valor_pago}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  const valorDig = parseFloat(val) || 0;
+                                  const parcela  = Number(d.parcela_valor);
+                                  const autoDesc = valorDig > 0 && valorDig < parcela
+                                    ? (parcela - valorDig).toFixed(2)
+                                    : '';
+                                  setFormPag({ ...formPag, valor_pago: val, desconto: autoDesc });
+                                }}
                                 required style={{ width: 130 }} />
                             </div>
                             <div>
@@ -817,18 +839,20 @@ export default function CardDividas({ entidadeAtual, contas, onTransacaoCriada }
                             </p>
                           )}
 
-                          {/* Feedback desconto (Opção A e B) */}
-                          {(parseFloat(formPag.desconto) || 0) > 0 && (
+                          {/* Feedback automático: desconto ou amortização extra */}
+                          {feedbackPag?.tipo === 'desconto' && (
                             <p style={{ margin: 0, fontSize: 'var(--text-sm)', color: 'var(--positive)' }}>
-                              Você economizou {formatarMoeda(parseFloat(formPag.desconto) || 0)} com o desconto.
+                              ↓ Desconto de {formatarMoeda(feedbackPag.valor)} vs. parcela normal
                             </p>
                           )}
-
-                          {/* Feedback Opção B: economia por pagar a mais */}
-                          {d.taxa_juros_mensal && extraDigitado > 0 && economiaDigitada > 0 && (
-                            <p style={{ margin: 0, fontSize: 'var(--text-sm)', color: 'var(--positive)' }}>
-                              Pagando {formatarMoeda(extraDigitado)} a mais, você economiza{' '}
-                              <strong>{formatarMoeda(economiaDigitada)}</strong> em juros futuros.
+                          {feedbackPag?.tipo === 'extra' && (
+                            <p style={{ margin: 0, fontSize: 'var(--text-sm)', color: 'var(--accent)' }}>
+                              ↑ {formatarMoeda(feedbackPag.valor)} além da parcela — amortiza principal
+                              {feedbackPag.meses && (
+                                <span style={{ color: 'var(--text-muted)' }}>
+                                  {' '}· quitação avança {feedbackPag.meses} {feedbackPag.meses === 1 ? 'mês' : 'meses'}
+                                </span>
+                              )}
                             </p>
                           )}
                         </form>

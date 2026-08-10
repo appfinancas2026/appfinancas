@@ -1142,7 +1142,7 @@ table.report-table td { padding: 12px 0; border-top: 1px solid var(--border); }
 .feedback-fab:hover { color: var(--text); box-shadow: 0 4px 14px rgba(0,0,0,0.14); }
 
 @media (min-width: 900px) {
-  .feedback-fab { bottom: 28px; }
+  .feedback-fab { bottom: 80px; right: 24px; left: auto; }
 }
 
 .feedback-overlay {

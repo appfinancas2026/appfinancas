@@ -1,0 +1,10 @@
+[{
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "br.com.appfinancasbr",
+    "sha256_cert_fingerprints": [
+      "D5:B6:0E:3E:DE:43:C1:4A:65:49:76:A5:65:D2:B1:0A:E9:65:0F:C5:96:69:30:19:08:16:3E:24:BF:83:62:5C"
+    ]
+  }
+}]

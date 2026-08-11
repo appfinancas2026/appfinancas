@@ -747,6 +747,8 @@ button, input, select { font-family: var(--font-body); }
   .sidebar.collapsed { width: 250px; padding: 20px 12px; }
   .sidebar.collapsed .sidebar-label,
   .sidebar.collapsed .sidebar-brand span.brand-text { display: inline; }
+  .sidebar-footer { padding-bottom: 70px; }
+
   .sidebar-backdrop.mobile-open {
     display: block;
     position: fixed;

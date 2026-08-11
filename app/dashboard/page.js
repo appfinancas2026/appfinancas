@@ -2003,7 +2003,7 @@ function DashboardConteudo() {
       </div>
       <BottomNav view={view} setView={setView} onAbrirMenu={() => setSidebarMobileAberta(true)} />
 
-      <FeedbackModal entidadeAtualObj={entidadeAtualObj} perfil={perfil} />
+      {!sidebarMobileAberta && <FeedbackModal entidadeAtualObj={entidadeAtualObj} perfil={perfil} />}
 
       {/* Botão flutuante do Assistente — fixo no canto inferior direito */}
       {view !== 'assistente' && (

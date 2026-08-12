@@ -8,6 +8,7 @@ import {
   subtrairMeses,
   avancarMeses,
   calcularParcela,
+  parcelaAtivaNoMes,
   calcularPeriodoFaturaAberta,
   calcularMesFaturaCompra,
   formatarMoeda,
@@ -125,6 +126,35 @@ describe('calcularParcela', () => {
   test('sem total_parcelas não tem limite superior', () => {
     const f = { parcelado: true, mes_inicio: '2026-01-01' };
     assert.equal(calcularParcela(f, 2030, 0), 49);
+  });
+});
+
+describe('parcelaAtivaNoMes', () => {
+  const fixo6 = { parcelado: true, mes_inicio: '2026-01-01', total_parcelas: 6 };
+
+  test('não-parcelado é sempre ativo', () => {
+    assert.equal(parcelaAtivaNoMes({ parcelado: false }, 2026, 0), true);
+    assert.equal(parcelaAtivaNoMes({ parcelado: false }, 2020, 5), true);
+  });
+
+  test('parcelado antes do início retorna false', () => {
+    assert.equal(parcelaAtivaNoMes(fixo6, 2025, 11), false);
+  });
+
+  test('primeira parcela (mês de início) retorna true', () => {
+    assert.equal(parcelaAtivaNoMes(fixo6, 2026, 0), true);
+  });
+
+  test('última parcela retorna true', () => {
+    assert.equal(parcelaAtivaNoMes(fixo6, 2026, 5), true);
+  });
+
+  test('após a última parcela retorna false', () => {
+    assert.equal(parcelaAtivaNoMes(fixo6, 2026, 6), false);
+  });
+
+  test('parcelado sem mes_inicio retorna false', () => {
+    assert.equal(parcelaAtivaNoMes({ parcelado: true }, 2026, 0), false);
   });
 });
 

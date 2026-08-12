@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { checkRateLimit } from '../_shared/rateLimit.js';
 
 export async function POST(request) {
   const apiKey = process.env.GROQ_API_KEY;
@@ -11,6 +12,7 @@ export async function POST(request) {
   const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
   const { data: { user }, error: authError } = await supabase.auth.getUser(token);
   if (authError || !user) return Response.json({ error: 'Não autorizado.' }, { status: 401 });
+  if (!checkRateLimit(user.id)) return Response.json({ error: 'Muitas requisições. Tente novamente em breve.' }, { status: 429 });
 
   const { pergunta, contexto, historico } = await request.json();
 

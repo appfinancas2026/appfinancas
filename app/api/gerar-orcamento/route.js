@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { checkRateLimit } from '../_shared/rateLimit.js';
 
 // Extrai o primeiro bloco JSON válido do texto, mesmo que venha com
 // texto antes/depois ou entre crases. Mais robusto que replace simples.
@@ -32,6 +33,7 @@ export async function POST(request) {
   const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
   const { data: { user }, error: authError } = await supabase.auth.getUser(token);
   if (authError || !user) return Response.json({ error: 'Não autorizado.' }, { status: 401 });
+  if (!checkRateLimit(user.id)) return Response.json({ error: 'Muitas requisições. Tente novamente em breve.' }, { status: 429 });
 
   const { historico, rendaMedia, mesesAnalisados, mesesReais } = await request.json();
 

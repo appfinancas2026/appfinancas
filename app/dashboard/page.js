@@ -8,7 +8,7 @@ import { TEMAS_CORES } from '../../lib/temas';
 import {
   mesReferenciaStr, primeiroDiaDoMes, ultimoDiaDoMes, subtrairMeses,
   calcularPeriodoFaturaAberta, calcularMesFaturaCompra, avancarMeses,
-  parseOFX, parseCSVExtrato, calcularParcela, formatarMoeda,
+  parseOFX, parseCSVExtrato, calcularParcela, parcelaAtivaNoMes, formatarMoeda,
   vencimentoOcorrencia, diasAteVencimento,
 } from '../../lib/financeiro';
 import { recalcularSaldoConta } from '../../lib/saldos';
@@ -273,7 +273,7 @@ function DashboardConteudo() {
     const mapa = {};
     (existentes || []).forEach((o) => { mapa[o.lancamento_fixo_id] = o; });
 
-    const elegiveis = fixos.filter((f) => !f.parcelado || calcularParcela(f, ano, mes) !== null);
+    const elegiveis = fixos.filter((f) => parcelaAtivaNoMes(f, ano, mes));
     const faltantes = elegiveis.filter((f) => !mapa[f.id]);
 
     if (faltantes.length > 0) {
@@ -286,11 +286,21 @@ function DashboardConteudo() {
         status: 'pendente',
         parcela_numero: calcularParcela(f, ano, mes),
       }));
-      const { data: inseridos } = await supabase.from('lancamentos_fixos_mensal').insert(novos).select();
-      (inseridos || []).forEach((o) => { mapa[o.lancamento_fixo_id] = o; });
+      // ignoreDuplicates: se chamada concorrente já inseriu, o banco ignora sem erro.
+      await supabase.from('lancamentos_fixos_mensal')
+        .upsert(novos, { onConflict: 'lancamento_fixo_id,mes_referencia', ignoreDuplicates: true });
     }
 
-    setOcorrenciasDoMes(mapa);
+    // Re-seleciona após upsert: garante mapa completo independente do que ignoreDuplicates omitiu.
+    const { data: atualizadas } = await supabase
+      .from('lancamentos_fixos_mensal')
+      .select('*')
+      .eq('entidade_id', entidadeId)
+      .eq('mes_referencia', mesRef);
+
+    const mapaFinal = {};
+    (atualizadas || []).forEach((o) => { mapaFinal[o.lancamento_fixo_id] = o; });
+    setOcorrenciasDoMes(mapaFinal);
   }, []);
 
   const carregarTransacoesDoMes = useCallback(async (entidadeId, ano, mes) => {
@@ -474,21 +484,6 @@ function DashboardConteudo() {
       const mapa = {};
       (existentes || []).forEach((o) => { mapa[o.lancamento_fixo_id] = o; });
 
-      const faltantes = despesas.filter((f) => !mapa[f.id]);
-      if (faltantes.length > 0) {
-        const novos = faltantes.map((f) => ({
-          lancamento_fixo_id: f.id,
-          entidade_id: entidadeId,
-          mes_referencia: mesRef,
-          valor: f.valor_padrao,
-          conta_id: f.conta_padrao_id,
-          status: 'pendente',
-          parcela_numero: calcularParcela(f, anoReal, mesReal),
-        }));
-        const { data: inseridos } = await supabase.from('lancamentos_fixos_mensal').insert(novos).select();
-        (inseridos || []).forEach((o) => { mapa[o.lancamento_fixo_id] = o; });
-      }
-
       lista = despesas
         .map((f) => ({ fixo: f, ocorrencia: mapa[f.id] }))
         .filter((item) => item.ocorrencia && item.ocorrencia.status !== 'confirmado')
@@ -562,7 +557,8 @@ function DashboardConteudo() {
     carregarLancamentosFixos(entidadeAtual);
     carregarTransacoesDoMes(entidadeAtual, dataAtual.ano, dataAtual.mes);
     carregarDividas(entidadeAtual);
-    carregarAlertas(entidadeAtual, lancamentosFixos, cartoes, dividas);
+    garantirOcorrenciasDoMes(entidadeAtual, lancamentosFixos, dataAtual.ano, dataAtual.mes)
+      .then(() => carregarAlertas(entidadeAtual, lancamentosFixos, cartoes, dividas));
   }
 
   useEffect(() => {
@@ -763,10 +759,10 @@ function DashboardConteudo() {
 
   useEffect(() => {
     if (entidadeAtual) {
-      garantirOcorrenciasDoMes(entidadeAtual, lancamentosFixos, dataAtual.ano, dataAtual.mes);
+      garantirOcorrenciasDoMes(entidadeAtual, lancamentosFixos, dataAtual.ano, dataAtual.mes)
+        .then(() => carregarAlertas(entidadeAtual, lancamentosFixos, cartoes, dividas));
       carregarTransacoesDoMes(entidadeAtual, dataAtual.ano, dataAtual.mes);
       carregarTotaisMesAnterior(entidadeAtual, dataAtual.ano, dataAtual.mes);
-      carregarAlertas(entidadeAtual, lancamentosFixos, cartoes, dividas);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [entidadeAtual, lancamentosFixos, dataAtual.ano, dataAtual.mes, dividas]);

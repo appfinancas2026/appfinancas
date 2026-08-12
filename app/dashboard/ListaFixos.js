@@ -1,6 +1,6 @@
 'use client';
 
-import { formatarMoeda, calcularParcela } from '../../lib/financeiro';
+import { formatarMoeda, parcelaAtivaNoMes } from '../../lib/financeiro';
 import CampoCategoria from './CampoCategoria';
 
 const LIMITE_LISTA = 6;
@@ -43,8 +43,7 @@ export default function ListaFixos({
 }) {
   const listaCompleta = lancamentosFixos.filter((f) => {
     if (f.tipo !== tipoAlvo) return false;
-    if (f.parcelado) return calcularParcela(f, dataAtual.ano, dataAtual.mes) !== null;
-    return true;
+    return parcelaAtivaNoMes(f, dataAtual.ano, dataAtual.mes);
   }).sort((a, b) => (
     ordenacao === 'alfabetica' ? a.nome.localeCompare(b.nome, 'pt-BR') : a.dia_referencia - b.dia_referencia
   ));

@@ -472,7 +472,7 @@ function DashboardConteudo() {
 
     // --- Lançamentos fixos ---
     let lista = [];
-    const despesas = (fixos || []).filter((f) => f.tipo === 'saida' && (!f.parcelado || calcularParcela(f, anoReal, mesReal) !== null));
+    const despesas = (fixos || []).filter((f) => f.tipo === 'saida' && parcelaAtivaNoMes(f, anoReal, mesReal));
     if (despesas.length > 0) {
       const mesRef = mesReferenciaStr(anoReal, mesReal);
       const { data: existentes } = await supabase

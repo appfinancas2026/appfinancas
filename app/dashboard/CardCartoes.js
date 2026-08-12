@@ -207,14 +207,24 @@ export default function CardCartoes({ entidadeAtual, contas, cartoes, onAtualiza
     if (!error) onAtualizar();
   }
 
-  async function carregarComprasCartao(cartaoId) {
-    const { data } = await supabase
+  function getMesRefs(cartaoId) {
+    const info = faturasPorCartao[cartaoId];
+    return { mesRefAberta: info?.aberta?.mesRef, mesRefFechada: info?.fechada?.mesRef };
+  }
+
+  async function carregarComprasCartao(cartaoId, mesRefAberta, mesRefFechada) {
+    const meses = [mesRefAberta, mesRefFechada].filter(Boolean);
+
+    let query = supabase
       .from('transacoes')
       .select('*')
       .eq('cartao_id', cartaoId)
       .neq('origem', 'fatura')
       .order('data', { ascending: false });
 
+    if (meses.length > 0) query = query.in('mes_fatura', meses);
+
+    const { data } = await query;
     setComprasDoCartao(data || []);
   }
 
@@ -224,7 +234,8 @@ export default function CardCartoes({ entidadeAtual, contas, cartoes, onAtualiza
       setComprasDoCartao([]);
     } else {
       setComprasCartaoVisivelId(cartaoId);
-      carregarComprasCartao(cartaoId);
+      const { mesRefAberta, mesRefFechada } = getMesRefs(cartaoId);
+      carregarComprasCartao(cartaoId, mesRefAberta, mesRefFechada);
     }
   }
 
@@ -257,7 +268,8 @@ export default function CardCartoes({ entidadeAtual, contas, cartoes, onAtualiza
 
     if (!error) {
       setEdicaoCompraCartaoId(null);
-      carregarComprasCartao(cartao.id);
+      const { mesRefAberta, mesRefFechada } = getMesRefs(cartao.id);
+      carregarComprasCartao(cartao.id, mesRefAberta, mesRefFechada);
       carregarFaturas(cartoes);
     }
   }
@@ -266,14 +278,18 @@ export default function CardCartoes({ entidadeAtual, contas, cartoes, onAtualiza
     if (!window.confirm('Excluir esta compra?')) return;
     const { error } = await supabase.from('transacoes').delete().eq('id', compra.id);
     if (!error) {
-      carregarComprasCartao(compra.cartao_id);
+      const { mesRefAberta, mesRefFechada } = getMesRefs(compra.cartao_id);
+      carregarComprasCartao(compra.cartao_id, mesRefAberta, mesRefFechada);
       carregarFaturas(cartoes);
     }
   }
 
   async function classificarEssencialidadeCompra(compra, novoValor) {
     const { error } = await supabase.from('transacoes').update({ essencialidade: novoValor || null }).eq('id', compra.id);
-    if (!error) carregarComprasCartao(compra.cartao_id);
+    if (!error) {
+      const { mesRefAberta, mesRefFechada } = getMesRefs(compra.cartao_id);
+      carregarComprasCartao(compra.cartao_id, mesRefAberta, mesRefFechada);
+    }
   }
 
   async function adicionarCompraCartao(e, cartao) {
@@ -331,7 +347,10 @@ export default function CardCartoes({ entidadeAtual, contas, cartoes, onAtualiza
       setSugestaoCompraCartao(null);
       setMostrarCompraCartaoId(null);
       carregarFaturas(cartoes);
-      if (comprasCartaoVisivelId === cartao.id) carregarComprasCartao(cartao.id);
+      if (comprasCartaoVisivelId === cartao.id) {
+        const { mesRefAberta, mesRefFechada } = getMesRefs(cartao.id);
+        carregarComprasCartao(cartao.id, mesRefAberta, mesRefFechada);
+      }
     }
   }
 

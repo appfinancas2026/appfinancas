@@ -77,10 +77,10 @@ Regras:
   const textoResposta = dados?.choices?.[0]?.message?.content || '{}';
 
   try {
-    const extraido = extrairJSON(textoResposta !== undefined ? textoResposta : texto);
+    const extraido = extrairJSON(textoResposta);
     const transacoes = (extraido.transacoes || []).map((t) => ({ ...t, incluir: true }));
     return Response.json({ transacoes });
   } catch {
-    return Response.json({ error: `Não foi possível interpretar a resposta da IA. Resposta bruta: ${String(texto || textoResposta || '').slice(0, 300)}` }, { status: 502 });
+    return Response.json({ error: `Não foi possível interpretar a resposta da IA. Resposta bruta: ${String(textoResposta).slice(0, 300)}` }, { status: 502 });
   }
 }

@@ -1,3 +1,4 @@
+import { createClient } from '@supabase/supabase-js';
 
 // Extrai o primeiro bloco JSON válido do texto, mesmo que venha com
 // texto antes/depois ou entre crases. Mais robusto que replace simples.
@@ -25,6 +26,12 @@ export async function POST(request) {
   if (!apiKey) {
     return Response.json({ error: 'GROQ_API_KEY não configurada.' }, { status: 500 });
   }
+
+  const token = request.headers.get('authorization')?.replace('Bearer ', '').trim();
+  if (!token) return Response.json({ error: 'Não autorizado.' }, { status: 401 });
+  const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
+  const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+  if (authError || !user) return Response.json({ error: 'Não autorizado.' }, { status: 401 });
 
   const { texto } = await request.json();
 

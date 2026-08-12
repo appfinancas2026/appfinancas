@@ -1,8 +1,16 @@
+import { createClient } from '@supabase/supabase-js';
+
 export async function POST(request) {
   const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) {
     return Response.json({ error: 'GROQ_API_KEY não configurada.' }, { status: 500 });
   }
+
+  const token = request.headers.get('authorization')?.replace('Bearer ', '').trim();
+  if (!token) return Response.json({ error: 'Não autorizado.' }, { status: 401 });
+  const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
+  const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+  if (authError || !user) return Response.json({ error: 'Não autorizado.' }, { status: 401 });
 
   const { pergunta, contexto, historico } = await request.json();
 

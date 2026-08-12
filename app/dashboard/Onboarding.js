@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { formatarMoeda } from '../../lib/financeiro';
+import { recalcularSaldoConta } from '../../lib/saldos';
 
 const TOTAL_PASSOS = 4;
 
@@ -136,6 +137,7 @@ export default function Onboarding({ entidadeAtual, onConcluir }) {
       return;
     }
 
+    await recalcularSaldoConta(contaCriadaId);
     onConcluir();
   }
 

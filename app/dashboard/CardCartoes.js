@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { CreditCard, ArrowUp, ChevronDown, ChevronRight } from 'lucide-react';
+import { CreditCard, ArrowUp, ChevronDown, ChevronRight, Calendar } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import {
   formatarMoeda, calcularMesFaturaCompra, avancarMeses,
@@ -588,28 +588,34 @@ export default function CardCartoes({ entidadeAtual, contas, cartoes, onAtualiza
                   </div>
                 )}
                 <form onSubmit={(e) => adicionarCompraCartao(e, cartao)} className="form-row" style={{ marginTop: sugestaoCompraCartao ? 0 : 10 }}>
-                <input className="input" style={{ width: 100 }} type="number" step="0.01" placeholder={parceladoCompraCartao ? 'Valor da parcela' : 'Valor'} value={valorCompraCartao} onChange={(e) => setValorCompraCartao(e.target.value)} required autoFocus />
-                <CampoCategoria entidadeAtual={entidadeAtual} tipo="saida" value={categoriaCompraCartao} onChange={(e) => setCategoriaCompraCartao(e.target.value)} style={{ width: 130 }} />
-                <input className="input" style={{ flex: 1, minWidth: 120 }} placeholder="Descrição" value={descricaoCompraCartao} onChange={(e) => setDescricaoCompraCartao(e.target.value)} />
-                <input className="input" style={{ width: 150 }} type="date" value={dataCompraCartao} onChange={(e) => setDataCompraCartao(e.target.value)} required />
-                <select className="input" value={essencialidadeCompraCartao} onChange={(e) => setEssencialidadeCompraCartao(e.target.value)}>
-                  <option value="">Essencialidade (opc.)</option>
-                  <option value="essencial">Essencial</option>
-                  <option value="desejavel">Desejável</option>
-                  <option value="superfluo">Supérfluo</option>
-                </select>
-                <label className="checkbox-label">
-                  <input type="checkbox" checked={parceladoCompraCartao} onChange={(e) => setParceladoCompraCartao(e.target.checked)} />
-                  Parcelado
-                </label>
-                {parceladoCompraCartao && (
-                  <>
-                    <input className="input" style={{ width: 130 }} type="number" min="1" placeholder="Total de parcelas" value={totalParcelasCompraCartao} onChange={(e) => setTotalParcelasCompraCartao(e.target.value)} required />
-                    <input className="input" style={{ width: 170 }} type="number" min="1" placeholder="Já está na parcela nº (opc.)" value={parcelaAtualCompraCartao} onChange={(e) => setParcelaAtualCompraCartao(e.target.value)} />
-                  </>
-                )}
-                <button type="submit" className="btn btn-primary">Lançar</button>
-              </form>
+                  <div style={{ display: 'flex', gap: 8, width: '100%' }}>
+                    <button type="button" onClick={() => setParceladoCompraCartao(false)} style={{ flex: 1, padding: '8px 12px', border: `2px solid ${!parceladoCompraCartao ? 'var(--primary)' : 'var(--border)'}`, borderRadius: 'var(--radius-sm)', background: 'var(--surface)', cursor: 'pointer', textAlign: 'left', lineHeight: 1.3 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 600, fontSize: 13 }}><CreditCard size={13} /> À vista</div>
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>cobrança única</div>
+                    </button>
+                    <button type="button" onClick={() => setParceladoCompraCartao(true)} style={{ flex: 1, padding: '8px 12px', border: `2px solid ${parceladoCompraCartao ? 'var(--primary)' : 'var(--border)'}`, borderRadius: 'var(--radius-sm)', background: 'var(--surface)', cursor: 'pointer', textAlign: 'left', lineHeight: 1.3 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 600, fontSize: 13 }}><Calendar size={13} /> Parcelado</div>
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>em N faturas</div>
+                    </button>
+                  </div>
+                  <input className="input" style={{ width: 100 }} type="number" step="0.01" placeholder={parceladoCompraCartao ? 'Valor/mês' : 'Valor'} value={valorCompraCartao} onChange={(e) => setValorCompraCartao(e.target.value)} required autoFocus />
+                  <CampoCategoria entidadeAtual={entidadeAtual} tipo="saida" value={categoriaCompraCartao} onChange={(e) => setCategoriaCompraCartao(e.target.value)} style={{ width: 130 }} />
+                  <input className="input" style={{ flex: 1, minWidth: 120 }} placeholder="Descrição" value={descricaoCompraCartao} onChange={(e) => setDescricaoCompraCartao(e.target.value)} />
+                  <input className="input" style={{ width: 150 }} type="date" value={dataCompraCartao} onChange={(e) => setDataCompraCartao(e.target.value)} required />
+                  <select className="input" value={essencialidadeCompraCartao} onChange={(e) => setEssencialidadeCompraCartao(e.target.value)}>
+                    <option value="">Essencialidade (opc.)</option>
+                    <option value="essencial">Essencial</option>
+                    <option value="desejavel">Desejável</option>
+                    <option value="superfluo">Supérfluo</option>
+                  </select>
+                  {parceladoCompraCartao && (
+                    <>
+                      <input className="input" style={{ width: 130 }} type="number" min="1" placeholder="Total de parcelas" value={totalParcelasCompraCartao} onChange={(e) => setTotalParcelasCompraCartao(e.target.value)} required />
+                      <input className="input" style={{ width: 170 }} type="number" min="1" placeholder="Já está na parcela nº (opc.)" value={parcelaAtualCompraCartao} onChange={(e) => setParcelaAtualCompraCartao(e.target.value)} />
+                    </>
+                  )}
+                  <button type="submit" className="btn btn-primary">Lançar</button>
+                </form>
               </>
             )}
           </div>

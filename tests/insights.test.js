@@ -465,3 +465,33 @@ describe('gerarInsights — regras de dívidas', () => {
     assert.equal(res.length, 0);
   });
 });
+
+describe('gerarInsights — bucketing cartão por mes_fatura (competência)', () => {
+  test('compra de cartão com data em nov e mes_fatura em dez é bucketizada em dez', () => {
+    // Nov: conta regular Alimentação 300 (data='2025-11-15')
+    // Cartão: data='2025-11-28', mas pertence a dez (mes_fatura='2025-12-01')
+    // Com bucketing correto: nov={Alimentação:300}, dez={Alimentação:600} → 2 meses → avg=450
+    // Com bucketing errado (t.data): nov={Alimentação:900}, dez={} → 1 mês (< MIN=2) → sem insight
+    // Mês atual: Alimentação 900 → 900 vs avg 450 = +100% → deve disparar "categoria em alta".
+    const res = gerarInsights({
+      transacoesMes: [
+        { data: '2025-12-01', tipo: 'entrada', valor: '10000', transferencia_id: null },
+        { data: '2025-12-15', tipo: 'saida', valor: '900', categoria: 'Alimentação', transferencia_id: null },
+      ],
+      transacoesHistorico: [
+        { data: '2025-11-01', tipo: 'entrada', valor: '10000', transferencia_id: null },
+        { data: '2025-11-15', tipo: 'saida', valor: '300', categoria: 'Alimentação', transferencia_id: null },
+        // Cartão: data em novembro, fatura em dezembro — deve ser bucketizado em dezembro
+        { data: '2025-11-28', mes_fatura: '2025-12-01', cartao_id: 'c1', tipo: 'saida', valor: '600',
+          categoria: 'Alimentação', transferencia_id: null, origem: 'compra' },
+        { data: '2025-12-01', tipo: 'entrada', valor: '10000', transferencia_id: null },
+      ],
+      projecaoFluxo: [],
+      lancamentosFixos: [],
+      dataAtual: { ano: 2025, mes: 11 }, // dezembro (mes 0-indexed)
+    });
+    assert.equal(res.length, 1);
+    assert.equal(res[0].tipo, 'alta');
+    assert.match(res[0].texto, /Alimentação/);
+  });
+});

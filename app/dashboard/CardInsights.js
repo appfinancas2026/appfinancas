@@ -5,6 +5,7 @@ import { Lightbulb } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { gerarInsights, projetarSaldoDiario } from '../../lib/insights';
 import { primeiroDiaDoMes, ultimoDiaDoMes, subtrairMeses, calcularPeriodoFaturaAberta, mesReferenciaStr } from '../../lib/financeiro';
+import { buscarTransacoesCompetencia } from '../../lib/buscaRelatorios';
 import { calcularFaturasCartao } from '../../lib/faturas';
 
 // Marcador de cor por tipo (mesma semântica do resto do app).
@@ -14,7 +15,7 @@ const COR_TIPO = {
   oportunidade: 'var(--primary)',  // verde — oportunidade
 };
 
-export default function CardInsights({ entidadeAtual, contas, cartoes, lancamentosFixos, dataAtual, transacoesMes, onNavegar, dividas }) {
+export default function CardInsights({ entidadeAtual, contas, cartoes, lancamentosFixos, dataAtual, onNavegar, dividas }) {
   const [insights, setInsights] = useState([]);
 
   useEffect(() => {
@@ -24,33 +25,37 @@ export default function CardInsights({ entidadeAtual, contas, cartoes, lancament
       if (!entidadeAtual) { setInsights([]); return; }
       const { ano, mes } = dataAtual;
 
-      // Transações dos 3 meses anteriores ao mês exibido.
+      // Períodos para as buscas de competência (regras de gasto).
       const ini = subtrairMeses(ano, mes, 3);
       const fim = subtrairMeses(ano, mes, 1);
-      const { data: historico } = await supabase
-        .from('transacoes')
-        .select('data, tipo, valor, categoria, essencialidade, transferencia_id')
-        .eq('entidade_id', entidadeAtual)
-        .is('transferencia_id', null)
-        .or('cartao_id.is.null,origem.eq.fatura')
-        .gte('data', primeiroDiaDoMes(ini.ano, ini.mes))
-        .lte('data', ultimoDiaDoMes(fim.ano, fim.mes));
-
-      // Projeção de 30 dias — mesma base do fluxo de caixa.
       const hoje = new Date().toISOString().slice(0, 10);
-      const saldoInicial = (contas || []).reduce((s, c) => s + Number(c.saldo_atual || 0), 0);
-
       const inicioMedia = new Date();
       inicioMedia.setDate(inicioMedia.getDate() - 90);
-      const { data: txsVar } = await supabase
-        .from('transacoes')
-        .select('valor')
-        .eq('entidade_id', entidadeAtual)
-        .eq('tipo', 'saida')
-        .is('transferencia_id', null)
-        .neq('origem', 'recorrente')
-        .gte('data', inicioMedia.toISOString().slice(0, 10))
-        .lte('data', hoje);
+
+      // Busca em paralelo: mês atual + histórico 3 meses (competência) + variáveis 90d (caixa p/ projeção).
+      const [txsMesAtual, transacoesHistorico, { data: txsVar }] = await Promise.all([
+        buscarTransacoesCompetencia(supabase, {
+          entidadeId: entidadeAtual,
+          dataInicio: primeiroDiaDoMes(ano, mes),
+          dataFim: ultimoDiaDoMes(ano, mes),
+        }),
+        buscarTransacoesCompetencia(supabase, {
+          entidadeId: entidadeAtual,
+          dataInicio: primeiroDiaDoMes(ini.ano, ini.mes),
+          dataFim: ultimoDiaDoMes(fim.ano, fim.mes),
+        }),
+        supabase
+          .from('transacoes')
+          .select('valor')
+          .eq('entidade_id', entidadeAtual)
+          .eq('tipo', 'saida')
+          .is('transferencia_id', null)
+          .neq('origem', 'recorrente')
+          .gte('data', inicioMedia.toISOString().slice(0, 10))
+          .lte('data', hoje),
+      ]);
+
+      const saldoInicial = (contas || []).reduce((s, c) => s + Number(c.saldo_atual || 0), 0);
       const mediaDiariaVariavel = (txsVar || []).reduce((s, t) => s + Number(t.valor || 0), 0) / 90;
 
       const projecaoFluxo = projetarSaldoDiario({
@@ -96,8 +101,8 @@ export default function CardInsights({ entidadeAtual, contas, cartoes, lancament
       }));
 
       const resultado = gerarInsights({
-        transacoesMes: transacoesMes || [],
-        transacoesHistorico: historico || [],
+        transacoesMes: txsMesAtual,
+        transacoesHistorico,
         projecaoFluxo,
         lancamentosFixos: lancamentosFixos || [],
         dataAtual,
@@ -111,7 +116,7 @@ export default function CardInsights({ entidadeAtual, contas, cartoes, lancament
 
     carregar();
     return () => { cancelado = true; };
-  }, [entidadeAtual, dataAtual.ano, dataAtual.mes, transacoesMes, contas, cartoes, lancamentosFixos]);
+  }, [entidadeAtual, dataAtual.ano, dataAtual.mes, contas, cartoes, lancamentosFixos]);
 
   if (insights.length === 0) return null;
 

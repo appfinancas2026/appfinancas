@@ -1,5 +1,6 @@
 'use client';
 
+import { Repeat, Calendar } from 'lucide-react';
 import { formatarMoeda, parcelaAtivaNoMes } from '../../lib/financeiro';
 import CampoCategoria from './CampoCategoria';
 
@@ -104,6 +105,10 @@ export default function ListaFixos({
           <div>
             <p className="row-title">
               {f.nome}
+              {f.parcelado
+                ? <span className="badge" style={{ display: 'inline-flex', alignItems: 'center', gap: 3, verticalAlign: 'middle', marginLeft: 6, background: 'var(--accent-tint)', color: 'var(--accent-text)', fontSize: 11, padding: '2px 7px' }}><Calendar size={10} />Parcelado</span>
+                : <span className="badge" style={{ display: 'inline-flex', alignItems: 'center', gap: 3, verticalAlign: 'middle', marginLeft: 6, background: 'var(--surface-alt)', color: 'var(--text-muted)', fontSize: 11, padding: '2px 7px' }}><Repeat size={10} />Fixo</span>
+              }
               {ocorrencia.parcela_numero && <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}> · {ocorrencia.parcela_numero}/{f.total_parcelas}</span>}
             </p>
             <p className="row-subtitle">

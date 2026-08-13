@@ -16,6 +16,7 @@ import {
   parseCSVExtrato,
   parseValorMonetario,
   calcularSaldoConta,
+  mesesReferenciaNoPeriodo,
 } from '../lib/financeiro.js';
 
 // Lembrete: mês é 0-based (0 = janeiro), como no Date do JavaScript.
@@ -536,5 +537,49 @@ describe('calcularSaldoConta', () => {
       { valor: 100, tipo: 'saida' },
     ];
     assert.equal(calcularSaldoConta(1000, txs), 700);
+  });
+});
+
+// ── mesesReferenciaNoPeriodo ──────────────────────────────────────────────────
+
+describe('mesesReferenciaNoPeriodo', () => {
+  test('mesmo mês retorna exatamente 1 elemento', () => {
+    const r = mesesReferenciaNoPeriodo('2026-01-01', '2026-01-31');
+    assert.deepEqual(r, ['2026-01-01']);
+  });
+
+  test('3 meses cruzando virada de ano', () => {
+    const r = mesesReferenciaNoPeriodo('2025-11-01', '2026-01-31');
+    assert.deepEqual(r, ['2025-11-01', '2025-12-01', '2026-01-01']);
+  });
+
+  test('mês único no fim do ano (dezembro)', () => {
+    const r = mesesReferenciaNoPeriodo('2025-12-01', '2025-12-31');
+    assert.deepEqual(r, ['2025-12-01']);
+  });
+
+  test('intervalo de 1 dia dentro de um mês retorna esse mês', () => {
+    const r = mesesReferenciaNoPeriodo('2026-06-15', '2026-06-15');
+    assert.deepEqual(r, ['2026-06-01']);
+  });
+
+  test('ano inteiro retorna 12 meses', () => {
+    const r = mesesReferenciaNoPeriodo('2026-01-01', '2026-12-31');
+    assert.equal(r.length, 12);
+    assert.equal(r[0], '2026-01-01');
+    assert.equal(r[11], '2026-12-01');
+  });
+
+  test('período parcial que começa no meio de um mês inclui esse mês', () => {
+    const r = mesesReferenciaNoPeriodo('2026-03-15', '2026-05-10');
+    assert.deepEqual(r, ['2026-03-01', '2026-04-01', '2026-05-01']);
+  });
+
+  test('6 meses cruzando dois anos', () => {
+    const r = mesesReferenciaNoPeriodo('2025-08-01', '2026-01-31');
+    assert.deepEqual(r, [
+      '2025-08-01', '2025-09-01', '2025-10-01',
+      '2025-11-01', '2025-12-01', '2026-01-01',
+    ]);
   });
 });

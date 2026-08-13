@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import { supabase } from '../../lib/supabase';
-import { formatarMoeda, vencimentoOcorrencia } from '../../lib/financeiro';
+import { formatarMoeda, vencimentoOcorrencia, mesesReferenciaNoPeriodo } from '../../lib/financeiro';
 
 const GraficoEntradasSaidas    = dynamic(() => import('./RelatoriosCharts').then((m) => m.GraficoEntradasSaidas),    { ssr: false });
 const GraficoDespesasPorCategoria = dynamic(() => import('./RelatoriosCharts').then((m) => m.GraficoDespesasPorCategoria), { ssr: false });
@@ -38,26 +38,6 @@ const PERIODOS = [
   { label: 'Personalizado', de: null, ate: null },
 ];
 
-// Parseia 'YYYY-MM-DD' como data local (evita o deslocamento UTC → local de new Date(string)).
-function parseDateLocal(s) {
-  const [y, m, d] = s.split('-').map(Number);
-  return new Date(y, m - 1, d);
-}
-
-// Deriva a lista de meses de referência (YYYY-MM-01) que caem no período.
-function mesesReferenciaNoPeriodo(inicio, fim) {
-  const meses = [];
-  const dIni = parseDateLocal(inicio);
-  const dFim = parseDateLocal(fim);
-  let ano = dIni.getFullYear();
-  let mes = dIni.getMonth();
-  while (ano < dFim.getFullYear() || (ano === dFim.getFullYear() && mes <= dFim.getMonth())) {
-    meses.push(`${ano}-${String(mes + 1).padStart(2, '0')}-01`);
-    mes += 1;
-    if (mes > 11) { mes = 0; ano += 1; }
-  }
-  return meses;
-}
 
 export default function AbaRelatorios({
   entidadeAtual,

@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import { supabase } from '../../lib/supabase';
 import { formatarMoeda, vencimentoOcorrencia, mesesReferenciaNoPeriodo } from '../../lib/financeiro';
+import { mesDeCompetencia } from '../../lib/orcamento';
+import { buscarTransacoesCompetencia } from '../../lib/buscaRelatorios';
 
 const GraficoEntradasSaidas    = dynamic(() => import('./RelatoriosCharts').then((m) => m.GraficoEntradasSaidas),    { ssr: false });
 const GraficoDespesasPorCategoria = dynamic(() => import('./RelatoriosCharts').then((m) => m.GraficoDespesasPorCategoria), { ssr: false });
@@ -80,34 +82,18 @@ export default function AbaRelatorios({
     if (!entidadeAtual) return;
     setCarregando(true);
 
-    let query = supabase
-      .from('transacoes')
-      .select('id, tipo, valor, categoria, descricao, data, essencialidade, status, conta_id, transferencia_id')
-      .eq('entidade_id', entidadeAtual)
-      .is('transferencia_id', null)
-      .gte('data', dataInicio)
-      .lte('data', dataFim)
-      .order('data', { ascending: false });
+    const lista = await buscarTransacoesCompetencia(supabase, {
+      entidadeId:           entidadeAtual,
+      dataInicio,
+      dataFim,
+      filtroTipo:           filtroTipo !== 'todos' ? filtroTipo : undefined,
+      filtroCategoria:      filtroCategoria      || undefined,
+      filtroEssencialidade: filtroEssencialidade || undefined,
+      filtroContaId:        filtroContaId        || undefined,
+    });
 
-    if (filtroTipo !== 'todos') query = query.eq('tipo', filtroTipo);
-    if (filtroCategoria) query = query.eq('categoria', filtroCategoria);
-    if (filtroEssencialidade) query = query.eq('essencialidade', filtroEssencialidade);
-    if (filtroContaId) query = query.eq('conta_id', filtroContaId);
-
-    const { data: txs } = await query;
-    const lista = txs || [];
-
-    // Categorias disponíveis para o filtro
-    const { data: catData } = await supabase
-      .from('transacoes')
-      .select('categoria')
-      .eq('entidade_id', entidadeAtual)
-      .is('transferencia_id', null)
-      .gte('data', dataInicio)
-      .lte('data', dataFim)
-      .neq('categoria', null)
-      .neq('categoria', '');
-    setCategorias([...new Set((catData || []).map((t) => t.categoria))].sort());
+    // Categorias derivadas da própria lista — consistente com a busca de competência.
+    setCategorias([...new Set(lista.filter((t) => t.categoria).map((t) => t.categoria))].sort());
 
     // Cálculos
     const entradas = lista.filter((t) => t.tipo === 'entrada');
@@ -127,10 +113,11 @@ export default function AbaRelatorios({
       .map(([categoria, valor]) => ({ categoria, valor }))
       .sort((a, b) => b.valor - a.valor);
 
-    // Por mês (para gráfico de tendência)
+    // Por mês (para gráfico de tendência) — usa mesDeCompetencia para que compras
+    // de cartão apareçam no mês da fatura, não no mês da compra.
     const porMes = {};
     lista.forEach((t) => {
-      const m = t.data.slice(0, 7);
+      const m = mesDeCompetencia(t) || t.data.slice(0, 7);
       if (!porMes[m]) porMes[m] = { mes: m, Entradas: 0, Saídas: 0 };
       if (t.tipo === 'entrada') porMes[m].Entradas += Number(t.valor);
       else porMes[m].Saídas += Number(t.valor);

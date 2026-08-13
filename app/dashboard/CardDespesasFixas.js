@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowUp, ChevronDown, ChevronRight } from 'lucide-react';
+import { ArrowUp, ChevronDown, ChevronRight, Repeat, Calendar } from 'lucide-react';
 import CampoCategoria from './CampoCategoria';
 import ListaFixos from './ListaFixos';
 
@@ -84,9 +84,19 @@ export default function CardDespesasFixas({
           <div className={`card-limitada ${(alturaCheiaDespesas || mostrarNovaDespesaFixa) ? 'expandida' : ''}`}>
           {mostrarNovaDespesaFixa && (
             <form onSubmit={(e) => adicionarLancamentoFixo(e, 'saida')} className="form-row" style={{ marginBottom: 12 }}>
+              <div style={{ display: 'flex', gap: 8, width: '100%' }}>
+                <button type="button" onClick={() => setParceladoFixo(false)} style={{ flex: 1, padding: '8px 12px', border: `2px solid ${!parceladoFixo ? 'var(--primary)' : 'var(--border)'}`, borderRadius: 'var(--radius-sm)', background: 'var(--surface)', cursor: 'pointer', textAlign: 'left', lineHeight: 1.3 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 600, fontSize: 13 }}><Repeat size={13} /> Fixo Mensal</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>repete sempre</div>
+                </button>
+                <button type="button" onClick={() => setParceladoFixo(true)} style={{ flex: 1, padding: '8px 12px', border: `2px solid ${parceladoFixo ? 'var(--primary)' : 'var(--border)'}`, borderRadius: 'var(--radius-sm)', background: 'var(--surface)', cursor: 'pointer', textAlign: 'left', lineHeight: 1.3 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 600, fontSize: 13 }}><Calendar size={13} /> Parcelado</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>acaba em N</div>
+                </button>
+              </div>
               <input className="input" placeholder="Nome (ex: Aluguel)" value={nomeFixo} onChange={(e) => setNomeFixo(e.target.value)} required autoFocus />
               <input className="input" style={{ width: 90 }} type="number" min="1" max="31" placeholder="Dia" value={diaFixo} onChange={(e) => setDiaFixo(e.target.value)} required />
-              <input className="input" style={{ width: 110 }} type="number" step="0.01" placeholder="Valor" value={valorFixo} onChange={(e) => setValorFixo(e.target.value)} required />
+              <input className="input" style={{ width: 110 }} type="number" step="0.01" placeholder={parceladoFixo ? 'Valor/mês' : 'Valor'} value={valorFixo} onChange={(e) => setValorFixo(e.target.value)} required />
               <select className="input" value={contaFixoId} onChange={(e) => setContaFixoId(e.target.value)}>
                 <option value="">Conta de origem (opcional)</option>
                 {contas.map((c) => (<option key={c.id} value={c.id}>{c.nome}</option>))}
@@ -98,10 +108,6 @@ export default function CardDespesasFixas({
                 <option value="superfluo">Supérfluo</option>
               </select>
               <CampoCategoria entidadeAtual={entidadeAtual} tipo="saida" value={categoriaFixo} onChange={(e) => setCategoriaFixo(e.target.value)} placeholder="Categoria (opcional)" style={{ width: 180 }} />
-              <label className="checkbox-label">
-                <input type="checkbox" checked={parceladoFixo} onChange={(e) => setParceladoFixo(e.target.checked)} />
-                Parcelado
-              </label>
               {parceladoFixo && (
                 <>
                   <input className="input" style={{ width: 130 }} type="number" min="1" placeholder="Total de parcelas" value={totalParcelasFixo} onChange={(e) => setTotalParcelasFixo(e.target.value)} required />

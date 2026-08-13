@@ -12,6 +12,7 @@ import {
   vencimentoOcorrencia, diasAteVencimento,
 } from '../../lib/financeiro';
 import { recalcularSaldoConta } from '../../lib/saldos';
+import { buscarTransacoesCompetencia } from '../../lib/buscaRelatorios';
 import { calcularFaturasCartao } from '../../lib/faturas';
 import TelaPin from './TelaPin';
 import CompletarCadastro from './CompletarCadastro';
@@ -927,29 +928,36 @@ function DashboardConteudo() {
     return '\uFEFF' + [cabecalho.join(';'), ...linhas].join('\n');
   }
 
-  function exportarMesCSV() {
-    const csv = gerarCSV(transacoes);
+  async function exportarMesCSV() {
+    const lista = await buscarTransacoesCompetencia(supabase, {
+      entidadeId: entidadeAtual,
+      dataInicio: primeiroDiaDoMes(dataAtual.ano, dataAtual.mes),
+      dataFim:    ultimoDiaDoMes(dataAtual.ano, dataAtual.mes),
+    });
+    const csv = gerarCSV(lista);
     baixarArquivo(csv, `lancamentos_${NOMES_MESES[dataAtual.mes].toLowerCase()}_${dataAtual.ano}.csv`, 'text/csv;charset=utf-8;');
   }
 
   async function exportarAnoCSV() {
-    const { data } = await supabase
-      .from('transacoes')
-      .select('*')
-      .eq('entidade_id', entidadeAtual)
-      .or('cartao_id.is.null,origem.eq.fatura')
-      .gte('data', `${dataAtual.ano}-01-01`)
-      .lte('data', `${dataAtual.ano}-12-31`)
-      .order('data', { ascending: true });
-
-    const csv = gerarCSV(data || []);
+    const lista = await buscarTransacoesCompetencia(supabase, {
+      entidadeId: entidadeAtual,
+      dataInicio: `${dataAtual.ano}-01-01`,
+      dataFim:    `${dataAtual.ano}-12-31`,
+    });
+    const csv = gerarCSV(lista);
     baixarArquivo(csv, `lancamentos_${dataAtual.ano}.csv`, 'text/csv;charset=utf-8;');
   }
 
-  function exportarPDF() {
+  async function exportarPDF() {
     const entidadeNome = entidades.find((e) => e.id === entidadeAtual)?.nome_entidade || '';
 
-    const linhasHtml = transacoes.map((t) => {
+    const lista = await buscarTransacoesCompetencia(supabase, {
+      entidadeId: entidadeAtual,
+      dataInicio: primeiroDiaDoMes(dataAtual.ano, dataAtual.mes),
+      dataFim:    ultimoDiaDoMes(dataAtual.ano, dataAtual.mes),
+    });
+
+    const linhasHtml = lista.map((t) => {
       const conta = contas.find((c) => c.id === t.conta_id);
       return `<tr>
         <td>${t.data}</td>
@@ -961,8 +969,8 @@ function DashboardConteudo() {
       </tr>`;
     }).join('');
 
-    const totalEntradasPdf = transacoes.filter((t) => t.tipo === 'entrada').reduce((s, t) => s + Number(t.valor), 0);
-    const totalSaidasPdf = transacoes.filter((t) => t.tipo === 'saida').reduce((s, t) => s + Number(t.valor), 0);
+    const totalEntradasPdf = lista.filter((t) => t.tipo === 'entrada').reduce((s, t) => s + Number(t.valor), 0);
+    const totalSaidasPdf   = lista.filter((t) => t.tipo === 'saida').reduce((s, t) => s + Number(t.valor), 0);
 
     const janela = window.open('', '_blank');
     if (!janela) return;

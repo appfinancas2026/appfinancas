@@ -33,11 +33,13 @@ import Sparkline from './Sparkline';
 import SimuladorRotativo from './SimuladorRotativo';
 import CardReceitasFixas from './CardReceitasFixas';
 import CardDespesasFixas from './CardDespesasFixas';
+import CardComprometido from './CardComprometido';
 import CardNovoLancamento from './CardNovoLancamento';
 import CardListaLancamentos from './CardListaLancamentos';
 import AbaDividas from './AbaDividas';
 import FeedbackModal from './FeedbackModal';
 import { calcularProximoVencimento } from '../../lib/dividas';
+import { calcularComprometidoFuturo } from '../../lib/comprometido';
 
 
 const NOMES_MESES = [
@@ -134,6 +136,7 @@ function DashboardConteudo() {
 
   const [cartoes, setCartoes] = useState([]);
   const [dividas, setDividas] = useState([]);
+  const [comprometidoFuturo, setComprometidoFuturo] = useState(null);
 
   const [tipo, setTipo] = useState('saida');
   const [valor, setValor] = useState('');
@@ -245,6 +248,28 @@ function DashboardConteudo() {
       .eq('entidade_id', entidadeId)
       .order('data_inicio', { ascending: true });
     setDividas(data || []);
+  }, []);
+
+  const carregarComprometidoFuturo = useCallback(async (entidadeId, fixos, ano, mes) => {
+    if (!entidadeId) { setComprometidoFuturo(null); return; }
+    const fixosParcelados = (fixos || []).filter((f) => f.tipo === 'saida' && f.parcelado === true);
+    const mesRefAtual = mesReferenciaStr(ano, mes);
+    const { data: txsFuturas } = await supabase
+      .from('transacoes')
+      .select('*')
+      .eq('entidade_id', entidadeId)
+      .not('parcela_total', 'is', null)
+      .neq('origem', 'fatura')
+      .gte('mes_fatura', mesRefAtual)
+      .order('mes_fatura', { ascending: true });
+    const resultado = calcularComprometidoFuturo({
+      fixosParcelados,
+      transacoesCartaoFuturas: txsFuturas || [],
+      anoAtual: ano,
+      mesAtual: mes,
+      numMeses: 6,
+    });
+    setComprometidoFuturo(resultado);
   }, []);
 
   const garantirOcorrenciasDoMes = useCallback(async (entidadeId, fixos, ano, mes) => {
@@ -766,6 +791,13 @@ function DashboardConteudo() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [entidadeAtual, lancamentosFixos, dataAtual.ano, dataAtual.mes, dividas]);
+
+  useEffect(() => {
+    if (entidadeAtual) {
+      carregarComprometidoFuturo(entidadeAtual, lancamentosFixos, dataAtual.ano, dataAtual.mes);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entidadeAtual, lancamentosFixos, dataAtual.ano, dataAtual.mes]);
 
   useEffect(() => {
     if (entidadeAtual && (view === 'relatorios' || view === 'home')) {
@@ -1452,22 +1484,6 @@ function DashboardConteudo() {
   const totalReceitasRecebidasMes = receitasRecebidasMes.reduce((s, i) => s + Number(i.ocorrencia.valor), 0);
   const totalReceitasAbertoMes = receitasAbertoMes.reduce((s, i) => s + pendenteNaOcorrencia(i.ocorrencia), 0);
 
-  const hojeReal = new Date();
-  const compromissosFuturos = lancamentosFixos
-    .filter((f) => f.tipo === 'saida' && f.parcelado && f.mes_inicio)
-    .map((f) => {
-      const [anoInicio, mesInicioStr] = f.mes_inicio.split('-');
-      const mesInicioIdx = parseInt(mesInicioStr, 10) - 1;
-      const numero = (hojeReal.getFullYear() - parseInt(anoInicio, 10)) * 12 + (hojeReal.getMonth() - mesInicioIdx) + 1;
-      let restantes;
-      if (numero < 1) restantes = f.total_parcelas;
-      else if (numero > f.total_parcelas) restantes = 0;
-      else restantes = f.total_parcelas - numero + 1;
-      return { fixo: f, restantes, total: restantes * Number(f.valor_padrao) };
-    })
-    .filter((item) => item.restantes > 0);
-  const totalCompromissosFuturos = compromissosFuturos.reduce((s, item) => s + item.total, 0);
-
   const maioresLancamentos = [...transacoes]
     .filter((t) => !t.transferencia_id)
     .sort((a, b) => Number(b.valor) - Number(a.valor))
@@ -1993,6 +2009,8 @@ function DashboardConteudo() {
               Relatórios
             </button>
           </div>
+
+          <CardComprometido comprometidoFuturo={comprometidoFuturo} />
         </>
       )}
     </div>

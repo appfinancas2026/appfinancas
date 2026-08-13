@@ -13,6 +13,7 @@ import {
 } from '../../lib/financeiro';
 import { recalcularSaldoConta } from '../../lib/saldos';
 import { buscarTransacoesCompetencia } from '../../lib/buscaRelatorios';
+import { mesDeCompetencia } from '../../lib/orcamento';
 import { calcularFaturasCartao } from '../../lib/faturas';
 import TelaPin from './TelaPin';
 import CompletarCadastro from './CompletarCadastro';
@@ -361,18 +362,17 @@ function DashboardConteudo() {
 
   const carregarResumoAnual = useCallback(async (entidadeId, ano) => {
     if (!entidadeId) return;
-    const { data } = await supabase
-      .from('transacoes')
-      .select('valor, tipo, data')
-      .eq('entidade_id', entidadeId)
-      .is('transferencia_id', null)
-      .or('cartao_id.is.null,origem.eq.fatura')
-      .gte('data', `${ano}-01-01`)
-      .lte('data', `${ano}-12-31`);
+    const lista = await buscarTransacoesCompetencia(supabase, {
+      entidadeId,
+      dataInicio: `${ano}-01-01`,
+      dataFim: `${ano}-12-31`,
+    });
 
     const porMes = Array.from({ length: 12 }, () => ({ entradas: 0, saidas: 0 }));
-    (data || []).forEach((t) => {
-      const idx = parseInt(t.data.slice(5, 7), 10) - 1;
+    lista.forEach((t) => {
+      // Usa mesDeCompetencia para que compras de cartão entrem no mês da fatura.
+      const comp = mesDeCompetencia(t);
+      const idx = comp ? parseInt(comp.slice(5, 7), 10) - 1 : -1;
       if (idx < 0 || idx > 11) return;
       if (t.tipo === 'entrada') porMes[idx].entradas += Number(t.valor);
       else porMes[idx].saidas += Number(t.valor);
@@ -417,17 +417,14 @@ function DashboardConteudo() {
     if (!listaEntidades || listaEntidades.length < 2) { setComparativoPFPJ([]); return; }
 
     const resultados = await Promise.all(listaEntidades.map(async (ent) => {
-      const { data } = await supabase
-        .from('transacoes')
-        .select('valor, tipo')
-        .eq('entidade_id', ent.id)
-        .is('transferencia_id', null)
-        .or('cartao_id.is.null,origem.eq.fatura')
-        .gte('data', primeiroDiaDoMes(ano, mes))
-        .lte('data', ultimoDiaDoMes(ano, mes));
+      const lista = await buscarTransacoesCompetencia(supabase, {
+        entidadeId: ent.id,
+        dataInicio: primeiroDiaDoMes(ano, mes),
+        dataFim: ultimoDiaDoMes(ano, mes),
+      });
 
-      const entradas = (data || []).filter((t) => t.tipo === 'entrada').reduce((s, t) => s + Number(t.valor), 0);
-      const saidas = (data || []).filter((t) => t.tipo === 'saida').reduce((s, t) => s + Number(t.valor), 0);
+      const entradas = lista.filter((t) => t.tipo === 'entrada').reduce((s, t) => s + Number(t.valor), 0);
+      const saidas = lista.filter((t) => t.tipo === 'saida').reduce((s, t) => s + Number(t.valor), 0);
       return { nome: ent.nome_entidade, Entradas: entradas, Saídas: saidas };
     }));
 

@@ -3,7 +3,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ClipboardList, Loader2, Sparkles, X, BarChart3, CheckCircle2, AlertTriangle, ChevronDown, ChevronRight } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-import { formatarMoeda } from '../../lib/financeiro';
+import { formatarMoeda, primeiroDiaDoMes, ultimoDiaDoMes } from '../../lib/financeiro';
+import { gastoPorCategoriaNoMes, mesDeCompetencia } from '../../lib/orcamento';
 import CampoCategoria from './CampoCategoria';
 
 const LIMITE_LISTA = 6;
@@ -38,6 +39,36 @@ export default function CardOrcamento({ entidadeAtual, transacoesDoMes, ano, mes
   const [formOrcamento, setFormOrcamento] = useState({ categoria: '', valor_limite: '' });
   const [expandir, setExpandir] = useState(false);
   const [alturaCheia, setAlturaCheia] = useState(false);
+
+  // Superset de transações em regime de competência para o tracker.
+  // Query separada do estado global transacoes (usado por outras telas) para
+  // incluir compras de cartão por mes_fatura sem quebrar outros componentes.
+  const [transacoesOrcamento, setTransacoesOrcamento] = useState([]);
+
+  const carregarTransacoesOrcamento = useCallback(async (entidadeId, ano, mes) => {
+    if (!entidadeId) { setTransacoesOrcamento([]); return; }
+    const mesRef = `${ano}-${String(mes + 1).padStart(2, '0')}-01`;
+    const [{ data: txsConta }, { data: txsCartao }] = await Promise.all([
+      supabase.from('transacoes').select('*')
+        .eq('entidade_id', entidadeId)
+        .is('cartao_id', null)
+        .is('transferencia_id', null)
+        .neq('origem', 'fatura')
+        .gte('data', primeiroDiaDoMes(ano, mes))
+        .lte('data', ultimoDiaDoMes(ano, mes)),
+      supabase.from('transacoes').select('*')
+        .eq('entidade_id', entidadeId)
+        .not('cartao_id', 'is', null)
+        .is('transferencia_id', null)
+        .neq('origem', 'fatura')
+        .eq('mes_fatura', mesRef),
+    ]);
+    setTransacoesOrcamento([...(txsConta || []), ...(txsCartao || [])]);
+  }, []);
+
+  useEffect(() => {
+    if (entidadeAtual) carregarTransacoesOrcamento(entidadeAtual, ano, mes);
+  }, [entidadeAtual, ano, mes, carregarTransacoesOrcamento]);
 
   // Estado do orçamento inteligente
   const [analisando, setAnalisando] = useState(false);
@@ -115,9 +146,10 @@ export default function CardOrcamento({ entidadeAtual, transacoesDoMes, ano, mes
 
       const { data: txs } = await supabase
         .from('transacoes')
-        .select('tipo, valor, categoria, essencialidade, data')
+        .select('tipo, valor, categoria, essencialidade, data, cartao_id, mes_fatura, origem, transferencia_id')
         .eq('entidade_id', entidadeAtual)
         .is('transferencia_id', null)
+        .neq('origem', 'fatura')
         .gte('data', seisMesesAtras)
         .order('data', { ascending: false });
 
@@ -126,19 +158,24 @@ export default function CardOrcamento({ entidadeAtual, transacoesDoMes, ano, mes
         return;
       }
 
-      // Quantos meses distintos existem, limitado a 3 (o ideal para análise)
-      const mesesDistintos = new Set(txs.map((t) => t.data.slice(0, 7)));
+      // Meses distintos por competência (mes_fatura para cartão, data para conta)
+      const mesesDistintos = new Set(
+        txs.map((t) => mesDeCompetencia(t)).filter(Boolean)
+      );
       const mesesRef = Math.min(3, Math.max(1, mesesDistintos.size));
       const mesesReais = mesesDistintos.size;
 
-      // Renda média
-      const totalReceitas = txs.filter((t) => t.tipo === 'entrada').reduce((s, t) => s + Number(t.valor), 0);
+      // Renda média (entradas de conta — mesDeCompetencia retorna non-null para elas)
+      const totalReceitas = txs
+        .filter((t) => t.tipo === 'entrada' && mesDeCompetencia(t) !== null)
+        .reduce((s, t) => s + Number(t.valor), 0);
       const rendaMedia = totalReceitas / mesesRef;
 
-      // Gasto médio por categoria
+      // Gasto médio por categoria — usa mesDeCompetencia para excluir faturas e
+      // transferências e contar cada compra de cartão no mês correto
       const gastosPorCat = {};
       const essencialidadePorCat = {};
-      txs.filter((t) => t.tipo === 'saida').forEach((t) => {
+      txs.filter((t) => t.tipo === 'saida' && mesDeCompetencia(t) !== null).forEach((t) => {
         const cat = (t.categoria || 'Outros').trim();
         gastosPorCat[cat] = (gastosPorCat[cat] || 0) + Number(t.valor);
         if (t.essencialidade && !essencialidadePorCat[cat]) {
@@ -209,10 +246,10 @@ export default function CardOrcamento({ entidadeAtual, transacoesDoMes, ano, mes
 
   // ── Cálculos do mês atual ─────────────────────────────────────────────────
 
-  const despesasDoMes = transacoesDoMes.filter((t) => t.tipo === 'saida' && !t.transferencia_id);
+  const gastosPorCat = gastoPorCategoriaNoMes(transacoesOrcamento, ano, mes);
 
   function gastoDaCategoria(categoria) {
-    return despesasDoMes.filter((t) => (t.categoria || '') === categoria).reduce((s, t) => s + Number(t.valor), 0);
+    return gastosPorCat[categoria] ?? 0;
   }
 
   const totalOrcado = orcamentos.reduce((s, o) => s + Number(o.valor_limite), 0);

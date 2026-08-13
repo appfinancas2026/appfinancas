@@ -548,6 +548,9 @@ export default function CardCartoes({ entidadeAtual, contas, cartoes, onAtualiza
                       <div>
                         <p className="row-title">
                           {compra.descricao || compra.categoria}
+                          {compra.parcela_total && (
+                            <span className="badge" style={{ display: 'inline-flex', alignItems: 'center', gap: 3, verticalAlign: 'middle', marginLeft: 6, background: 'var(--accent-tint)', color: 'var(--accent-text)', fontSize: 11, padding: '2px 7px' }}><Calendar size={10} />Parcelado</span>
+                          )}
                           {compra.parcela_total && <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}> · {compra.parcela_atual}/{compra.parcela_total}</span>}
                         </p>
                         <p className="row-subtitle">{compra.categoria} · {compra.data} · fatura {compra.mes_fatura?.slice(0, 7)}</p>

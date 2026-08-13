@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { ChevronDown, ChevronRight, ArrowDown, Check } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { formatarMoeda } from '../../lib/financeiro';
+import { buscarTransacoesCompetencia } from '../../lib/buscaRelatorios';
 
 const NOMES_MESES = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
 
@@ -99,14 +100,11 @@ export default function AbaDRE({ entidadeAtual, entidades }) {
   }
 
   async function buscarTxs(ini, fim) {
-    const { data } = await supabase
-      .from('transacoes')
-      .select('tipo, valor, categoria, essencialidade, descricao')
-      .eq('entidade_id', entidadeAtual)
-      .is('transferencia_id', null)
-      .gte('data', ini)
-      .lte('data', fim);
-    return data || [];
+    return buscarTransacoesCompetencia(supabase, {
+      entidadeId: entidadeAtual,
+      dataInicio: ini,
+      dataFim:    fim,
+    });
   }
 
   function calcularDRE(txs) {

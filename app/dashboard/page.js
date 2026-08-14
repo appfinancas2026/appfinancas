@@ -1575,6 +1575,7 @@ function DashboardConteudo() {
           lancamentosFixos={lancamentosFixos}
           dividas={dividas}
           subabaInicial={subabaParam}
+          onNavegarCartoes={() => setView('contas-cartoes')}
         />
       ) : view === 'dividas' ? (
         <AbaDividas

@@ -53,6 +53,7 @@ export default function AbaRelatorios({
   lancamentosFixos,
   dividas,
   subabaInicial,
+  onNavegarCartoes,
 }) {
   const [periodoPre, setPeriodoPre] = useState(0);
   const [dataInicio, setDataInicio] = useState(primeiroDiaMes());
@@ -677,13 +678,15 @@ export default function AbaRelatorios({
                       </div>
                       <div className="row-actions">
                         <span className="amount">{formatarMoeda(valor)}</span>
-                        {contasSituacao !== 'quitado' && !o.ehFatura && (
-                          <button
-                            onClick={() => confirmarOcorrencia({ id: o.lancamento_fixo_id, tipo: o.lancamentos_fixos?.tipo, nome: o.lancamentos_fixos?.nome }, o)}
-                            className="btn btn-primary" style={{ padding: '6px 10px', fontSize: 12 }}
-                          >
-                            {contasTipo === 'saida' ? 'Pagar' : 'Receber'}
-                          </button>
+                        {contasSituacao !== 'quitado' && (
+                          o.ehFatura
+                            ? <button onClick={onNavegarCartoes} className="btn btn-primary" style={{ padding: '6px 10px', fontSize: 12 }}>Ver</button>
+                            : <button
+                                onClick={async () => { await confirmarOcorrencia({ id: o.lancamento_fixo_id, tipo: o.lancamentos_fixos?.tipo, nome: o.lancamentos_fixos?.nome }, o); buscarContas(); }}
+                                className="btn btn-primary" style={{ padding: '6px 10px', fontSize: 12 }}
+                              >
+                                {contasTipo === 'saida' ? 'Pagar' : 'Receber'}
+                              </button>
                         )}
                       </div>
                     </div>

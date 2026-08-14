@@ -37,7 +37,7 @@ export default function Sidebar({
             }
             <span className="brand-text">{perfil.nome_exibicao || 'AppFinançasBr'}</span>
           </div>
-          <button onClick={alternarSidebar} className="sidebar-toggle" title="Recolher/expandir menu"><Menu size={18} /></button>
+          <button onClick={alternarSidebar} className="sidebar-toggle" title="Recolher/expandir menu" aria-label="Recolher/expandir menu"><Menu size={18} /></button>
         </div>
         <div className="sidebar-nav">
           {ITENS_MENU.map((item) => (

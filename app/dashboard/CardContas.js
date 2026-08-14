@@ -138,8 +138,8 @@ export default function CardContas({ entidadeAtual, contas, aberto, onAlternarAb
           <div className={`card-limitada ${(alturaCheiaContas || mostrarNovaConta || mostrarTransferencia || mostrarImportar) ? 'expandida' : ''}`}>
           {mostrarNovaConta && (
             <form onSubmit={adicionarConta} className="form-row" style={{ marginBottom: 12 }}>
-              <input className="input" placeholder="Nome (ex: Nubank)" value={nomeConta} onChange={(e) => setNomeConta(e.target.value)} required autoFocus />
-              <input className="input" style={{ width: 120 }} type="number" step="0.01" placeholder="Saldo inicial" value={saldoConta} onChange={(e) => setSaldoConta(e.target.value)} />
+              <input className="input" placeholder="Nome (ex: Nubank)" aria-label="Nome da conta" value={nomeConta} onChange={(e) => setNomeConta(e.target.value)} required autoFocus />
+              <input className="input" style={{ width: 120 }} type="number" step="0.01" placeholder="Saldo inicial" aria-label="Saldo inicial" value={saldoConta} onChange={(e) => setSaldoConta(e.target.value)} />
               <button type="submit" className="btn btn-primary">Salvar</button>
             </form>
           )}
@@ -155,7 +155,7 @@ export default function CardContas({ entidadeAtual, contas, aberto, onAlternarAb
                 <option value="">Para qual conta</option>
                 {contas.filter((c) => c.id !== contaOrigemId).map((c) => (<option key={c.id} value={c.id}>{c.nome}</option>))}
               </select>
-              <input className="input" style={{ width: 110 }} type="number" step="0.01" placeholder="Valor" value={valorTransferencia} onChange={(e) => setValorTransferencia(e.target.value)} required />
+              <input className="input" style={{ width: 110 }} type="number" step="0.01" placeholder="Valor" aria-label="Valor da transferência" value={valorTransferencia} onChange={(e) => setValorTransferencia(e.target.value)} required />
               <button type="submit" className="btn btn-primary">Transferir</button>
             </form>
           )}

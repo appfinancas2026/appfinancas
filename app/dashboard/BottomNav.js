@@ -14,7 +14,7 @@ export default function BottomNav({ view, setView, onAbrirMenu }) {
         Contas
       </button>
       <div className="bottom-nav-fab-wrap">
-        <button onClick={() => setView('lancamentos')} className="bottom-nav-fab" title="Novo lançamento">+</button>
+        <button onClick={() => setView('lancamentos')} className="bottom-nav-fab" title="Novo lançamento" aria-label="Novo lançamento">+</button>
       </div>
       <button onClick={() => setView('relatorios')} className={`bottom-nav-item ${view === 'relatorios' ? 'active' : ''}`}>
         <span className="bottom-nav-icon"><BarChart3 size={20} /></span>

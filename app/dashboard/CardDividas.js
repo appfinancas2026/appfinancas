@@ -430,7 +430,7 @@ export default function CardDividas({ entidadeAtual, contas, onTransacaoCriada }
           style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: 12, background: 'var(--surface-alt)', borderRadius: 'var(--radius-sm)' }}
         >
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <input className="input" placeholder="Nome da dívida *" value={form.nome}
+            <input className="input" placeholder="Nome da dívida *" aria-label="Nome da dívida" value={form.nome}
               onChange={(e) => setForm({ ...form, nome: e.target.value })}
               required style={{ flex: 2, minWidth: 180 }} autoFocus />
             <select className="input" value={form.tipo}
@@ -633,7 +633,7 @@ export default function CardDividas({ entidadeAtual, contas, onTransacaoCriada }
                   <form onSubmit={(e) => editarDivida(e, d)} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                     <p style={{ margin: 0, fontWeight: 'var(--weight-semibold)', fontSize: 'var(--text-sm)' }}>Editar dívida</p>
                     <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                      <input className="input" placeholder="Nome *" value={formEdit.nome}
+                      <input className="input" placeholder="Nome *" aria-label="Nome da dívida" value={formEdit.nome}
                         onChange={(e) => setFormEdit({ ...formEdit, nome: e.target.value })}
                         required style={{ flex: 2, minWidth: 180 }} autoFocus />
                       <select className="input" value={formEdit.tipo}
@@ -840,21 +840,23 @@ export default function CardDividas({ entidadeAtual, contas, onTransacaoCriada }
                           )}
 
                           {/* Feedback automático: desconto ou amortização extra */}
-                          {feedbackPag?.tipo === 'desconto' && (
-                            <p style={{ margin: 0, fontSize: 'var(--text-sm)', color: 'var(--positive)' }}>
-                              ↓ Desconto de {formatarMoeda(feedbackPag.valor)} vs. parcela normal
-                            </p>
-                          )}
-                          {feedbackPag?.tipo === 'extra' && (
-                            <p style={{ margin: 0, fontSize: 'var(--text-sm)', color: 'var(--accent)' }}>
-                              ↑ {formatarMoeda(feedbackPag.valor)} além da parcela — amortiza principal
-                              {feedbackPag.meses && (
-                                <span style={{ color: 'var(--text-muted)' }}>
-                                  {' '}· quitação avança {feedbackPag.meses} {feedbackPag.meses === 1 ? 'mês' : 'meses'}
-                                </span>
-                              )}
-                            </p>
-                          )}
+                          <div aria-live="polite">
+                            {feedbackPag?.tipo === 'desconto' && (
+                              <p style={{ margin: 0, fontSize: 'var(--text-sm)', color: 'var(--positive)' }}>
+                                ↓ Desconto de {formatarMoeda(feedbackPag.valor)} vs. parcela normal
+                              </p>
+                            )}
+                            {feedbackPag?.tipo === 'extra' && (
+                              <p style={{ margin: 0, fontSize: 'var(--text-sm)', color: 'var(--accent)' }}>
+                                ↑ {formatarMoeda(feedbackPag.valor)} além da parcela — amortiza principal
+                                {feedbackPag.meses && (
+                                  <span style={{ color: 'var(--text-muted)' }}>
+                                    {' '}· quitação avança {feedbackPag.meses} {feedbackPag.meses === 1 ? 'mês' : 'meses'}
+                                  </span>
+                                )}
+                              </p>
+                            )}
+                          </div>
                         </form>
                       ) : (
                         <button
@@ -945,14 +947,14 @@ export default function CardDividas({ entidadeAtual, contas, onTransacaoCriada }
 
                     {/* ── CONFIRMAÇÃO DE QUITAÇÃO ── */}
                     {quitada && ultimaQuitacao?.id === d.id && (
-                      <div style={{ background: 'rgba(0,180,90,0.08)', border: '1px solid var(--positive)', borderRadius: 'var(--radius-sm)', padding: '10px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+                      <div role="status" aria-live="polite" style={{ background: 'rgba(0,180,90,0.08)', border: '1px solid var(--positive)', borderRadius: 'var(--radius-sm)', padding: '10px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
                         <p style={{ margin: 0, fontSize: 'var(--text-sm)', color: 'var(--positive)' }}>
                           ✓ Dívida quitada!
                           {ultimaQuitacao.economiaJuros > 0 && (
                             <> Você economizou <strong>{formatarMoeda(ultimaQuitacao.economiaJuros)}</strong> em juros vs. continuar pagando normalmente.</>
                           )}
                         </p>
-                        <button onClick={() => setUltimaQuitacao(null)} className="btn-link" style={{ fontSize: 'var(--text-xs)', flexShrink: 0 }}>✕</button>
+                        <button onClick={() => setUltimaQuitacao(null)} className="btn-link" style={{ fontSize: 'var(--text-xs)', flexShrink: 0 }} aria-label="Fechar confirmação de quitação">✕</button>
                       </div>
                     )}
 

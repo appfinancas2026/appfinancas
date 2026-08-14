@@ -43,19 +43,6 @@ export function GraficoEntradasSaidas({ dados }) {
   );
 }
 
-export function GraficoEvolucaoPatrimonio({ dados }) {
-  return (
-    <ResponsiveContainer width="100%" height={220}>
-      <BarChart data={dados}>
-        <CartesianGrid strokeDasharray="3 3" stroke="var(--surface-alt)" />
-        <XAxis dataKey="mes" tick={{ fontSize: 12 }} />
-        <YAxis tick={{ fontSize: 12 }} width={50} />
-        <Tooltip formatter={(v) => formatarMoeda(v)} contentStyle={tooltipStyle} />
-        <Bar dataKey="Patrimônio" fill="#1AA37D" radius={[4, 4, 0, 0]} />
-      </BarChart>
-    </ResponsiveContainer>
-  );
-}
 
 export function GraficoDespesasPorCategoria({ dados }) {
   return (

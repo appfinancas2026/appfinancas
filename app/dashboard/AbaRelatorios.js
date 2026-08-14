@@ -9,7 +9,6 @@ import { buscarTransacoesCompetencia } from '../../lib/buscaRelatorios';
 
 const GraficoEntradasSaidas    = dynamic(() => import('./RelatoriosCharts').then((m) => m.GraficoEntradasSaidas),    { ssr: false });
 const GraficoDespesasPorCategoria = dynamic(() => import('./RelatoriosCharts').then((m) => m.GraficoDespesasPorCategoria), { ssr: false });
-const GraficoEvolucaoPatrimonio  = dynamic(() => import('./RelatoriosCharts').then((m) => m.GraficoEvolucaoPatrimonio),  { ssr: false });
 const GraficoComparativoPFPJ    = dynamic(() => import('./RelatoriosCharts').then((m) => m.GraficoComparativoPFPJ),    { ssr: false });
 const AbaDRE = dynamic(() => import('./AbaDRE'), { ssr: false });
 const AbaFluxoCaixa = dynamic(() => import('./AbaFluxoCaixa'), { ssr: false });

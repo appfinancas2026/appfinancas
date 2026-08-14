@@ -3,9 +3,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import { supabase } from '../../lib/supabase';
-import { formatarMoeda, vencimentoOcorrencia, mesesReferenciaNoPeriodo } from '../../lib/financeiro';
+import { formatarMoeda, vencimentoOcorrencia, mesesReferenciaNoPeriodo, calcularPeriodoFaturaAberta, subtrairMeses, mesReferenciaStr } from '../../lib/financeiro';
 import { mesDeCompetencia } from '../../lib/orcamento';
 import { buscarTransacoesCompetencia } from '../../lib/buscaRelatorios';
+import { calcularFaturasCartao, calcularVencimentoFatura } from '../../lib/faturas';
 
 const GraficoEntradasSaidas    = dynamic(() => import('./RelatoriosCharts').then((m) => m.GraficoEntradasSaidas),    { ssr: false });
 const GraficoDespesasPorCategoria = dynamic(() => import('./RelatoriosCharts').then((m) => m.GraficoDespesasPorCategoria), { ssr: false });
@@ -209,6 +210,66 @@ export default function AbaRelatorios({
     };
     mapContas.saida.atraso   = mapContas.saida.aberto.filter(estaAtrasada);
     mapContas.entrada.atraso = mapContas.entrada.aberto.filter(estaAtrasada);
+
+    // ── Faturas de cartão como contas a pagar ──
+    // Matching por vencimento: só entra se calcularVencimentoFatura cai em [dataInicio, dataFim].
+    const [y0, m0, d0] = dataInicio.split('-').map(Number);
+    const [y1, m1, d1] = dataFim.split('-').map(Number);
+    const dataInicioDate = new Date(y0, m0 - 1, d0);
+    const dataFimDate    = new Date(y1, m1 - 1, d1);
+
+    const { data: cartoes } = await supabase
+      .from('cartoes')
+      .select('id, nome, dia_fechamento, dia_vencimento')
+      .eq('entidade_id', entidadeAtual)
+      .not('dia_vencimento', 'is', null)
+      .not('dia_fechamento', 'is', null);
+
+    if (cartoes && cartoes.length > 0) {
+      const mesRefsCartao = new Set();
+      cartoes.forEach((c) => {
+        const ab = calcularPeriodoFaturaAberta(c, inicioHoje);
+        const fe = subtrairMeses(ab.ano, ab.mes, 1);
+        mesRefsCartao.add(mesReferenciaStr(ab.ano, ab.mes));
+        mesRefsCartao.add(mesReferenciaStr(fe.ano, fe.mes));
+      });
+
+      const { data: txsCartoes } = await supabase
+        .from('transacoes')
+        .select('cartao_id, valor, origem, mes_fatura')
+        .eq('entidade_id', entidadeAtual)
+        .in('cartao_id', cartoes.map((c) => c.id))
+        .in('mes_fatura', [...mesRefsCartao]);
+
+      cartoes.forEach((c) => {
+        const txs = (txsCartoes || []).filter((t) => t.cartao_id === c.id);
+        const { aberta: fa, fechada: ff } = calcularFaturasCartao(c, txs, inicioHoje);
+        const ab = calcularPeriodoFaturaAberta(c, inicioHoje);
+        const abPlus1 = subtrairMeses(ab.ano, ab.mes, -1);
+        const mesRefAbPlus1 = mesReferenciaStr(abPlus1.ano, abPlus1.mes);
+
+        const pushFatura = (mesRefCiclo, mesRefProxima, total, nomeFatura) => {
+          if (total <= 0) return;
+          const dataVenc = calcularVencimentoFatura(c, mesRefCiclo, mesRefProxima);
+          if (dataVenc < dataInicioDate || dataVenc > dataFimDate) return;
+          const mesRefVenc = mesReferenciaStr(dataVenc.getFullYear(), dataVenc.getMonth());
+          const item = {
+            id: `fatura-${c.id}-${mesRefCiclo}`,
+            valor: total,
+            ehFatura: true,
+            dataVencimento: dataVenc,
+            lancamentos_fixos: { nome: nomeFatura, tipo: 'saida', dia_referencia: c.dia_vencimento },
+            mes_referencia: mesRefVenc,
+            status: null,
+          };
+          mapContas.saida.aberto.push(item);
+          if (dataVenc < inicioHoje) mapContas.saida.atraso.push(item);
+        };
+
+        if (!ff.paga) pushFatura(ff.mesRef, fa.mesRef, ff.total, `Fatura ${c.nome}`);
+        pushFatura(fa.mesRef, mesRefAbPlus1, fa.total, `Fatura ${c.nome} (aberta)`);
+      });
+    }
 
     setContasData({ mapContas, pendenteDe, estaAtrasada });
   }, [entidadeAtual, entidadeAtualObj, dataInicio, dataFim]);
@@ -607,13 +668,16 @@ export default function AbaRelatorios({
                       <div style={{ minWidth: 0 }}>
                         <p className="row-title">{o.lancamentos_fixos?.nome}</p>
                         <p className="row-subtitle">
-                          ref. {o.mes_referencia?.slice(0, 7)} · dia {o.lancamentos_fixos?.dia_referencia}
+                          {o.ehFatura
+                            ? `Fatura · vence ${o.dataVencimento.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}`
+                            : `ref. ${o.mes_referencia?.slice(0, 7)} · dia ${o.lancamentos_fixos?.dia_referencia}`
+                          }
                           {atrasada && <span style={{ color: 'var(--negative)' }}> · atrasada</span>}
                         </p>
                       </div>
                       <div className="row-actions">
                         <span className="amount">{formatarMoeda(valor)}</span>
-                        {contasSituacao !== 'quitado' && (
+                        {contasSituacao !== 'quitado' && !o.ehFatura && (
                           <button
                             onClick={() => confirmarOcorrencia({ id: o.lancamento_fixo_id, tipo: o.lancamentos_fixos?.tipo, nome: o.lancamentos_fixos?.nome }, o)}
                             className="btn btn-primary" style={{ padding: '6px 10px', fontSize: 12 }}

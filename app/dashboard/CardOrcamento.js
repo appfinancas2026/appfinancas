@@ -30,7 +30,7 @@ function BadgeStatus({ status }) {
   );
 }
 
-export default function CardOrcamento({ entidadeAtual, transacoesDoMes, ano, mes, aberto, onAlternarAberto }) {
+export default function CardOrcamento({ entidadeAtual, ano, mes, aberto, onAlternarAberto }) {
   const [orcamentos, setOrcamentos] = useState([]);
   const [mostrarNovoOrcamento, setMostrarNovoOrcamento] = useState(false);
   const [categoriaOrcamento, setCategoriaOrcamento] = useState('');

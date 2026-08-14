@@ -1781,7 +1781,6 @@ function DashboardConteudo() {
         <div className="cards-grid">
           <CardOrcamento
             entidadeAtual={entidadeAtual}
-            transacoesDoMes={transacoes}
             ano={dataAtual.ano}
             mes={dataAtual.mes}
             aberto={secaoAberta.orcamento}

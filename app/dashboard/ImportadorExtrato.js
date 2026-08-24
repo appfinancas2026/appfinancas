@@ -5,6 +5,14 @@ import { Loader2, Sparkles } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { formatarMoeda, parseOFX, parseCSVExtrato, calcularMesFaturaCompra } from '../../lib/financeiro';
 import { recalcularSaldoConta } from '../../lib/saldos';
+import { sugerirCategoriasEmLote } from '../../lib/categorizacao';
+
+const CATEGORIAS_PADRAO = [
+  'Alimentação', 'Mercado', 'Transporte', 'Moradia', 'Saúde',
+  'Educação', 'Lazer', 'Vestuário', 'Pets', 'Assinaturas',
+  'Farmácia', 'Combustível', 'Academia', 'Restaurante', 'Salário',
+  'Freelance', 'Investimento', 'Transferência', 'Outros',
+];
 
 // Painel de importação usado nos dois contextos:
 //   modo="conta"  → extrato bancário: vincula à conta e recalcula o saldo.
@@ -20,8 +28,35 @@ export default function ImportadorExtrato({ modo, entidadeAtual, contas, cartoes
   const [importando, setImportando] = useState(false);
   const [processandoPDF, setProcessandoPDF] = useState(false);
   const [erroPDF, setErroPDF] = useState('');
+  const [categorizandoIA, setCategorizandoIA] = useState(false);
 
   const lista = ehFatura ? (cartoes || []) : (contas || []);
+
+  // Busca o histórico de transações categorizadas e aplica sugestões por correspondência.
+  // Retorna os itens do preview com `categoria` e `categoriaOrigem` preenchidos
+  // quando há match, ou vazios quando não há.
+  async function aplicarHistorico(itensRaw) {
+    if (!entidadeAtual) return itensRaw.map((t) => ({ ...t, categoria: '', categoriaOrigem: null }));
+
+    const { data } = await supabase
+      .from('transacoes')
+      .select('descricao, categoria, essencialidade')
+      .eq('entidade_id', entidadeAtual)
+      .not('categoria', 'is', null)
+      .neq('categoria', '')
+      .neq('categoria', 'importado')
+      .is('transferencia_id', null)
+      .order('data', { ascending: false })
+      .limit(500);
+
+    const historico = data || [];
+    const sugestoes = sugerirCategoriasEmLote(itensRaw.map((t) => t.descricao || ''), historico);
+
+    return itensRaw.map((t, i) => {
+      const s = sugestoes[i].sugestao;
+      return { ...t, categoria: s ? s.categoria : '', categoriaOrigem: s ? 'historico' : null };
+    });
+  }
 
   async function handleArquivo(e) {
     const arquivo = e.target.files[0];
@@ -46,7 +81,9 @@ export default function ImportadorExtrato({ modo, entidadeAtual, contas, cartoes
 
     // Numa fatura, crédito (pagamento da fatura anterior, estorno) não é compra:
     // aparece no preview, mas já desmarcado.
-    setPreview(ehFatura ? resultado.map((t) => (t.ehCredito ? { ...t, incluir: false } : t)) : resultado);
+    const raw = ehFatura ? resultado.map((t) => (t.ehCredito ? { ...t, incluir: false } : t)) : resultado;
+    const comCategorias = await aplicarHistorico(raw);
+    setPreview(comCategorias);
   }
 
   // Encoding do arquivo: hoje os bancos exportam em UTF-8 (o C6 exporta), mas
@@ -106,7 +143,8 @@ export default function ImportadorExtrato({ modo, entidadeAtual, contas, cartoes
         return;
       }
 
-      setPreview(json.transacoes);
+      const comCategorias = await aplicarHistorico(json.transacoes);
+      setPreview(comCategorias);
     } catch (e) {
       setErroPDF('Erro ao processar o PDF. Tente novamente.');
       console.error(e);
@@ -121,6 +159,56 @@ export default function ImportadorExtrato({ modo, entidadeAtual, contas, cartoes
 
   function marcarTodos(valor) {
     setPreview((l) => l.map((t) => ({ ...t, incluir: valor })));
+  }
+
+  function atualizarCategoria(index, valor) {
+    setPreview((l) => l.map((t, i) => (i === index ? { ...t, categoria: valor } : t)));
+  }
+
+  // Coleta as linhas incluídas sem categoria e pede sugestões à IA em lote.
+  async function sugerirComIA() {
+    const semCategoria = preview
+      .map((t, i) => ({ ...t, _index: i }))
+      .filter((t) => t.incluir && !t.categoria);
+    if (semCategoria.length === 0) return;
+
+    setCategorizandoIA(true);
+    try {
+      // Amplia a lista de categorias com as que já aparecem no preview (do histórico).
+      const catsDoPreview = [...new Set(preview.map((t) => t.categoria).filter(Boolean))];
+      const todasCats = [...new Set([...CATEGORIAS_PADRAO, ...catsDoPreview])];
+
+      const { data: { session } } = await supabase.auth.getSession();
+      const resposta = await fetch('/api/categorizar-lote', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token || ''}`,
+        },
+        body: JSON.stringify({
+          descricoes: semCategoria.map((t) => t.descricao),
+          categorias: todasCats,
+        }),
+      });
+
+      const json = await resposta.json();
+      if (json.error || !json.categorias) return;
+
+      const mapaResultado = {};
+      json.categorias.forEach((r, i) => {
+        if (semCategoria[i]) mapaResultado[semCategoria[i]._index] = r.categoria;
+      });
+
+      setPreview((prev) =>
+        prev.map((t, i) =>
+          mapaResultado[i] ? { ...t, categoria: mapaResultado[i], categoriaOrigem: 'ia' } : t
+        )
+      );
+    } catch {
+      // Falha silenciosa — usuário preenche manual.
+    } finally {
+      setCategorizandoIA(false);
+    }
   }
 
   async function confirmarImportacao() {
@@ -152,7 +240,7 @@ export default function ImportadorExtrato({ modo, entidadeAtual, contas, cartoes
           entidade_id: entidadeAtual,
           valor: t.valor,
           tipo: t.tipo,
-          categoria: 'importado',
+          categoria: t.categoria || 'importado',
           descricao: t.descricao,
           data: t.data,
           origem: 'importado',
@@ -180,6 +268,8 @@ export default function ImportadorExtrato({ modo, entidadeAtual, contas, cartoes
 
     window.alert(`${novas.length} lançamento(s) importado(s).${ignoradas > 0 ? ` ${ignoradas} já existiam e foram ignorados.` : ''}`);
   }
+
+  const semCategoriaCount = preview.filter((t) => t.incluir && !t.categoria).length;
 
   return (
     <div style={{ marginBottom: 12, padding: 12, background: 'var(--surface-alt)', borderRadius: 'var(--radius-sm)' }}>
@@ -218,23 +308,54 @@ export default function ImportadorExtrato({ modo, entidadeAtual, contas, cartoes
           <p className="empty-hint" style={{ margin: '0 0 8px' }}>
             {preview.length} lançamento(s) encontrado(s). Confira antes de importar.
           </p>
-          <div style={{ display: 'flex', gap: 12, marginBottom: 8, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: 12, marginBottom: 8, flexWrap: 'wrap', alignItems: 'center' }}>
             <button onClick={() => marcarTodos(true)} className="btn-link">marcar todos</button>
             <button onClick={() => marcarTodos(false)} className="btn-link">desmarcar todos</button>
+            {semCategoriaCount > 0 && (
+              <button
+                onClick={sugerirComIA}
+                className="btn btn-ghost"
+                disabled={categorizandoIA}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13 }}
+              >
+                {categorizandoIA
+                  ? <><Loader2 size={13} className="spin" /> Consultando IA...</>
+                  : <><Sparkles size={13} /> Sugerir categorias com IA ({semCategoriaCount})</>}
+              </button>
+            )}
           </div>
-          <div style={{ maxHeight: 260, overflowY: 'auto', background: 'var(--surface)', borderRadius: 'var(--radius-sm)', padding: '4px 10px' }}>
+          <div style={{ maxHeight: 320, overflowY: 'auto', background: 'var(--surface)', borderRadius: 'var(--radius-sm)', padding: '4px 10px' }}>
             {preview.map((t, i) => (
-              <div key={i} className="row row-main" style={{ opacity: t.incluir ? 1 : 0.4 }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
+              <div key={i} className="row row-main" style={{ opacity: t.incluir ? 1 : 0.4, flexWrap: 'wrap', gap: 6 }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, flex: 1, minWidth: 180 }}>
                   <input type="checkbox" checked={t.incluir} onChange={() => alternarInclusao(i)} />
                   <span>{t.data} · {t.descricao}</span>
                 </label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                  {t.categoriaOrigem === 'historico' && (
+                    <span style={{ fontSize: 10, color: 'var(--primary-dark, #2563eb)', whiteSpace: 'nowrap', opacity: 0.8 }}>↗ hist.</span>
+                  )}
+                  {t.categoriaOrigem === 'ia' && (
+                    <span style={{ fontSize: 10, color: 'var(--accent, #7c3aed)', whiteSpace: 'nowrap', opacity: 0.9 }}>✦ IA</span>
+                  )}
+                  <input
+                    className="input"
+                    style={{ width: 130, fontSize: 12, padding: '3px 8px' }}
+                    value={t.categoria || ''}
+                    onChange={(e) => atualizarCategoria(i, e.target.value)}
+                    placeholder="Categoria"
+                    list="categorias-padrao"
+                  />
+                </div>
                 <span className={`amount ${t.tipo === 'entrada' ? 'amount-positive' : ''}`}>
                   {t.tipo === 'entrada' ? '+' : '−'} {formatarMoeda(t.valor)}
                 </span>
               </div>
             ))}
           </div>
+          <datalist id="categorias-padrao">
+            {CATEGORIAS_PADRAO.map((c) => <option key={c} value={c} />)}
+          </datalist>
           <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
             <button onClick={confirmarImportacao} className="btn btn-primary" disabled={!destinoId || importando}>
               {importando ? 'Importando...' : `Importar ${preview.filter((t) => t.incluir).length} selecionado(s)`}

@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { checkRateLimit } from '../_shared/rateLimit.js';
 import { extrairJSON } from '../_shared/extrairJSON.js';
+import { MODELO_IA } from '../_shared/modelosIA.js';
 
 export async function POST(request) {
   const apiKey = process.env.GROQ_API_KEY;
@@ -44,7 +45,7 @@ Regras:
         'Authorization': `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile',
+        model: MODELO_IA,
         messages: [
           { role: 'system', content: sistema },
           { role: 'user', content: `Extrato bancário:\n\n${texto}` },

@@ -1,5 +1,6 @@
 import { gerarInsights, projetarSaldoDiario } from '../../../lib/insights';
 import { primeiroDiaDoMes, ultimoDiaDoMes, subtrairMeses } from '../../../lib/financeiro';
+import { MODELO_IA } from './modelosIA.js';
 
 const SELECT_TX = 'data, tipo, valor, categoria, essencialidade, transferencia_id';
 
@@ -68,7 +69,7 @@ Regras:
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
       body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile',
+        model: MODELO_IA,
         messages: [
           { role: 'system', content: sistema },
           { role: 'user', content: `Reescreva cada item mantendo o sentido e os números:\n${lista}` },

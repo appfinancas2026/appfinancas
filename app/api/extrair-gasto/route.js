@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { checkRateLimit } from '../_shared/rateLimit.js';
 import { extrairJSON } from '../_shared/extrairJSON.js';
+import { MODELO_VISAO, MODELO_TEXTO } from '../_shared/modelosIA.js';
 
 export async function POST(request) {
   const apiKey = process.env.GROQ_API_KEY;
@@ -31,7 +32,7 @@ Regras:
   const messages = [];
 
   if (body.imagemBase64) {
-    // Groq suporta visão via llama-3.2-11b-vision-preview
+    // Groq: qwen3.6-27b é multimodal (texto + visão)
     messages.push({
       role: 'user',
       content: [
@@ -45,8 +46,8 @@ Regras:
     return Response.json({ error: 'Nenhuma imagem ou texto foi enviado.' }, { status: 400 });
   }
 
-  // Usa modelo com visão se tiver imagem, texto se não
-  const modelo = body.imagemBase64 ? 'llama-3.2-11b-vision-preview' : 'llama-3.3-70b-versatile';
+  // qwen3.6-27b é multimodal: mesmo modelo para visão e texto
+  const modelo = body.imagemBase64 ? MODELO_VISAO : MODELO_TEXTO;
 
   let resposta;
   try {

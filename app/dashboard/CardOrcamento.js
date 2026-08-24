@@ -189,9 +189,13 @@ export default function CardOrcamento({ entidadeAtual, ano, mes, aberto, onAlter
         essencialidade: essencialidadePorCat[categoria] || null,
       })).sort((a, b) => b.media - a.media);
 
+      const { data: { session } } = await supabase.auth.getSession();
       const resposta = await fetch('/api/gerar-orcamento', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token || ''}`,
+        },
         body: JSON.stringify({ historico, rendaMedia, mesesAnalisados: mesesRef, mesesReais }),
       });
 

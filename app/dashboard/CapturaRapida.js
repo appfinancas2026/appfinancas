@@ -45,12 +45,68 @@ export default function CapturaRapida({ onExtraido, onFechar }) {
     setProcessando(false);
   }
 
-  function handleArquivoImagem(e) {
+  // Renderiza a 1.ª página do PDF em canvas e retorna JPEG base64.
+  // Reusa o mesmo padrão CDN de ImportadorExtrato.js — sem npm, sem next.config.
+  // JPEG 0.85 é escolhido no lugar de PNG porque comprimi muito melhor para
+  // fotos/scans, gerando arquivos tipicamente < 500 KB para comprovantes.
+  // Se mesmo assim o resultado passar de 4 MB de base64 (raro, mas possível em
+  // PDFs de altíssima resolução), re-renderiza em scale 1.5 com qualidade 0.80.
+  async function pdfParaImagem(arquivo) {
+    const arrayBuffer = await arquivo.arrayBuffer();
+    const pdfjsLib = await import('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.min.mjs');
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.worker.min.mjs';
+
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    const pagina = await pdf.getPage(1);
+
+    let scale = 2;
+    let viewport = pagina.getViewport({ scale });
+    const canvas = document.createElement('canvas');
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+    const ctx = canvas.getContext('2d');
+    await pagina.render({ canvasContext: ctx, viewport }).promise;
+
+    let dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+
+    // Re-renderiza em scale menor se o resultado ultrapassar 4 MB de chars base64
+    if (dataUrl.length > 4 * 1024 * 1024) {
+      scale = 1.5;
+      viewport = pagina.getViewport({ scale });
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      await pagina.render({ canvasContext: ctx, viewport }).promise;
+      dataUrl = canvas.toDataURL('image/jpeg', 0.80);
+    }
+
+    return { base64: dataUrl.split(',')[1], tipoMime: 'image/jpeg', dataUrl };
+  }
+
+  async function handleArquivoImagem(e) {
     const arquivo = e.target.files[0];
     if (!arquivo) return;
 
-    setImagemPreview(URL.createObjectURL(arquivo));
+    const ehPdf = arquivo.type === 'application/pdf' || arquivo.name.toLowerCase().endsWith('.pdf');
 
+    if (ehPdf) {
+      setProcessando(true);
+      setErro('');
+      try {
+        const { base64, tipoMime, dataUrl } = await pdfParaImagem(arquivo);
+        // Preview usa a imagem já convertida — URL.createObjectURL de PDF não
+        // renderiza como <img> na maioria dos browsers.
+        setImagemPreview(dataUrl);
+        enviarParaIA({ imagemBase64: base64, tipoMime });
+      } catch {
+        setErro('Não foi possível ler o PDF — tente uma imagem.');
+        setProcessando(false);
+      }
+      return;
+    }
+
+    // Imagem normal: fluxo inalterado
+    setImagemPreview(URL.createObjectURL(arquivo));
     const leitor = new FileReader();
     leitor.onload = (evento) => {
       const base64 = evento.target.result.split(',')[1];
@@ -112,7 +168,7 @@ export default function CapturaRapida({ onExtraido, onFechar }) {
         <div>
           <label className="btn btn-primary" style={{ cursor: 'pointer', display: 'inline-block' }}>
             Tirar foto ou escolher da galeria
-            <input type="file" accept="image/*" capture="environment" onChange={handleArquivoImagem} style={{ display: 'none' }} />
+            <input type="file" accept="image/*,application/pdf" onChange={handleArquivoImagem} style={{ display: 'none' }} />
           </label>
           {imagemPreview && (
             <img src={imagemPreview} alt="Comprovante" style={{ display: 'block', marginTop: 10, maxWidth: 160, borderRadius: 'var(--radius-sm)' }} />

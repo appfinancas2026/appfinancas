@@ -377,8 +377,12 @@ export default function CardDividas({ entidadeAtual, contas, onTransacaoCriada }
   const ativas      = dividas.filter((d) => d.status === 'ativa');
   const totalAtual  = ativas.reduce((s, d) => s + Number(d.valor_atual), 0);
   const proximaVenc = ativas.reduce((best, d) => {
+    const vencD = calcularProximoVencimento(d);
+    if (!vencD) return best; // sem próxima parcela (quitada por contagem)
     if (!best) return d;
-    return calcularProximoVencimento(d) < calcularProximoVencimento(best) ? d : best;
+    const vencBest = calcularProximoVencimento(best);
+    if (!vencBest) return d;
+    return vencD < vencBest ? d : best;
   }, null);
 
   // ── Render ────────────────────────────────────────────────────────────────────
@@ -505,7 +509,7 @@ export default function CardDividas({ entidadeAtual, contas, onTransacaoCriada }
         const progresso  = calcularProgressoPct(d);
         const dataQuit   = calcularDataQuitacao(d);   // usa d.valor_atual para o subtitle do header
         const proxVenc   = calcularProximoVencimento(d);
-        const diasVenc   = diasAteData(proxVenc);
+        const diasVenc   = proxVenc ? diasAteData(proxVenc) : Infinity;
         const pagsD      = pagamentos[d.id] || [];
         const aberta     = expandida === d.id;
         const quitada    = d.status === 'quitada';

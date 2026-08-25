@@ -154,41 +154,98 @@ describe('calcularDataQuitacao', () => {
 });
 
 // ─── calcularProximoVencimento ───────────────────────────────────────────────
+//
+// Semântica nova: o vencimento é determinado por parcelas_pagas, NÃO pelo
+// calendário de hoje. Parcelas atrasadas retornam data no passado (diasRestantes
+// negativo). O parâmetro `hoje` foi descontinuado — mantido na assinatura
+// por compatibilidade, mas ignorado internamente.
 
 describe('calcularProximoVencimento', () => {
-  const hoje = new Date(2026, 7, 8); // 8 de agosto de 2026
-
-  it('dia de vencimento já passou no mês (dia 5 < 8) → setembro', () => {
-    const venc = calcularProximoVencimento({ data_inicio: '2026-01-05' }, hoje);
+  it('parcelas_pagas=0: vencimento = data_inicio (parcela 1 ainda não paga)', () => {
+    const venc = calcularProximoVencimento({
+      data_inicio: '2026-01-25', parcelas_pagas: 0, parcelas_total: 4,
+    });
     assert.equal(venc.getFullYear(), 2026);
-    assert.equal(venc.getMonth(), 8); // setembro
-    assert.equal(venc.getDate(), 5);
+    assert.equal(venc.getMonth(), 0); // janeiro
+    assert.equal(venc.getDate(), 25);
   });
 
-  it('dia de vencimento ainda não chegou no mês (dia 15 > 8) → agosto', () => {
-    const venc = calcularProximoVencimento({ data_inicio: '2026-01-15' }, hoje);
+  it('parcelas_pagas=1: vencimento avança 1 mês (parcela 2) — BUG CORRIGIDO', () => {
+    const venc = calcularProximoVencimento({
+      data_inicio: '2026-01-25', parcelas_pagas: 1, parcelas_total: 4,
+    });
     assert.equal(venc.getFullYear(), 2026);
-    assert.equal(venc.getMonth(), 7); // agosto
-    assert.equal(venc.getDate(), 15);
+    assert.equal(venc.getMonth(), 1); // fevereiro
+    assert.equal(venc.getDate(), 25);
   });
 
-  it('vencimento é hoje (dia 8 = 8) → retorna hoje (mesmo mês)', () => {
-    const venc = calcularProximoVencimento({ data_inicio: '2026-01-08' }, hoje);
-    assert.equal(venc.getMonth(), 7); // agosto
-    assert.equal(venc.getDate(), 8);
+  it('parcelas_pagas=2, dia 28: parcela 3 vence 28 dois meses depois (março)', () => {
+    const venc = calcularProximoVencimento({
+      data_inicio: '2026-01-28', parcelas_pagas: 2, parcelas_total: 4,
+    });
+    assert.equal(venc.getFullYear(), 2026);
+    assert.equal(venc.getMonth(), 2); // março
+    assert.equal(venc.getDate(), 28);
   });
 
-  it('virada de ano: hoje = dez/2026, dia 3 → janeiro 2027', () => {
-    const hojeOut = new Date(2026, 11, 5); // 5 de dezembro
-    const venc = calcularProximoVencimento({ data_inicio: '2026-01-03' }, hojeOut);
+  it('quitada: parcelas_pagas = parcelas_total → retorna null', () => {
+    const res = calcularProximoVencimento({
+      data_inicio: '2026-01-25', parcelas_pagas: 4, parcelas_total: 4,
+    });
+    assert.equal(res, null);
+  });
+
+  it('quitada: parcelas_pagas > parcelas_total → retorna null', () => {
+    const res = calcularProximoVencimento({
+      data_inicio: '2026-01-25', parcelas_pagas: 5, parcelas_total: 4,
+    });
+    assert.equal(res, null);
+  });
+
+  it('clamp: dia 31, parcela cai em abril (30 dias) → retorna dia 30', () => {
+    // data_inicio jan/31, parcelas_pagas=3 → addMeses(jan, 3) = abril (mes0=3)
+    const venc = calcularProximoVencimento({
+      data_inicio: '2026-01-31', parcelas_pagas: 3, parcelas_total: null,
+    });
+    assert.equal(venc.getFullYear(), 2026);
+    assert.equal(venc.getMonth(), 3); // abril
+    assert.equal(venc.getDate(), 30); // clamp: abril só tem 30 dias
+  });
+
+  it('virada de ano: data_inicio novembro, parcelas_pagas=2 → janeiro do ano seguinte', () => {
+    const venc = calcularProximoVencimento({
+      data_inicio: '2026-11-10', parcelas_pagas: 2, parcelas_total: null,
+    });
     assert.equal(venc.getFullYear(), 2027);
     assert.equal(venc.getMonth(), 0); // janeiro
-    assert.equal(venc.getDate(), 3);
+    assert.equal(venc.getDate(), 10);
   });
 
-  it('usa new Date() quando hoje não é fornecido (smoke test)', () => {
+  it('parcela atrasada: vencimento no passado, diasRestantes negativo — NÃO empurra pro futuro', () => {
+    // data_inicio = 2026-01-05, parcelas_pagas=0 → vence em 2026-01-05 (passado em agosto)
+    const venc = calcularProximoVencimento({
+      data_inicio: '2026-01-05', parcelas_pagas: 0, parcelas_total: null,
+    });
+    assert.equal(venc.getFullYear(), 2026);
+    assert.equal(venc.getMonth(), 0); // janeiro (no passado)
+    assert.equal(venc.getDate(), 5);
+    const base = new Date(2026, 7, 25); // 25 de agosto
+    const dias = Math.round((venc.getTime() - base.getTime()) / 86400000);
+    assert.ok(dias < 0, `esperado negativo (atrasada), obtido ${dias}`);
+  });
+
+  it('sem parcelas_total: nunca retorna null (dívida aberta)', () => {
+    const venc = calcularProximoVencimento({
+      data_inicio: '2026-01-10', parcelas_pagas: 100, parcelas_total: null,
+    });
+    assert.ok(venc instanceof Date, 'dívida sem prazo nunca deve retornar null');
+  });
+
+  it('sem parcelas_pagas (undefined → 0): retorna data_inicio', () => {
     const venc = calcularProximoVencimento({ data_inicio: '2026-01-10' });
     assert.ok(venc instanceof Date);
+    assert.equal(venc.getDate(), 10);
+    assert.equal(venc.getMonth(), 0); // janeiro
   });
 });
 

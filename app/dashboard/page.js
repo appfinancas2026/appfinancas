@@ -559,9 +559,11 @@ function DashboardConteudo() {
       .filter((d) => d.status === 'ativa')
       .map((d) => {
         const prox = calcularProximoVencimento(d, hoje);
+        if (!prox) return null; // parcelas_pagas >= parcelas_total: sem próxima parcela
         const dias = Math.round((prox - base) / 86400000);
         return { tipo: 'divida', divida: d, diasRestantes: dias, parcela_valor: Number(d.parcela_valor) };
       })
+      .filter(Boolean)
       .filter((a) => a.diasRestantes <= 5)
       .sort((a, b) => a.diasRestantes - b.diasRestantes);
 

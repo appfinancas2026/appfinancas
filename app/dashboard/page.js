@@ -15,6 +15,8 @@ import { recalcularSaldoConta } from '../../lib/saldos';
 import { buscarTransacoesCompetencia } from '../../lib/buscaRelatorios';
 import { mesDeCompetencia } from '../../lib/orcamento';
 import { calcularFaturasCartao, calcularVencimentoFatura } from '../../lib/faturas';
+import { calcularStatusTetoMEI } from '../../lib/mei';
+import CardTetoMEI from './CardTetoMEI';
 import TelaPin from './TelaPin';
 import CompletarCadastro from './CompletarCadastro';
 import Sidebar from './Sidebar';
@@ -118,6 +120,7 @@ function DashboardConteudo() {
   const [nomeEmpresa, setNomeEmpresa] = useState('');
   const [isMei, setIsMei] = useState(false);
   const [dataAbertura, setDataAbertura] = useState('');
+  const [statusMEI, setStatusMEI] = useState(null);
 
   const [mostrarNovaReceitaFixa, setMostrarNovaReceitaFixa] = useState(false);
   const [mostrarNovaDespesaFixa, setMostrarNovaDespesaFixa] = useState(false);
@@ -809,6 +812,29 @@ function DashboardConteudo() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [entidadeAtual, view, dataAtual.ano, dataAtual.mes, entidades, contas]);
+
+  useEffect(() => {
+    if (!entidadeAtual) { setStatusMEI(null); return; }
+    const ent = entidades.find((e) => e.id === entidadeAtual);
+    if (!ent?.is_mei) { setStatusMEI(null); return; }
+    const agora = new Date();
+    const anoAtual = agora.getFullYear();
+    const mesAtual = agora.getMonth() + 1;
+    const mesRef = `${anoAtual}-${String(mesAtual).padStart(2, '0')}-01`;
+    buscarTransacoesCompetencia(supabase, {
+      entidadeId: entidadeAtual,
+      dataInicio: `${anoAtual}-01-01`,
+      dataFim: `${anoAtual}-12-31`,
+    }).then((txs) => {
+      const receita = (txs || []).filter((t) => t.tipo === 'entrada').reduce((s, t) => s + Number(t.valor), 0);
+      setStatusMEI(calcularStatusTetoMEI({
+        receitaAcumuladaAno: receita,
+        ano: anoAtual,
+        dataAbertura: ent.data_abertura,
+        mesReferencia: mesRef,
+      }));
+    });
+  }, [entidadeAtual, entidades]);
 
   useEffect(() => {
     if (contas.length > 0 && !contaLancamentoId) {
@@ -1974,6 +2000,8 @@ function DashboardConteudo() {
             dividas={dividas}
             onNavegar={(destino, subaba) => navegarComQuery(destino, subaba ? { subaba } : {})}
           />
+
+          <CardTetoMEI statusMEI={statusMEI} entidadeAtualObj={entidadeAtualObj} />
 
           <div className={`saldo-hero ${saldoConsolidado < 0 ? 'saldo-hero-negativo' : ''}`}>
             <p className="saldo-hero-label">Disponível hoje</p>

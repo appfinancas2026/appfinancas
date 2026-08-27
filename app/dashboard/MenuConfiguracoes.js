@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { Settings, Bell } from 'lucide-react';
 import { TEMAS_CORES } from '../../lib/temas';
 import NotificacoesPush from './NotificacoesPush';
@@ -21,14 +22,40 @@ export default function MenuConfiguracoes({
   entidades,
   adicionarEntidadePJ,
   excluirEntidade,
+  salvarMeiDadosPJ,
   cnpj,
   setCnpj,
   nomeEmpresa,
   setNomeEmpresa,
+  isMei,
+  setIsMei,
+  dataAbertura,
+  setDataAbertura,
   mostrarNovaEntidade,
   setMostrarNovaEntidade,
 }) {
   const entidadesPJ = (entidades || []).filter((e) => e.tipo === 'PJ');
+
+  // Estado de edição inline das entidades PJ existentes
+  const [editandoEntId, setEditandoEntId] = useState(null);
+  const [editMei, setEditMei] = useState(false);
+  const [editDataAbertura, setEditDataAbertura] = useState('');
+
+  function iniciarEdicaoEnt(ent) {
+    setEditandoEntId(ent.id);
+    setEditMei(!!ent.is_mei);
+    setEditDataAbertura(ent.data_abertura ? ent.data_abertura.slice(0, 10) : '');
+  }
+
+  function cancelarEdicaoEnt() {
+    setEditandoEntId(null);
+  }
+
+  async function confirmarEdicaoEnt(e, entId) {
+    e.preventDefault();
+    await salvarMeiDadosPJ(entId, editMei, editDataAbertura);
+    setEditandoEntId(null);
+  }
 
   return (
     <div className="card">
@@ -106,15 +133,80 @@ export default function MenuConfiguracoes({
           <p className="empty-hint" style={{ marginBottom: 10 }}>Nenhuma empresa cadastrada.</p>
         )}
         {entidadesPJ.map((ent) => (
-          <div key={ent.id} className="settings-item" style={{ padding: '6px 0' }}>
-            <span style={{ fontSize: 'var(--text-md)' }}>{ent.nome_entidade}</span>
-            <button onClick={() => excluirEntidade(ent)} className="btn-link" style={{ color: 'var(--negative)', fontSize: 'var(--text-sm)' }}>Remover</button>
+          <div key={ent.id}>
+            <div className="settings-item" style={{ padding: '6px 0' }}>
+              <span style={{ fontSize: 'var(--text-md)' }}>
+                {ent.nome_entidade}
+                {ent.is_mei && (
+                  <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)', marginLeft: 6 }}>MEI</span>
+                )}
+              </span>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <button
+                  onClick={() => editandoEntId === ent.id ? cancelarEdicaoEnt() : iniciarEdicaoEnt(ent)}
+                  className="btn-link"
+                  style={{ fontSize: 'var(--text-sm)' }}
+                >
+                  {editandoEntId === ent.id ? 'Cancelar' : 'Editar'}
+                </button>
+                <button onClick={() => excluirEntidade(ent)} className="btn-link" style={{ color: 'var(--negative)', fontSize: 'var(--text-sm)' }}>Remover</button>
+              </div>
+            </div>
+            {editandoEntId === ent.id && (
+              <form
+                onSubmit={(e) => confirmarEdicaoEnt(e, ent.id)}
+                style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '8px 0 10px', borderBottom: '1px solid var(--border)' }}
+              >
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 'var(--text-sm)', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={editMei}
+                    onChange={(e) => { setEditMei(e.target.checked); if (!e.target.checked) setEditDataAbertura(''); }}
+                  />
+                  Esta empresa é MEI
+                </label>
+                {editMei && (
+                  <div>
+                    <label style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>Data de abertura do MEI</label>
+                    <input
+                      type="date"
+                      className="input"
+                      value={editDataAbertura}
+                      onChange={(e) => setEditDataAbertura(e.target.value)}
+                    />
+                  </div>
+                )}
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>Salvar</button>
+                  <button type="button" onClick={cancelarEdicaoEnt} className="btn btn-ghost">Cancelar</button>
+                </div>
+              </form>
+            )}
           </div>
         ))}
         {mostrarNovaEntidade ? (
           <form onSubmit={adicionarEntidadePJ} style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10 }}>
             <input className="input" placeholder="Nome da empresa" value={nomeEmpresa} onChange={(e) => setNomeEmpresa(e.target.value)} required autoFocus />
             <input className="input" placeholder="CNPJ" value={cnpj} onChange={(e) => setCnpj(e.target.value)} required />
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 'var(--text-sm)', cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={isMei}
+                onChange={(e) => { setIsMei(e.target.checked); if (!e.target.checked) setDataAbertura(''); }}
+              />
+              Esta empresa é MEI
+            </label>
+            {isMei && (
+              <div>
+                <label style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>Data de abertura do MEI</label>
+                <input
+                  type="date"
+                  className="input"
+                  value={dataAbertura}
+                  onChange={(e) => setDataAbertura(e.target.value)}
+                />
+              </div>
+            )}
             <div style={{ display: 'flex', gap: 8 }}>
               <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>Salvar</button>
               <button type="button" onClick={() => setMostrarNovaEntidade(false)} className="btn btn-ghost">Cancelar</button>

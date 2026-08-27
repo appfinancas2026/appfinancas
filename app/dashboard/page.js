@@ -116,6 +116,8 @@ function DashboardConteudo() {
   const [mostrarNovaEntidade, setMostrarNovaEntidade] = useState(false);
   const [cnpj, setCnpj] = useState('');
   const [nomeEmpresa, setNomeEmpresa] = useState('');
+  const [isMei, setIsMei] = useState(false);
+  const [dataAbertura, setDataAbertura] = useState('');
 
   const [mostrarNovaReceitaFixa, setMostrarNovaReceitaFixa] = useState(false);
   const [mostrarNovaDespesaFixa, setMostrarNovaDespesaFixa] = useState(false);
@@ -1028,13 +1030,29 @@ function DashboardConteudo() {
     const { error } = await supabase.from('entidades').insert({
       usuario_id: userId, tipo: 'PJ', cnpj, nome_entidade: nomeEmpresa, padrao: false,
       mes_inicio_controle: mesInicioCadastro,
+      is_mei: isMei,
+      data_abertura: isMei && dataAbertura ? dataAbertura : null,
     });
 
     if (!error) {
       setCnpj('');
       setNomeEmpresa('');
+      setIsMei(false);
+      setDataAbertura('');
       setMostrarNovaEntidade(false);
       carregarEntidades(userId);
+    }
+  }
+
+  async function salvarMeiDadosPJ(entidadeId, novoIsMei, novaDataAbertura) {
+    const { error } = await supabase.from('entidades').update({
+      is_mei: novoIsMei,
+      data_abertura: novoIsMei && novaDataAbertura ? novaDataAbertura : null,
+    }).eq('id', entidadeId);
+    if (!error) {
+      setEntidades((lista) => lista.map((e) => e.id === entidadeId
+        ? { ...e, is_mei: novoIsMei, data_abertura: novoIsMei && novaDataAbertura ? novaDataAbertura : null }
+        : e));
     }
   }
 
@@ -1809,10 +1827,15 @@ function DashboardConteudo() {
             entidades={entidades}
             adicionarEntidadePJ={adicionarEntidadePJ}
             excluirEntidade={excluirEntidade}
+            salvarMeiDadosPJ={salvarMeiDadosPJ}
             cnpj={cnpj}
             setCnpj={setCnpj}
             nomeEmpresa={nomeEmpresa}
             setNomeEmpresa={setNomeEmpresa}
+            isMei={isMei}
+            setIsMei={setIsMei}
+            dataAbertura={dataAbertura}
+            setDataAbertura={setDataAbertura}
             mostrarNovaEntidade={mostrarNovaEntidade}
             setMostrarNovaEntidade={setMostrarNovaEntidade}
           />

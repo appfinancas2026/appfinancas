@@ -29,6 +29,70 @@ describe('projetarSaldoDiario', () => {
     assert.equal(out[0].saldo, 90);
     assert.equal(out[2].saldo, 70);
   });
+
+  test('eventosAbsolutos: evento de saída numa data específica desconta do saldo naquele dia', () => {
+    const out = projetarSaldoDiario({
+      saldoInicial: 1000,
+      lancamentosFixos: [],
+      dias: 5,
+      hoje: '2026-07-01',
+      eventosAbsolutos: [{ data: '2026-07-03', tipo: 'saida', valor: 200, nome: 'Fatura VISA' }],
+    });
+    assert.equal(out[0].saldo, 1000); // 02/jul: sem evento
+    assert.equal(out[1].saldo, 800);  // 03/jul: -200
+    assert.equal(out[1].saidas, 200);
+    assert.equal(out[2].saldo, 800);  // 04/jul: sem evento (não recorrente)
+    assert.equal(out[2].saidas, 0);
+  });
+
+  test('eventosAbsolutos vazio: saldos idênticos ao comportamento original', () => {
+    const args = {
+      saldoInicial: 1000,
+      lancamentosFixos: [{ tipo: 'saida', valor_padrao: 100, dia_referencia: 3, parcelado: false }],
+      dias: 5,
+      hoje: '2026-07-01',
+    };
+    const semAbs  = projetarSaldoDiario(args);
+    const comVazio = projetarSaldoDiario({ ...args, eventosAbsolutos: [] });
+    assert.deepEqual(semAbs.map((d) => d.saldo), comVazio.map((d) => d.saldo));
+  });
+
+  test('eventosAbsolutos: evento fora do range de dias não afeta nenhum dia', () => {
+    const out = projetarSaldoDiario({
+      saldoInicial: 1000,
+      lancamentosFixos: [],
+      dias: 3,
+      hoje: '2026-07-01',
+      // evento em 10/jul está além do range (02–04/jul) — ignorado automaticamente
+      eventosAbsolutos: [{ data: '2026-07-10', tipo: 'saida', valor: 500, nome: 'Fatura' }],
+    });
+    assert.equal(out[2].saldo, 1000);
+  });
+
+  test('eventosAbsolutos: evento de entrada soma ao saldo', () => {
+    const out = projetarSaldoDiario({
+      saldoInicial: 500,
+      lancamentosFixos: [],
+      dias: 3,
+      hoje: '2026-07-01',
+      eventosAbsolutos: [{ data: '2026-07-02', tipo: 'entrada', valor: 300, nome: 'Crédito' }],
+    });
+    assert.equal(out[0].saldo, 800); // 500 + 300
+    assert.equal(out[0].entradas, 300);
+  });
+
+  test('eventosAbsolutos: evento aparece em itens do dia correspondente', () => {
+    const out = projetarSaldoDiario({
+      saldoInicial: 1000,
+      lancamentosFixos: [],
+      dias: 3,
+      hoje: '2026-07-01',
+      eventosAbsolutos: [{ data: '2026-07-03', tipo: 'saida', valor: 150, nome: 'Fatura MASTER' }],
+    });
+    assert.equal(out[1].itens.length, 1);
+    assert.equal(out[1].itens[0].nome, 'Fatura MASTER');
+    assert.equal(out[0].itens.length, 0); // dia sem evento
+  });
 });
 
 describe('gerarInsights — regras isoladas', () => {

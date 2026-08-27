@@ -6,6 +6,7 @@ import dynamic from 'next/dynamic';
 import { supabase } from '../../lib/supabase';
 import { formatarMoeda } from '../../lib/financeiro';
 import { projetarSaldoDiario } from '../../lib/insights';
+import { gerarEventosFaturaFutura } from '../../lib/faturas';
 
 const GraficoFluxo = dynamic(() => import('./RelatoriosCharts').then((m) => m.GraficoFluxo), { ssr: false });
 
@@ -64,6 +65,7 @@ export default function AbaFluxoCaixa({ entidadeAtual, contas, lancamentosFixos,
         .eq('tipo', 'saida')
         .is('transferencia_id', null)
         .neq('origem', 'recorrente')
+        .is('parcela_total', null)   // exclui parcelados: entram via eventos de fatura (sem dupla contagem)
         .gte('data', inicioMedia)
         .lte('data', hoje);
 
@@ -103,6 +105,34 @@ export default function AbaFluxoCaixa({ entidadeAtual, contas, lancamentosFixos,
       });
     }
 
+    // Parcelas futuras de cartão → eventos de data absoluta para a projeção.
+    // Cada grupo (cartão × mes_fatura) vira uma saída no dia de vencimento da fatura.
+    // Esses eventos substituem a representação que antes existia só na média variável
+    // (que agora exclui parcelados via .is('parcela_total', null) acima).
+    let eventosAbsolutos = [];
+    if (mostrarProjecao) {
+      const mesRefAtual = `${hoje.slice(0, 7)}-01`;
+      const [{ data: cartoesData }, { data: txsCartaoData }] = await Promise.all([
+        supabase
+          .from('cartoes')
+          .select('id, nome, dia_fechamento, dia_vencimento')
+          .eq('entidade_id', entidadeAtual),
+        supabase
+          .from('transacoes')
+          .select('cartao_id, valor, mes_fatura, parcela_total')
+          .eq('entidade_id', entidadeAtual)
+          .not('parcela_total', 'is', null)
+          .neq('origem', 'fatura')
+          .gte('mes_fatura', mesRefAtual),
+      ]);
+      eventosAbsolutos = gerarEventosFaturaFutura({
+        cartoes: cartoesData || [],
+        transacoesCartaoFuturas: txsCartaoData || [],
+        hoje,
+        dias: diasProjecao,
+      });
+    }
+
     // Projeção futura com base nos fixos. A lógica dia a dia vive em
     // lib/insights.js (projetarSaldoDiario), reutilizada pelo Card de insights.
     // Aqui montamos a versão "esparsa" para o gráfico: só entram os dias com
@@ -122,8 +152,8 @@ export default function AbaFluxoCaixa({ entidadeAtual, contas, lancamentosFixos,
     const todosFixos = [...(lancamentosFixos || []), ...dividasComoFixos];
 
     const projecao = [];
-    if (mostrarProjecao && todosFixos.length > 0) {
-      const diaria = projetarSaldoDiario({ saldoInicial, lancamentosFixos: todosFixos, dias: diasProjecao, mediaDiariaVariavel, hoje });
+    if (mostrarProjecao && (todosFixos.length > 0 || eventosAbsolutos.length > 0)) {
+      const diaria = projetarSaldoDiario({ saldoInicial, lancamentosFixos: todosFixos, dias: diasProjecao, mediaDiariaVariavel, hoje, eventosAbsolutos });
       diaria.forEach((d, idx) => {
         const i = idx + 1;
         if (d.entradas > 0 || d.saidas > 0 || i % 7 === 0) {
@@ -132,7 +162,8 @@ export default function AbaFluxoCaixa({ entidadeAtual, contas, lancamentosFixos,
             entradas: d.entradas,
             saidas: d.saidas + mediaDiariaVariavel,
             saldo: d.saldo,
-            itens: d.itens.map((f) => ({ descricao: f.nome, tipo: f.tipo, valor: f.valor_padrao })),
+            // f.valor_padrao ?? f.valor: fixos têm valor_padrao; eventos absolutos têm valor
+            itens: d.itens.map((f) => ({ descricao: f.nome, tipo: f.tipo, valor: f.valor_padrao ?? f.valor })),
             ehProjecao: true,
           });
         }

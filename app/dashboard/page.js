@@ -17,6 +17,7 @@ import { mesDeCompetencia } from '../../lib/orcamento';
 import { calcularFaturasCartao, calcularVencimentoFatura } from '../../lib/faturas';
 import { calcularStatusTetoMEI } from '../../lib/mei';
 import CardTetoMEI from './CardTetoMEI';
+import CardDasMEI from './CardDasMEI';
 import TelaPin from './TelaPin';
 import CompletarCadastro from './CompletarCadastro';
 import Sidebar from './Sidebar';
@@ -121,6 +122,7 @@ function DashboardConteudo() {
   const [isMei, setIsMei] = useState(false);
   const [dataAbertura, setDataAbertura] = useState('');
   const [statusMEI, setStatusMEI] = useState(null);
+  const [dasFixo, setDasFixo] = useState(null);
 
   const [mostrarNovaReceitaFixa, setMostrarNovaReceitaFixa] = useState(false);
   const [mostrarNovaDespesaFixa, setMostrarNovaDespesaFixa] = useState(false);
@@ -836,6 +838,25 @@ function DashboardConteudo() {
     });
   }, [entidadeAtual, entidades]);
 
+  const carregarDas = useCallback(async (entidadeId) => {
+    if (!entidadeId) return;
+    const { data } = await supabase
+      .from('lancamentos_fixos')
+      .select('*')
+      .eq('entidade_id', entidadeId)
+      .eq('is_das', true)
+      .eq('ativo', true)
+      .maybeSingle();
+    setDasFixo(data || null);
+  }, []);
+
+  useEffect(() => {
+    if (!entidadeAtual) { setDasFixo(null); return; }
+    const ent = entidades.find((e) => e.id === entidadeAtual);
+    if (!ent?.is_mei) { setDasFixo(null); return; }
+    carregarDas(entidadeAtual);
+  }, [entidadeAtual, entidades, carregarDas]);
+
   useEffect(() => {
     if (contas.length > 0 && !contaLancamentoId) {
       setContaLancamentoId(contaPadraoParaLancamento());
@@ -1079,6 +1100,41 @@ function DashboardConteudo() {
       setEntidades((lista) => lista.map((e) => e.id === entidadeId
         ? { ...e, is_mei: novoIsMei, data_abertura: novoIsMei && novaDataAbertura ? novaDataAbertura : null }
         : e));
+    }
+  }
+
+  async function criarDas(valor, dia) {
+    const agora = new Date();
+    const mesInicio = `${agora.getFullYear()}-${String(agora.getMonth() + 1).padStart(2, '0')}-01`;
+    const { data, error } = await supabase.from('lancamentos_fixos').insert({
+      entidade_id: entidadeAtual,
+      tipo: 'saida',
+      nome: 'DAS',
+      dia_referencia: dia,
+      valor_padrao: valor,
+      categoria: 'DAS',
+      essencialidade: 'essencial',
+      parcelado: false,
+      total_parcelas: null,
+      mes_inicio: mesInicio,
+      conta_padrao_id: null,
+      ativo: true,
+      is_das: true,
+    }).select().single();
+    if (!error && data) {
+      setDasFixo(data);
+      carregarLancamentosFixos(entidadeAtual); // dispara garantirOcorrenciasDoMes via useEffect
+    }
+  }
+
+  async function salvarEdicaoDas(valor, dia) {
+    if (!dasFixo) return;
+    const { error } = await supabase
+      .from('lancamentos_fixos')
+      .update({ valor_padrao: valor, dia_referencia: dia })
+      .eq('id', dasFixo.id);
+    if (!error) {
+      setDasFixo({ ...dasFixo, valor_padrao: valor, dia_referencia: dia });
     }
   }
 
@@ -2002,6 +2058,16 @@ function DashboardConteudo() {
           />
 
           <CardTetoMEI statusMEI={statusMEI} entidadeAtualObj={entidadeAtualObj} />
+
+          <CardDasMEI
+            dasFixo={dasFixo}
+            ocorrenciasDoMes={ocorrenciasDoMes}
+            confirmarOcorrencia={confirmarOcorrencia}
+            criarDas={criarDas}
+            salvarEdicaoDas={salvarEdicaoDas}
+            entidadeAtualObj={entidadeAtualObj}
+            nomeMes={NOMES_MESES[dataAtual.mes]}
+          />
 
           <div className={`saldo-hero ${saldoConsolidado < 0 ? 'saldo-hero-negativo' : ''}`}>
             <p className="saldo-hero-label">Disponível hoje</p>

@@ -1748,6 +1748,7 @@ function DashboardConteudo() {
           <CardListaLancamentos
             entidadeAtual={entidadeAtual}
             transacoes={transacoes}
+            contas={contas}
             nomeMes={NOMES_MESES[dataAtual.mes]}
             aberto={secaoAberta.lancamentos}
             onAlternarAberto={() => setSecaoAberta({ ...secaoAberta, lancamentos: !secaoAberta.lancamentos })}

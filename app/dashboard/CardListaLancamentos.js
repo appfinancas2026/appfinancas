@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { ChevronDown, ChevronRight, ArrowLeftRight } from 'lucide-react';
 import { formatarMoeda } from '../../lib/financeiro';
 import CampoDescricao from './CampoDescricao';
@@ -19,6 +20,7 @@ function formatarCabecalhoDia(dataISO) {
 export default function CardListaLancamentos({
   entidadeAtual,
   transacoes,
+  contas,
   nomeMes,
   aberto,
   onAlternarAberto,
@@ -33,18 +35,45 @@ export default function CardListaLancamentos({
   excluirTransacao,
   classificarEssencialidade,
 }) {
+  const [filtroContaId, setFiltroContaId] = useState('');
+
+  const mostrarFiltro = (contas || []).length > 1;
+
+  const filtradas = filtroContaId
+    ? transacoes.filter((t) => t.conta_id === filtroContaId)
+    : transacoes;
+
   return (
     <div className="card card-lancamentos">
       <div className="card-header">
         <p className="card-title" style={{ marginBottom: 0 }}>Lançamentos de {nomeMes}</p>
-        <button onClick={onAlternarAberto} className="collapse-btn">{aberto ? <ChevronDown size={16} /> : <ChevronRight size={16} />}</button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {mostrarFiltro && (
+            <select
+              className="input"
+              style={{ fontSize: 12, padding: '3px 8px', height: 28 }}
+              value={filtroContaId}
+              onChange={(e) => { setFiltroContaId(e.target.value); setExpandirLancamentos(false); }}
+            >
+              <option value="">Todas as contas</option>
+              {(contas || []).map((c) => (<option key={c.id} value={c.id}>{c.nome}</option>))}
+            </select>
+          )}
+          <button onClick={onAlternarAberto} className="collapse-btn">{aberto ? <ChevronDown size={16} /> : <ChevronRight size={16} />}</button>
+        </div>
       </div>
       {aberto && (
         <>
-          {transacoes.length === 0 && <p className="empty-hint">Nenhum lançamento em {nomeMes.toLowerCase()}.</p>}
+          {filtradas.length === 0 && (
+            <p className="empty-hint">
+              {filtroContaId
+                ? 'Nenhum lançamento nesta conta neste mês.'
+                : `Nenhum lançamento em ${nomeMes.toLowerCase()}.`}
+            </p>
+          )}
           {(() => {
             let dataAnterior = null;
-            return (expandirLancamentos ? transacoes : transacoes.slice(0, LIMITE_LISTA)).map((t) => {
+            return (expandirLancamentos ? filtradas : filtradas.slice(0, LIMITE_LISTA)).map((t) => {
               const novoDia = t.data !== dataAnterior;
               dataAnterior = t.data;
               return (
@@ -99,10 +128,10 @@ export default function CardListaLancamentos({
               );
             });
           })()}
-          {transacoes.length > LIMITE_LISTA && (
+          {filtradas.length > LIMITE_LISTA && (
             <div className="show-more-row">
               <button onClick={() => setExpandirLancamentos((v) => !v)} className="btn-link">
-                {expandirLancamentos ? 'ver menos' : `ver mais (${transacoes.length - LIMITE_LISTA})`}
+                {expandirLancamentos ? 'ver menos' : `ver mais (${filtradas.length - LIMITE_LISTA})`}
               </button>
             </div>
           )}

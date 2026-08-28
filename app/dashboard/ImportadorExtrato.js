@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Loader2, Sparkles } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { formatarMoeda, parseOFX, parseCSVExtrato, calcularMesFaturaCompra } from '../../lib/financeiro';
@@ -19,18 +19,26 @@ const CATEGORIAS_PADRAO = [
 //   modo="fatura" → fatura de cartão: vincula ao cartão + mes_fatura, não mexe em saldo.
 // O modo é conhecido ANTES de ler o arquivo, então o preview já sai coerente
 // com o destino (numa fatura, crédito/pagamento não é compra).
-export default function ImportadorExtrato({ modo, entidadeAtual, contas, cartoes, onConcluido }) {
+export default function ImportadorExtrato({ modo, entidadeAtual, contas, cartoes, onConcluido, defaultDestinoId }) {
   const ehFatura = modo === 'fatura';
 
-  const [destinoId, setDestinoId] = useState('');
+  const [destinoId, setDestinoId] = useState(defaultDestinoId || '');
   const [preview, setPreview] = useState([]);
   const [nomeArquivo, setNomeArquivo] = useState('');
   const [importando, setImportando] = useState(false);
   const [processandoPDF, setProcessandoPDF] = useState(false);
   const [erroPDF, setErroPDF] = useState('');
   const [categorizandoIA, setCategorizandoIA] = useState(false);
+  const [resultado, setResultado] = useState(null);
 
   const lista = ehFatura ? (cartoes || []) : (contas || []);
+
+  // Melhoria 1: auto-selecionar quando só há um destino disponível
+  useEffect(() => {
+    if (lista.length === 1 && !destinoId) {
+      setDestinoId(lista[0].id);
+    }
+  }, [lista, destinoId]);
 
   // Busca o histórico de transações categorizadas e aplica sugestões por correspondência.
   // Retorna os itens do preview com `categoria` e `categoriaOrigem` preenchidos
@@ -264,9 +272,13 @@ export default function ImportadorExtrato({ modo, entidadeAtual, contas, cartoes
     setImportando(false);
     setPreview([]);
     setNomeArquivo('');
-    onConcluido();
 
-    window.alert(`${novas.length} lançamento(s) importado(s).${ignoradas > 0 ? ` ${ignoradas} já existiam e foram ignorados.` : ''}`);
+    const msg = `${novas.length} lançamento(s) importado(s).${ignoradas > 0 ? ` ${ignoradas} já existiam e foram ignorados.` : ''}`;
+    setResultado(msg);
+    setTimeout(() => {
+      setResultado(null);
+      onConcluido();
+    }, 2500);
   }
 
   const semCategoriaCount = preview.filter((t) => t.incluir && !t.categoria).length;
@@ -295,6 +307,12 @@ export default function ImportadorExtrato({ modo, entidadeAtual, contas, cartoes
       )}
 
       {erroPDF && <p style={{ margin: '8px 0 0', fontSize: 13, color: 'var(--negative)' }}>{erroPDF}</p>}
+
+      {resultado && (
+        <p style={{ margin: '8px 0 0', fontSize: 13, color: 'var(--primary)', fontWeight: 'var(--weight-medium)' }}>
+          ✓ {resultado}
+        </p>
+      )}
 
       {ehFatura && preview.length > 0 && (
         <p className="empty-hint" style={{ margin: '0 0 8px' }}>

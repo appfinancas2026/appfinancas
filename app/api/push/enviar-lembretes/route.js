@@ -1,6 +1,8 @@
 import webpush from 'web-push';
 import { createClient } from '@supabase/supabase-js';
 
+export const dynamic = 'force-dynamic';
+
 webpush.setVapidDetails(
   'mailto:suporte@appfinancasbr.com.br',
   process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
@@ -27,7 +29,12 @@ function autorizado(request) {
 // Também pode ser chamada manualmente para testar.
 export async function GET(request) {
   if (!autorizado(request)) {
-    return Response.json({ error: 'Não autorizado.' }, { status: 401 });
+    // DEBUG TEMPORÁRIO — remover após diagnóstico
+    const cs = process.env.CRON_SECRET;
+    return Response.json({
+      error: 'Não autorizado.',
+      _debug: { cronSecretDefined: !!cs, cronSecretLength: cs?.length ?? 0 },
+    }, { status: 401 });
   }
 
   const supabase = createClient(

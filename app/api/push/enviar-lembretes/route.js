@@ -7,13 +7,26 @@ webpush.setVapidDetails(
   process.env.VAPID_PRIVATE_KEY,
 );
 
+// Aceita Authorization: Bearer <CRON_SECRET> (cron Vercel Pro / teste manual)
+// ou ?secret=<CRON_SECRET> (workaround para Hobby e testes locais).
+// Falha fechado: sem CRON_SECRET configurada → 401 (não deixa rota pública).
+function autorizado(request) {
+  const cronSecret = process.env.CRON_SECRET;
+  if (!cronSecret) return false;
+
+  const authHeader = request.headers.get('authorization');
+  if (authHeader === `Bearer ${cronSecret}`) return true;
+
+  const { searchParams } = new URL(request.url);
+  if (searchParams.get('secret') === cronSecret) return true;
+
+  return false;
+}
+
 // Esta rota é chamada diariamente pelo cron do Vercel (vercel.json).
 // Também pode ser chamada manualmente para testar.
 export async function GET(request) {
-  // Segurança: aceita chamada apenas do cron do Vercel ou com token interno
-  const authHeader = request.headers.get('authorization');
-  const token = process.env.CRON_SECRET;
-  if (token && authHeader !== `Bearer ${token}`) {
+  if (!autorizado(request)) {
     return Response.json({ error: 'Não autorizado.' }, { status: 401 });
   }
 

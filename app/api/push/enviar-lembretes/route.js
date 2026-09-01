@@ -29,12 +29,7 @@ function autorizado(request) {
 // Também pode ser chamada manualmente para testar.
 export async function GET(request) {
   if (!autorizado(request)) {
-    // DEBUG TEMPORÁRIO — remover após diagnóstico
-    const cs = process.env.CRON_SECRET;
-    return Response.json({
-      error: 'Não autorizado.',
-      _debug: { cronSecretDefined: !!cs, cronSecretLength: cs?.length ?? 0 },
-    }, { status: 401 });
+    return Response.json({ error: 'Não autorizado.' }, { status: 401 });
   }
 
   const supabase = createClient(

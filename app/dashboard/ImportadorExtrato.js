@@ -91,12 +91,7 @@ export default function ImportadorExtrato({ modo, entidadeAtual, contas, cartoes
       return;
     }
 
-    // PDF só no modo conta (fatura em PDF fica para uma próxima fase).
     if (extensao === 'pdf') {
-      if (ehFatura) {
-        setErroPDF('Fatura em PDF ainda não é suportada. Use o CSV/OFX do cartão.');
-        return;
-      }
       extrairPDF(arquivo);
       return;
     }
@@ -168,7 +163,12 @@ export default function ImportadorExtrato({ modo, entidadeAtual, contas, cartoes
         return;
       }
 
-      const comCategorias = await aplicarHistorico(json.transacoes);
+      // A rota retorna tipo ('entrada'|'saida') mas não ehCredito.
+      // No modo fatura, derivamos ehCredito a partir do tipo e aplicamos
+      // o mesmo tratamento do CSV: pagamentos/estornos vêm desmarcados.
+      const raw = json.transacoes.map((t) => ({ ...t, ehCredito: t.tipo === 'entrada', ehPagamentoFatura: false }));
+      const comMarca = ehFatura ? raw.map((t) => (t.ehCredito ? { ...t, incluir: false } : t)) : raw;
+      const comCategorias = await aplicarHistorico(comMarca);
       setPreview(comCategorias);
     } catch (e) {
       setErroPDF('Erro ao processar o PDF. Tente novamente.');
@@ -350,10 +350,10 @@ export default function ImportadorExtrato({ modo, entidadeAtual, contas, cartoes
           {lista.map((item) => (<option key={item.id} value={item.id}>{item.nome}</option>))}
         </select>
         <label className={`btn btn-ghost ${(processandoPDF || processandoXls) ? 'disabled' : ''}`} style={{ cursor: (processandoPDF || processandoXls) ? 'default' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-          {processandoPDF ? <><Loader2 size={14} className="spin" /> Lendo extrato...</> : (nomeArquivo || (ehFatura ? 'Escolher arquivo .csv, .ofx ou .xls' : 'Escolher arquivo .ofx, .csv ou .pdf'))}
+          {processandoPDF ? <><Loader2 size={14} className="spin" /> Lendo extrato...</> : (nomeArquivo || (ehFatura ? 'Escolher arquivo .csv, .ofx, .xls ou .pdf' : 'Escolher arquivo .ofx, .csv ou .pdf'))}
           <input
             type="file"
-            accept={ehFatura ? '.ofx,.csv,.xls,.xlsx' : '.ofx,.csv,.pdf'}
+            accept={ehFatura ? '.ofx,.csv,.xls,.xlsx,.pdf' : '.ofx,.csv,.pdf'}
             onChange={handleArquivo}
             style={{ display: 'none' }}
             disabled={processandoPDF || processandoXls}

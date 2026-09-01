@@ -30,6 +30,10 @@ export default function ImportadorExtrato({ modo, entidadeAtual, contas, cartoes
   const [erroPDF, setErroPDF] = useState('');
   const [categorizandoIA, setCategorizandoIA] = useState(false);
   const [resultado, setResultado] = useState(null);
+  const [arquivoXls, setArquivoXls] = useState(null);
+  const [cpfXls, setCpfXls] = useState('');
+  const [erroXls, setErroXls] = useState('');
+  const [processandoXls, setProcessandoXls] = useState(false);
 
   const lista = ehFatura ? (cartoes || []) : (contas || []);
 
@@ -73,6 +77,19 @@ export default function ImportadorExtrato({ modo, entidadeAtual, contas, cartoes
     setNomeArquivo(arquivo.name);
     setErroPDF('');
     const extensao = arquivo.name.split('.').pop().toLowerCase();
+
+    // XLS/XLSX: fatura C6 protegida por CPF — exige rota server-side para descriptografar.
+    if (extensao === 'xls' || extensao === 'xlsx') {
+      if (!ehFatura) {
+        setErroPDF('Arquivo .xls não é suportado para extrato de conta. Use OFX, CSV ou PDF.');
+        return;
+      }
+      setArquivoXls(arquivo);
+      setCpfXls('');
+      setErroXls('');
+      setPreview([]);
+      return;
+    }
 
     // PDF só no modo conta (fatura em PDF fica para uma próxima fase).
     if (extensao === 'pdf') {
@@ -158,6 +175,48 @@ export default function ImportadorExtrato({ modo, entidadeAtual, contas, cartoes
       console.error(e);
     } finally {
       setProcessandoPDF(false);
+    }
+  }
+
+  async function importarFaturaXls() {
+    if (!arquivoXls || !cpfXls) return;
+    setProcessandoXls(true);
+    setErroXls('');
+    try {
+      const base64 = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result.split(',')[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(arquivoXls);
+      });
+
+      const { data: { session } } = await supabase.auth.getSession();
+      const resposta = await fetch('/api/importar-fatura-c6', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token || ''}`,
+        },
+        body: JSON.stringify({ arquivo: base64, cpf: cpfXls }),
+      });
+
+      setCpfXls(''); // Descarta imediatamente após envio
+
+      const json = await resposta.json();
+      if (json.error) { setErroXls(json.error); return; }
+      if (!json.transacoes || json.transacoes.length === 0) {
+        setErroXls('Nenhuma transação encontrada na fatura. Verifique o arquivo.');
+        return;
+      }
+
+      const comCategorias = await aplicarHistorico(json.transacoes);
+      setPreview(comCategorias);
+      setArquivoXls(null);
+    } catch {
+      setCpfXls('');
+      setErroXls('Erro ao processar o arquivo. Tente novamente.');
+    } finally {
+      setProcessandoXls(false);
     }
   }
 
@@ -290,14 +349,14 @@ export default function ImportadorExtrato({ modo, entidadeAtual, contas, cartoes
           <option value="">{ehFatura ? 'Importar para o cartão...' : 'Importar para a conta...'}</option>
           {lista.map((item) => (<option key={item.id} value={item.id}>{item.nome}</option>))}
         </select>
-        <label className={`btn btn-ghost ${processandoPDF ? 'disabled' : ''}`} style={{ cursor: processandoPDF ? 'default' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-          {processandoPDF ? <><Loader2 size={14} className="spin" /> Lendo extrato...</> : (nomeArquivo || (ehFatura ? 'Escolher arquivo .csv ou .ofx' : 'Escolher arquivo .ofx, .csv ou .pdf'))}
+        <label className={`btn btn-ghost ${(processandoPDF || processandoXls) ? 'disabled' : ''}`} style={{ cursor: (processandoPDF || processandoXls) ? 'default' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          {processandoPDF ? <><Loader2 size={14} className="spin" /> Lendo extrato...</> : (nomeArquivo || (ehFatura ? 'Escolher arquivo .csv, .ofx ou .xls' : 'Escolher arquivo .ofx, .csv ou .pdf'))}
           <input
             type="file"
-            accept={ehFatura ? '.ofx,.csv' : '.ofx,.csv,.pdf'}
+            accept={ehFatura ? '.ofx,.csv,.xls,.xlsx' : '.ofx,.csv,.pdf'}
             onChange={handleArquivo}
             style={{ display: 'none' }}
-            disabled={processandoPDF}
+            disabled={processandoPDF || processandoXls}
           />
         </label>
       </div>
@@ -307,6 +366,36 @@ export default function ImportadorExtrato({ modo, entidadeAtual, contas, cartoes
       )}
 
       {erroPDF && <p style={{ margin: '8px 0 0', fontSize: 13, color: 'var(--negative)' }}>{erroPDF}</p>}
+
+      {arquivoXls && !preview.length && (
+        <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <p style={{ fontSize: 13, margin: 0, color: 'var(--text-secondary)' }}>
+            Este arquivo é protegido. Digite o CPF do titular (a senha da fatura).
+          </p>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+            <input
+              className="input"
+              type="password"
+              autoComplete="off"
+              placeholder="CPF (somente números)"
+              value={cpfXls}
+              onChange={(e) => setCpfXls(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') importarFaturaXls(); }}
+              style={{ width: 200 }}
+              disabled={processandoXls}
+            />
+            <button
+              className="btn btn-primary"
+              onClick={importarFaturaXls}
+              disabled={!cpfXls || processandoXls}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+            >
+              {processandoXls ? <><Loader2 size={14} className="spin" /> Descriptografando...</> : 'Abrir fatura'}
+            </button>
+          </div>
+          {erroXls && <p style={{ fontSize: 13, color: 'var(--negative)', margin: 0 }}>{erroXls}</p>}
+        </div>
+      )}
 
       {resultado && (
         <p style={{ margin: '8px 0 0', fontSize: 13, color: 'var(--primary)', fontWeight: 'var(--weight-medium)' }}>
@@ -378,7 +467,7 @@ export default function ImportadorExtrato({ modo, entidadeAtual, contas, cartoes
             <button onClick={confirmarImportacao} className="btn btn-primary" disabled={!destinoId || importando}>
               {importando ? 'Importando...' : `Importar ${preview.filter((t) => t.incluir).length} selecionado(s)`}
             </button>
-            <button onClick={() => { setPreview([]); setNomeArquivo(''); setErroPDF(''); }} className="btn-link">Cancelar</button>
+            <button onClick={() => { setPreview([]); setNomeArquivo(''); setErroPDF(''); setArquivoXls(null); setCpfXls(''); setErroXls(''); }} className="btn-link">Cancelar</button>
           </div>
         </>
       )}

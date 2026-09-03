@@ -35,6 +35,8 @@ export default function ImportadorExtrato({ modo, entidadeAtual, contas, cartoes
   const [cpfXls, setCpfXls] = useState('');
   const [erroXls, setErroXls] = useState('');
   const [processandoXls, setProcessandoXls] = useState(false);
+  const [mesFaturaImportado, setMesFaturaImportado] = useState(null);
+  const [fontePDF, setFontePDF] = useState(false);
 
   const lista = ehFatura ? (cartoes || []) : (contas || []);
 
@@ -78,6 +80,8 @@ export default function ImportadorExtrato({ modo, entidadeAtual, contas, cartoes
     setNomeArquivo(arquivo.name);
     setErroPDF('');
     const extensao = arquivo.name.split('.').pop().toLowerCase();
+    setMesFaturaImportado(null);
+    setFontePDF(extensao === 'pdf');
 
     // XLS/XLSX: fatura C6 protegida por CPF — exige rota server-side para descriptografar.
     if (extensao === 'xls' || extensao === 'xlsx') {
@@ -151,9 +155,10 @@ export default function ImportadorExtrato({ modo, entidadeAtual, contas, cartoes
       let textoParaIA = textoCompleto;
       let tipoRequisicao = 'extrato';
       if (ehFatura) {
-        const { texto: filtrado, encontradas } = extrairLinhasTransacaoFatura(textoCompleto);
+        const { texto: filtrado, encontradas, vencimento } = extrairLinhasTransacaoFatura(textoCompleto);
         textoParaIA = encontradas > 0 ? filtrado : textoCompleto; // fallback se regex não casar
         tipoRequisicao = 'fatura';
+        setMesFaturaImportado(vencimento ? vencimento.slice(0, 7) + '-01' : null);
       }
 
       const { data: { session } } = await supabase.auth.getSession();
@@ -327,7 +332,10 @@ export default function ImportadorExtrato({ modo, entidadeAtual, contas, cartoes
         };
 
         if (ehFatura) {
-          return { ...base, tipo: 'saida', cartao_id: destinoId, mes_fatura: calcularMesFaturaCompra(cartaoSelecionado, t.data) };
+          // PDF de fatura: usa o mês do vencimento extraído (igual pra todas as linhas).
+          // CSV/OFX: mesFaturaImportado é null → calcula pela data individual da compra.
+          const mf = mesFaturaImportado || calcularMesFaturaCompra(cartaoSelecionado, t.data);
+          return { ...base, tipo: 'saida', cartao_id: destinoId, mes_fatura: mf };
         }
         return { ...base, conta_id: destinoId };
       });
@@ -416,9 +424,22 @@ export default function ImportadorExtrato({ modo, entidadeAtual, contas, cartoes
 
       {ehFatura && preview.length > 0 && (
         <p className="empty-hint" style={{ margin: '0 0 8px' }}>
-          Todos os itens selecionados entram como compras (despesa) na fatura correspondente à data de cada um.
-          Pagamentos e estornos vêm desmarcados.
+          {mesFaturaImportado
+            ? `Todos os itens selecionados entram na fatura de ${mesFaturaImportado.slice(5, 7)}/${mesFaturaImportado.slice(0, 4)}. Pagamentos e estornos vêm desmarcados.`
+            : 'Todos os itens selecionados entram como compras (despesa) na fatura correspondente à data de cada um. Pagamentos e estornos vêm desmarcados.'}
         </p>
+      )}
+
+      {ehFatura && fontePDF && preview.length > 0 && !mesFaturaImportado && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 13, color: 'var(--negative)' }}>Vencimento não detectado. Informe o mês da fatura:</span>
+          <input
+            className="input"
+            type="month"
+            style={{ width: 160, fontSize: 13 }}
+            onChange={(e) => setMesFaturaImportado(e.target.value ? e.target.value + '-01' : null)}
+          />
+        </div>
       )}
 
       {preview.length > 0 && (
@@ -475,10 +496,10 @@ export default function ImportadorExtrato({ modo, entidadeAtual, contas, cartoes
             {CATEGORIAS_PADRAO.map((c) => <option key={c} value={c} />)}
           </datalist>
           <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
-            <button onClick={confirmarImportacao} className="btn btn-primary" disabled={!destinoId || importando}>
+            <button onClick={confirmarImportacao} className="btn btn-primary" disabled={!destinoId || importando || (ehFatura && fontePDF && !mesFaturaImportado)}>
               {importando ? 'Importando...' : `Importar ${preview.filter((t) => t.incluir).length} selecionado(s)`}
             </button>
-            <button onClick={() => { setPreview([]); setNomeArquivo(''); setErroPDF(''); setArquivoXls(null); setCpfXls(''); setErroXls(''); }} className="btn-link">Cancelar</button>
+            <button onClick={() => { setPreview([]); setNomeArquivo(''); setErroPDF(''); setArquivoXls(null); setCpfXls(''); setErroXls(''); setMesFaturaImportado(null); setFontePDF(false); }} className="btn-link">Cancelar</button>
           </div>
         </>
       )}

@@ -90,3 +90,45 @@ describe('extrairLinhasTransacaoFatura — formato retornado', () => {
     assert.strictEqual(texto.split('\n').length, 3);
   });
 });
+
+describe('extrairLinhasTransacaoFatura — vencimento', () => {
+  test('"Vencimento: 08/09/2026" → vencimento "2026-09-08"', () => {
+    const texto = 'FATURA\nVencimento: 08/09/2026\n' + TRANSACOES.join('\n');
+    const { vencimento } = extrairLinhasTransacaoFatura(texto);
+    assert.strictEqual(vencimento, '2026-09-08');
+  });
+
+  test('"Vence em 10/09/2026" → vencimento "2026-09-10"', () => {
+    const texto = 'Vence em 10/09/2026\n' + TRANSACOES.join('\n');
+    const { vencimento } = extrairLinhasTransacaoFatura(texto);
+    assert.strictEqual(vencimento, '2026-09-10');
+  });
+
+  test('"Vence: 08/09/2026" (sem "em") → detectado', () => {
+    const { vencimento } = extrairLinhasTransacaoFatura('Vence: 08/09/2026');
+    assert.strictEqual(vencimento, '2026-09-08');
+  });
+
+  test('"Data de Vencimento 08/09/2026" → detectado', () => {
+    const { vencimento } = extrairLinhasTransacaoFatura('Data de Vencimento 08/09/2026');
+    assert.strictEqual(vencimento, '2026-09-08');
+  });
+
+  test('sem vencimento → null', () => {
+    const { vencimento } = extrairLinhasTransacaoFatura(TRANSACOES.join('\n'));
+    assert.strictEqual(vencimento, null);
+  });
+
+  test('vencimento repetido no PDF → usa o primeiro', () => {
+    const texto = 'Vencimento: 08/09/2026\noutro texto\nVencimento: 08/09/2026';
+    const { vencimento } = extrairLinhasTransacaoFatura(texto);
+    assert.strictEqual(vencimento, '2026-09-08');
+  });
+
+  test('retorna vencimento mesmo quando encontradas = 0 (fallback)', () => {
+    const texto = 'Vencimento: 08/09/2026\nSó ruído aqui';
+    const { encontradas, vencimento } = extrairLinhasTransacaoFatura(texto);
+    assert.strictEqual(encontradas, 0);
+    assert.strictEqual(vencimento, '2026-09-08');
+  });
+});

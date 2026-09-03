@@ -1,8 +1,11 @@
 // Extrai o primeiro bloco JSON válido do texto, mesmo que venha com
-// texto antes/depois ou entre crases. Mais robusto que replace simples.
+// texto antes/depois, entre crases ou precedido de bloco <think>…</think>
+// (modelos com raciocínio encadeado como Qwen3).
 export function extrairJSON(texto) {
+  // Remove bloco de thinking antes de qualquer processamento
+  const semThinking = texto.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
   // Tenta o texto limpo direto
-  const limpo = texto.replace(/```json|```/g, '').trim();
+  const limpo = semThinking.replace(/```json|```/g, '').trim();
   try { return JSON.parse(limpo); } catch {}
 
   // Procura o primeiro { ou [ e tenta parsear a partir daí

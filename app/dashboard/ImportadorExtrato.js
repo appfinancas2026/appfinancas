@@ -129,8 +129,8 @@ export default function ImportadorExtrato({ modo, entidadeAtual, contas, cartoes
       // O texto extraído vai pra IA que identifica as transações independente do
       // layout — funciona com Mercado Pago, C6 e qualquer outro banco.
       const arrayBuffer = await arquivo.arrayBuffer();
-      const pdfjsLib = await import('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.min.mjs');
-      pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.worker.min.mjs';
+      const pdfjsLib = await import('pdfjs-dist');
+      pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).toString();
 
       const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
       const paginas = [];

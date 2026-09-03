@@ -65,7 +65,8 @@ Regras:
         'Authorization': `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: MODELO_IA,
+        // openai/gpt-oss-20b: sem thinking chain, TPM maior — adequado pra extração JSON
+        model: 'openai/gpt-oss-20b',
         messages: [
           { role: 'system', content: sistema },
           { role: 'user', content: `${rotulo}:\n\n${texto}` },

@@ -16,13 +16,15 @@ export async function POST(request) {
   if (authError || !user) return Response.json({ error: 'Não autorizado.' }, { status: 401 });
   if (!checkRateLimit(user.id)) return Response.json({ error: 'Muitas requisições. Tente novamente em breve.' }, { status: 429 });
 
-  const { texto } = await request.json();
+  const { texto, tipo } = await request.json();
 
   if (!texto || texto.trim().length < 20) {
     return Response.json({ error: 'Texto do extrato muito curto ou vazio.' }, { status: 400 });
   }
 
-  const sistema = `Você interpreta extratos bancários brasileiros e extrai as transações.
+  const ehFatura = tipo === 'fatura';
+
+  const sistemaExtrato = `Você interpreta extratos bancários brasileiros e extrai as transações.
 
 Retorne APENAS um JSON válido, sem markdown, sem crases:
 { "transacoes": [ { "data": "AAAA-MM-DD", "descricao": string, "valor": number, "tipo": "entrada" | "saida", "referencia_externa": string | null } ] }
@@ -36,6 +38,24 @@ Regras:
 - Ignore linhas de saldo, cabeçalhos de mês e totais de período.
 - Retorne TODAS as transações encontradas.`;
 
+  const sistemaFatura = `Você extrai transações de faturas de cartão de crédito brasileiras.
+
+Retorne APENAS um JSON válido, sem markdown, sem crases:
+{ "transacoes": [ { "data": "AAAA-MM-DD", "descricao": string, "valor": number, "tipo": "entrada" | "saida", "referencia_externa": null } ] }
+
+Regras:
+- Cada linha no formato "DD/MM DESCRIÇÃO VALOR" é uma transação — extraia todas.
+- "data" sempre ISO AAAA-MM-DD. DD/MM sem ano: use o ano do contexto ou o ano atual.
+- "valor" sempre positivo.
+- "tipo": "saida" para compras. "entrada" para pagamentos, créditos e estornos (valor com "-" no final ou negativo).
+- "descricao" curta — mantenha o nome do estabelecimento, remova prefixos desnecessários.
+- "referencia_externa" sempre null.
+- IGNORE completamente: tabelas de juros (CET, % a.m., % a.a.), IOF, opções de parcelamento, código de barras, boleto, resumo de encargos, limites disponíveis, totais de período, cabeçalhos.
+- Retorne TODAS as linhas de transação encontradas.`;
+
+  const sistema = ehFatura ? sistemaFatura : sistemaExtrato;
+  const rotulo = ehFatura ? 'Fatura de cartão' : 'Extrato bancário';
+
   let resposta;
   try {
     resposta = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -48,7 +68,7 @@ Regras:
         model: MODELO_IA,
         messages: [
           { role: 'system', content: sistema },
-          { role: 'user', content: `Extrato bancário:\n\n${texto}` },
+          { role: 'user', content: `${rotulo}:\n\n${texto}` },
         ],
         max_tokens: 4096,
         temperature: 0.1,

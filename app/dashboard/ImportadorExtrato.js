@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Loader2, Sparkles } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { formatarMoeda, parseOFX, parseCSVExtrato, calcularMesFaturaCompra } from '../../lib/financeiro';
+import { extrairLinhasTransacaoFatura } from '../../lib/faturaPDF';
 import { recalcularSaldoConta } from '../../lib/saldos';
 import { sugerirCategoriasEmLote } from '../../lib/categorizacao';
 
@@ -145,6 +146,16 @@ export default function ImportadorExtrato({ modo, entidadeAtual, contas, cartoes
         return;
       }
 
+      // No modo fatura, pré-filtra as linhas DD/MM antes de mandar pra IA.
+      // Extrato (conta) recebe o texto completo — layouts variados, sem filtro.
+      let textoParaIA = textoCompleto;
+      let tipoRequisicao = 'extrato';
+      if (ehFatura) {
+        const { texto: filtrado, encontradas } = extrairLinhasTransacaoFatura(textoCompleto);
+        textoParaIA = encontradas > 0 ? filtrado : textoCompleto; // fallback se regex não casar
+        tipoRequisicao = 'fatura';
+      }
+
       const { data: { session } } = await supabase.auth.getSession();
       const resposta = await fetch('/api/extrair-extrato', {
         method: 'POST',
@@ -152,7 +163,7 @@ export default function ImportadorExtrato({ modo, entidadeAtual, contas, cartoes
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session?.access_token || ''}`,
         },
-        body: JSON.stringify({ texto: textoCompleto }),
+        body: JSON.stringify({ texto: textoParaIA, tipo: tipoRequisicao }),
       });
 
       const json = await resposta.json();

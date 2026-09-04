@@ -2,6 +2,7 @@ import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { gerarInsights, projetarSaldoDiario } from '../lib/insights.js';
+import { LICOES } from '../lib/licoes.js';
 
 const dataAtual = { ano: 2026, mes: 6 }; // julho (0-indexed)
 
@@ -527,6 +528,94 @@ describe('gerarInsights — regras de dívidas', () => {
   test('BLINDAGEM dividas_quitadas: array vazio não dispara', () => {
     const res = gerarInsights({ ...vazio, dividas: [] });
     assert.equal(res.length, 0);
+  });
+});
+
+describe('gerarInsights — integridade de licaoId', () => {
+  // Cenários que cobrem todas as 12 regras. Cada gerarInsights retorna ≤3, então
+  // rodamos vários cenários e acumulamos os insights para verificar cobertura.
+  const cenarios = [
+    // saldo_negativo
+    { ...{ transacoesMes: [], transacoesHistorico: [], lancamentosFixos: [], dataAtual },
+      projecaoFluxo: [{ data: '2026-07-10', saldo: -100 }] },
+    // limite_comprometido
+    { transacoesMes: [], transacoesHistorico: [], projecaoFluxo: [], lancamentosFixos: [], dataAtual,
+      cartoes: [{ nome: 'X', faturaAberta: 900, faturaFechadaNaoPaga: 0, limite: 1000 }] },
+    // concentracao_vencimentos
+    { transacoesMes: [], transacoesHistorico: [], projecaoFluxo: [], dataAtual,
+      lancamentosFixos: [
+        { tipo: 'saida', valor_padrao: 100, dia_referencia: 5, parcelado: false },
+        { tipo: 'saida', valor_padrao: 100, dia_referencia: 7, parcelado: false },
+        { tipo: 'saida', valor_padrao: 100, dia_referencia: 9, parcelado: false },
+      ] },
+    // resultado_abaixo_media
+    { transacoesMes: [{ data: '2026-07-01', tipo: 'entrada', valor: 100 }],
+      transacoesHistorico: [
+        { data: '2026-04-01', tipo: 'entrada', valor: 1000 },
+        { data: '2026-05-01', tipo: 'entrada', valor: 1000 },
+        { data: '2026-06-01', tipo: 'entrada', valor: 1000 },
+      ],
+      projecaoFluxo: [], lancamentosFixos: [], dataAtual },
+    // resultado_acima_media
+    { transacoesMes: [{ data: '2026-07-01', tipo: 'entrada', valor: 2000 }],
+      transacoesHistorico: [
+        { data: '2026-04-01', tipo: 'entrada', valor: 500 },
+        { data: '2026-05-01', tipo: 'entrada', valor: 500 },
+        { data: '2026-06-01', tipo: 'entrada', valor: 500 },
+      ],
+      projecaoFluxo: [], lancamentosFixos: [], dataAtual },
+    // divida_comprometimento
+    { transacoesMes: [{ data: '2026-07-01', tipo: 'entrada', valor: 1000 }],
+      transacoesHistorico: [], projecaoFluxo: [], lancamentosFixos: [], dataAtual,
+      dividas: [{ status: 'ativa', parcela_valor: 500 }] },
+    // fatura_acima_media
+    { transacoesMes: [], transacoesHistorico: [], projecaoFluxo: [], lancamentosFixos: [], dataAtual,
+      cartoes: [{ nome: 'N', faturaAtual: 1400, historicoFaturas: [1000, 1000] }] },
+    // divida_juros_cara
+    { transacoesMes: [], transacoesHistorico: [], projecaoFluxo: [], lancamentosFixos: [], dataAtual,
+      dividas: [{ status: 'ativa', nome: 'Empréstimo', taxa_juros_mensal: '4', parcela_valor: '300', valor_atual: '3000' }] },
+    // superfluos_altos
+    { transacoesMes: [
+        { data: '2026-07-01', tipo: 'saida', valor: 400, essencialidade: 'superfluo' },
+        { data: '2026-07-02', tipo: 'saida', valor: 100, essencialidade: 'desejavel' },
+      ],
+      transacoesHistorico: [], projecaoFluxo: [], lancamentosFixos: [], dataAtual },
+    // categoria_em_alta
+    { transacoesMes: [
+        { data: '2026-07-01', tipo: 'saida', valor: 500, categoria: 'Delivery' },
+        { data: '2026-07-01', tipo: 'entrada', valor: 300 },
+      ],
+      transacoesHistorico: [
+        { data: '2026-05-01', tipo: 'saida', valor: 200, categoria: 'Delivery' },
+        { data: '2026-06-01', tipo: 'saida', valor: 200, categoria: 'Delivery' },
+      ],
+      projecaoFluxo: [], lancamentosFixos: [], dataAtual },
+    // dinheiro_parado_fatura
+    { transacoesMes: [], transacoesHistorico: [], projecaoFluxo: [], lancamentosFixos: [], dataAtual,
+      saldoEmConta: 1000, cartoes: [{ nome: 'N', faturaAberta: 500 }] },
+    // dividas_quitadas
+    { transacoesMes: [], transacoesHistorico: [], projecaoFluxo: [], lancamentosFixos: [], dataAtual,
+      dividas: [{ status: 'quitada' }, { status: 'quitada' }, { status: 'ativa' }] },
+  ];
+
+  test('todo insight gerado tem licaoId presente em LICOES', () => {
+    for (const cenario of cenarios) {
+      const resultado = gerarInsights(cenario);
+      for (const ins of resultado) {
+        assert.ok(ins.licaoId !== undefined, `insight sem licaoId: "${ins.texto.slice(0, 60)}..."`);
+        assert.ok(ins.licaoId in LICOES, `licaoId '${ins.licaoId}' não existe em LICOES`);
+      }
+    }
+  });
+
+  test('cada licaoId coberto pelos cenários corresponde a uma chave de LICOES', () => {
+    const ids = new Set();
+    for (const cenario of cenarios) {
+      gerarInsights(cenario).forEach((ins) => ids.add(ins.licaoId));
+    }
+    for (const id of ids) {
+      assert.ok(id in LICOES, `licaoId '${id}' órfão — não existe em LICOES`);
+    }
   });
 });
 

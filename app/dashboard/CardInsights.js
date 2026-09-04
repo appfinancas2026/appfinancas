@@ -7,6 +7,7 @@ import { gerarInsights, projetarSaldoDiario } from '../../lib/insights';
 import { primeiroDiaDoMes, ultimoDiaDoMes, subtrairMeses, calcularPeriodoFaturaAberta, mesReferenciaStr } from '../../lib/financeiro';
 import { buscarTransacoesCompetencia } from '../../lib/buscaRelatorios';
 import { calcularFaturasCartao } from '../../lib/faturas';
+import { getLicao } from '../../lib/licoes';
 
 // Marcador de cor por tipo (mesma semântica do resto do app).
 const COR_TIPO = {
@@ -17,6 +18,8 @@ const COR_TIPO = {
 
 export default function CardInsights({ entidadeAtual, contas, cartoes, lancamentosFixos, dataAtual, onNavegar, dividas }) {
   const [insights, setInsights] = useState([]);
+  // Índice do insight com lição expandida (null = nenhum).
+  const [expandido, setExpandido] = useState(null);
 
   useEffect(() => {
     let cancelado = false;
@@ -111,7 +114,10 @@ export default function CardInsights({ entidadeAtual, contas, cartoes, lancament
         dividas: dividas || [],
       });
 
-      if (!cancelado) setInsights(resultado);
+      if (!cancelado) {
+        setInsights(resultado);
+        setExpandido(null);
+      }
     }
 
     carregar();
@@ -129,27 +135,68 @@ export default function CardInsights({ entidadeAtual, contas, cartoes, lancament
         </span>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column' }}>
-        {insights.map((ins, i) => (
-          <div
-            key={i}
-            role={ins.destino ? 'button' : undefined}
-            tabIndex={ins.destino ? 0 : undefined}
-            onClick={ins.destino ? () => onNavegar?.(ins.destino, ins.subaba) : undefined}
-            onKeyDown={ins.destino ? (e) => { if (e.key === 'Enter') onNavegar?.(ins.destino, ins.subaba); } : undefined}
-            style={{
-              display: 'flex', alignItems: 'flex-start', gap: 10,
-              padding: '10px 0',
-              borderTop: i > 0 ? '1px solid var(--border)' : 'none',
-              cursor: ins.destino ? 'pointer' : 'default',
-            }}
-          >
-            <span
-              aria-hidden="true"
-              style={{ width: 8, height: 8, borderRadius: '50%', background: COR_TIPO[ins.tipo] || 'var(--text-muted)', flexShrink: 0, marginTop: 6 }}
-            />
-            <p style={{ margin: 0, fontSize: 'var(--text-md)', lineHeight: 1.5 }}>{ins.texto}</p>
-          </div>
-        ))}
+        {insights.map((ins, i) => {
+          const licao = getLicao(ins.licaoId);
+          const aberto = expandido === i;
+          return (
+            <div
+              key={i}
+              role={ins.destino ? 'button' : undefined}
+              tabIndex={ins.destino ? 0 : undefined}
+              onClick={ins.destino ? () => onNavegar?.(ins.destino, ins.subaba) : undefined}
+              onKeyDown={ins.destino ? (e) => { if (e.key === 'Enter') onNavegar?.(ins.destino, ins.subaba); } : undefined}
+              style={{
+                padding: '10px 0',
+                borderTop: i > 0 ? '1px solid var(--border)' : 'none',
+                cursor: ins.destino ? 'pointer' : 'default',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                <span
+                  aria-hidden="true"
+                  style={{ width: 8, height: 8, borderRadius: '50%', background: COR_TIPO[ins.tipo] || 'var(--text-muted)', flexShrink: 0, marginTop: 6 }}
+                />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ margin: 0, fontSize: 'var(--text-md)', lineHeight: 1.5 }}>{ins.texto}</p>
+                  {licao && (
+                    <button
+                      aria-expanded={aberto}
+                      aria-label={aberto ? 'Recolher explicação' : 'Saiba mais sobre este insight'}
+                      onClick={(e) => { e.stopPropagation(); setExpandido(aberto ? null : i); }}
+                      style={{
+                        marginTop: 4,
+                        background: 'none', border: 'none', padding: 0,
+                        fontSize: 'var(--text-sm)', color: 'var(--text-muted)',
+                        cursor: 'pointer', textDecoration: 'underline',
+                        textUnderlineOffset: 2,
+                      }}
+                    >
+                      {aberto ? 'recolher' : 'entenda'}
+                    </button>
+                  )}
+                  {aberto && licao && (
+                    <div
+                      style={{
+                        marginTop: 8,
+                        padding: '10px 12px',
+                        background: 'var(--surface-2, var(--border))',
+                        borderRadius: 8,
+                        borderLeft: '3px solid var(--border)',
+                      }}
+                    >
+                      <p style={{ margin: '0 0 4px', fontSize: 'var(--text-sm)', fontWeight: 600, color: 'var(--text-secondary, var(--text-muted))' }}>
+                        {licao.titulo}
+                      </p>
+                      <p style={{ margin: 0, fontSize: 'var(--text-sm)', color: 'var(--text-muted)', lineHeight: 1.55 }}>
+                        {licao.texto}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

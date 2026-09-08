@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
-import { Settings, Bell } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Settings, Bell, FolderOpen } from 'lucide-react';
 import { TEMAS_CORES } from '../../lib/temas';
 import NotificacoesPush from './NotificacoesPush';
+import { salvarHandle, lerHandle, removerHandle, suportaPastaImport } from '../../lib/pastaIDB';
 
 export default function MenuConfiguracoes({
   tema,
@@ -35,6 +36,30 @@ export default function MenuConfiguracoes({
   setMostrarNovaEntidade,
 }) {
   const entidadesPJ = (entidades || []).filter((e) => e.tipo === 'PJ');
+
+  // ── Pasta de importação ──────────────────────────────────────────────────────
+  const [nomePasta, setNomePasta] = useState(null); // null = não conectada
+
+  useEffect(() => {
+    if (!suportaPastaImport()) return;
+    lerHandle().then((h) => { if (h) setNomePasta(h.name); });
+  }, []);
+
+  async function conectarPasta() {
+    try {
+      const handle = await window.showDirectoryPicker({ mode: 'readwrite' });
+      await salvarHandle(handle);
+      setNomePasta(handle.name);
+    } catch (err) {
+      // AbortError = usuário fechou o picker sem escolher — comportamento normal.
+      if (err?.name !== 'AbortError') console.error(err);
+    }
+  }
+
+  async function desconectarPasta() {
+    await removerHandle();
+    setNomePasta(null);
+  }
 
   // Estado de edição inline das entidades PJ existentes
   const [editandoEntId, setEditandoEntId] = useState(null);
@@ -124,6 +149,34 @@ export default function MenuConfiguracoes({
           ))}
         </div>
       </div>
+
+      {suportaPastaImport() && (
+        <>
+          <div className="settings-divider" />
+          <div className="settings-item" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 8 }}>
+            <span style={{ fontWeight: 'var(--weight-medium)', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <FolderOpen size={15} /> Importação por pasta
+            </span>
+            <p style={{ margin: 0, fontSize: 'var(--text-sm)', color: 'var(--text-muted)', lineHeight: 1.5 }}>
+              Conecte uma pasta do seu computador. Ao abrir o app (no Chrome/Edge), os extratos novos dessa pasta aparecem pra importar. Disponível só no computador.
+            </p>
+            {nomePasta ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 'var(--text-sm)', color: 'var(--primary)', fontWeight: 'var(--weight-medium)' }}>
+                  📁 {nomePasta}
+                </span>
+                <button onClick={desconectarPasta} className="btn-link" style={{ fontSize: 'var(--text-sm)', color: 'var(--negative)' }}>
+                  Desconectar
+                </button>
+              </div>
+            ) : (
+              <button onClick={conectarPasta} className="btn btn-ghost" style={{ fontSize: 'var(--text-sm)' }}>
+                Conectar pasta de extratos
+              </button>
+            )}
+          </div>
+        </>
+      )}
 
       <div className="settings-divider" />
 

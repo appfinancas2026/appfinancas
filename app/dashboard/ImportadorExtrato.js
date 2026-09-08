@@ -1,12 +1,13 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Loader2, Sparkles } from 'lucide-react';
+import { Loader2, Sparkles, FolderOpen } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { formatarMoeda, parseOFX, parseCSVExtrato, calcularMesFaturaCompra } from '../../lib/financeiro';
 import { extrairLinhasTransacaoFatura } from '../../lib/faturaPDF';
 import { recalcularSaldoConta } from '../../lib/saldos';
 import { sugerirCategoriasEmLote } from '../../lib/categorizacao';
+import { lerHandle, suportaPastaImport } from '../../lib/pastaIDB';
 
 const CATEGORIAS_PADRAO = [
   'Alimentação', 'Mercado', 'Transporte', 'Moradia', 'Saúde',
@@ -37,6 +38,10 @@ export default function ImportadorExtrato({ modo, entidadeAtual, contas, cartoes
   const [processandoXls, setProcessandoXls] = useState(false);
   const [mesFaturaImportado, setMesFaturaImportado] = useState(null);
   const [fontePDF, setFontePDF] = useState(false);
+  const [arquivosDaPasta, setArquivosDaPasta] = useState([]);
+  const [dirHandle, setDirHandle] = useState(null);
+  const [arquivoPastaHandle, setArquivoPastaHandle] = useState(null);
+  const [erroMoverArquivo, setErroMoverArquivo] = useState('');
 
   const lista = ehFatura ? (cartoes || []) : (contas || []);
 
@@ -46,6 +51,31 @@ export default function ImportadorExtrato({ modo, entidadeAtual, contas, cartoes
       setDestinoId(lista[0].id);
     }
   }, [lista, destinoId]);
+
+  // Lê pasta conectada do IDB e lista arquivos de extrato ainda não importados
+  useEffect(() => {
+    if (!suportaPastaImport()) return;
+    (async () => {
+      const handle = await lerHandle();
+      if (!handle) return;
+      try {
+        const perm = await handle.requestPermission({ mode: 'readwrite' });
+        if (perm !== 'granted') return;
+        setDirHandle(handle);
+        const EXTS = new Set(['.ofx', '.csv', '.pdf', '.xls', '.xlsx']);
+        const arquivos = [];
+        for await (const [nome, fh] of handle.entries()) {
+          if (fh.kind !== 'file') continue;
+          const ext = '.' + nome.split('.').pop().toLowerCase();
+          if (!EXTS.has(ext)) continue;
+          arquivos.push({ nome, handle: fh });
+        }
+        setArquivosDaPasta(arquivos);
+      } catch {
+        // Permissão negada ou handle revogado — sem ação.
+      }
+    })();
+  }, []);
 
   // Busca o histórico de transações categorizadas e aplica sugestões por correspondência.
   // Retorna os itens do preview com `categoria` e `categoriaOrigem` preenchidos
@@ -113,6 +143,13 @@ export default function ImportadorExtrato({ modo, entidadeAtual, contas, cartoes
   async function handleArquivo(e) {
     const arquivo = e.target.files?.[0];
     if (arquivo) await processarArquivo(arquivo);
+  }
+
+  async function selecionarDaPasta(fileHandle, nome) {
+    setArquivoPastaHandle(fileHandle);
+    setErroMoverArquivo('');
+    const arquivo = await fileHandle.getFile();
+    await processarArquivo(arquivo);
   }
 
   // Encoding do arquivo: hoje os bancos exportam em UTF-8 (o C6 exporta), mas
@@ -351,6 +388,23 @@ export default function ImportadorExtrato({ modo, entidadeAtual, contas, cartoes
       if (!ehFatura) await recalcularSaldoConta(destinoId);
     }
 
+    // Mover arquivo da pasta conectada para 'importado' após insert bem-sucedido
+    if (arquivoPastaHandle && dirHandle) {
+      try {
+        const subdirHandle = await dirHandle.getDirectoryHandle('importado', { create: true });
+        const file = await arquivoPastaHandle.getFile();
+        const destHandle = await subdirHandle.getFileHandle(file.name, { create: true });
+        const writable = await destHandle.createWritable();
+        await writable.write(await file.arrayBuffer());
+        await writable.close();
+        await dirHandle.removeEntry(file.name);
+        setArquivosDaPasta((prev) => prev.filter((a) => a.nome !== file.name));
+      } catch {
+        setErroMoverArquivo('Importado com sucesso, mas não foi possível mover o arquivo para a subpasta "importado".');
+      }
+      setArquivoPastaHandle(null);
+    }
+
     setImportando(false);
     setPreview([]);
     setNomeArquivo('');
@@ -367,6 +421,26 @@ export default function ImportadorExtrato({ modo, entidadeAtual, contas, cartoes
 
   return (
     <div style={{ marginBottom: 12, padding: 12, background: 'var(--surface-alt)', borderRadius: 'var(--radius-sm)' }}>
+      {suportaPastaImport() && arquivosDaPasta.length > 0 && (
+        <div style={{ marginBottom: 12, padding: '10px 12px', background: 'var(--surface)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }}>
+          <p style={{ margin: '0 0 6px', fontSize: 'var(--text-sm)', fontWeight: 'var(--weight-medium)', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <FolderOpen size={14} /> Novos arquivos na pasta conectada
+          </p>
+          {arquivosDaPasta.map(({ nome, handle }) => (
+            <div key={nome} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid var(--border)' }}>
+              <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{nome}</span>
+              <button
+                className="btn btn-ghost"
+                style={{ fontSize: 12, padding: '2px 10px' }}
+                onClick={() => selecionarDaPasta(handle, nome)}
+                disabled={processandoPDF || processandoXls}
+              >
+                Importar
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
       <div className="form-row" style={{ marginBottom: preview.length > 0 ? 12 : 0 }}>
         <select className="input" value={destinoId} onChange={(e) => setDestinoId(e.target.value)} required>
           <option value="">{ehFatura ? 'Importar para o cartão...' : 'Importar para a conta...'}</option>
@@ -424,6 +498,10 @@ export default function ImportadorExtrato({ modo, entidadeAtual, contas, cartoes
         <p style={{ margin: '8px 0 0', fontSize: 13, color: 'var(--primary)', fontWeight: 'var(--weight-medium)' }}>
           ✓ {resultado}
         </p>
+      )}
+
+      {erroMoverArquivo && (
+        <p style={{ margin: '8px 0 0', fontSize: 13, color: 'var(--negative)' }}>{erroMoverArquivo}</p>
       )}
 
       {ehFatura && preview.length > 0 && (
@@ -503,7 +581,7 @@ export default function ImportadorExtrato({ modo, entidadeAtual, contas, cartoes
             <button onClick={confirmarImportacao} className="btn btn-primary" disabled={!destinoId || importando || (ehFatura && fontePDF && !mesFaturaImportado)}>
               {importando ? 'Importando...' : `Importar ${preview.filter((t) => t.incluir).length} selecionado(s)`}
             </button>
-            <button onClick={() => { setPreview([]); setNomeArquivo(''); setErroPDF(''); setArquivoXls(null); setCpfXls(''); setErroXls(''); setMesFaturaImportado(null); setFontePDF(false); }} className="btn-link">Cancelar</button>
+            <button onClick={() => { setPreview([]); setNomeArquivo(''); setErroPDF(''); setArquivoXls(null); setCpfXls(''); setErroXls(''); setMesFaturaImportado(null); setFontePDF(false); setArquivoPastaHandle(null); setErroMoverArquivo(''); }} className="btn-link">Cancelar</button>
           </div>
         </>
       )}

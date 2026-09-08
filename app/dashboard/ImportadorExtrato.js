@@ -73,8 +73,7 @@ export default function ImportadorExtrato({ modo, entidadeAtual, contas, cartoes
     });
   }
 
-  async function handleArquivo(e) {
-    const arquivo = e.target.files[0];
+  async function processarArquivo(arquivo) {
     if (!arquivo) return;
 
     setNomeArquivo(arquivo.name);
@@ -109,6 +108,11 @@ export default function ImportadorExtrato({ modo, entidadeAtual, contas, cartoes
     const raw = ehFatura ? resultado.map((t) => (t.ehCredito ? { ...t, incluir: false } : t)) : resultado;
     const comCategorias = await aplicarHistorico(raw);
     setPreview(comCategorias);
+  }
+
+  async function handleArquivo(e) {
+    const arquivo = e.target.files?.[0];
+    if (arquivo) await processarArquivo(arquivo);
   }
 
   // Encoding do arquivo: hoje os bancos exportam em UTF-8 (o C6 exporta), mas
